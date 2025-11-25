@@ -144,7 +144,7 @@ class _LoginPageState extends State<LoginPage> {
                         const SizedBox(height: 5),
                         Row(
                           children: [
-                            Text(AppLocale.t('dont_have_account')),
+                            Text(AppLocale.t('dont have an account? ')),
                             GestureDetector(
                               onTap: () {
                                 Navigator.pushNamed(context, '/create');
@@ -249,25 +249,6 @@ class _LoginPageState extends State<LoginPage> {
                                           ],
                                         ),
                                       ),
-                                const SizedBox(height: 15),
-                                ElevatedButton(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.grey,
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 50, vertical: 12),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(30),
-                                    ),
-                                  ),
-                                  onPressed: () {
-                                    Navigator.pushNamed(context, '/phone');
-                                  },
-                                  child: Text(
-                                    AppLocale.t('skip'),
-                                    style:
-                                        const TextStyle(color: Colors.white),
-                                  ),
-                                ),
                               ],
                             ),
                           ],
