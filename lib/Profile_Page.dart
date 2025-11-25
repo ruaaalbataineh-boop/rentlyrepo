@@ -1,0 +1,211 @@
+import 'package:flutter/material.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+
+class ProfilePage extends StatefulWidget {
+  final String name;
+  final String email;
+  final String phone;
+  final String location;
+  final String bank;
+
+  const ProfilePage({
+    super.key,
+    required this.name,
+    required this.email,
+    required this.phone,
+    required this.location,
+    required this.bank,
+  });
+
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  final _formKey = GlobalKey<FormState>();
+
+  late String fullName;
+  late String email;
+  late String phone;
+  late String location;
+  late String bank;
+
+  File? profileImage;
+
+  @override
+  void initState() {
+    super.initState();
+   
+    fullName = widget.name;
+    email = widget.email;
+    phone = widget.phone;
+    location = widget.location;
+    bank = widget.bank;
+  }
+
+  Future<void> pickImage() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery);
+
+    if (picked != null) {
+      setState(() {
+        profileImage = File(picked.path);
+      });
+    }
+  }
+
+  Future<void> fakeUpdate() async {
+    await Future.delayed(const Duration(seconds: 1));
+    print("====== User Updated ======");
+    print("Name: $fullName");
+    print("Email: $email");
+    print("Phone: $phone");
+    print("Image: ${profileImage != null ? "Uploaded" : "Not changed"}");
+    print("==========================");
+  }
+
+  Widget buildRow({required IconData icon, required Widget child}) {
+    return ListTile(
+      leading: Icon(icon, color: Colors.black87),
+      title: child,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF1F0F46), Color(0xFF8A005D)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Container(
+                    margin: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(25),
+                    ),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        children: [
+                          GestureDetector(
+                            onTap: pickImage,
+                            child: CircleAvatar(
+                              radius: 45,
+                              backgroundColor: Colors.blue,
+                              backgroundImage:
+                                  profileImage != null ? FileImage(profileImage!) : null,
+                              child: profileImage == null
+                                  ? const Icon(Icons.person,
+                                      size: 50, color: Colors.white)
+                                  : null,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text("Change Profile Image",
+                              style: TextStyle(color: Colors.blue)),
+                          const Divider(),
+
+                          buildRow(
+                            icon: Icons.person,
+                            child: TextFormField(
+                              initialValue: fullName,
+                              decoration: const InputDecoration(labelText: "Full Name"),
+                              onSaved: (v) => fullName = v ?? fullName,
+                            ),
+                          ),
+
+                          buildRow(
+                            icon: Icons.email,
+                            child: TextFormField(
+                              initialValue: email,
+                              decoration: const InputDecoration(labelText: "Email"),
+                              onSaved: (v) => email = v ?? email,
+                            ),
+                          ),
+
+                          buildRow(
+                            icon: Icons.phone,
+                            child: TextFormField(
+                              initialValue: phone,
+                              decoration: const InputDecoration(labelText: "Phone Number"),
+                              onSaved: (v) => phone = v ?? phone,
+                            ),
+                          ),
+
+                          ListTile(
+                            leading:
+                                const Icon(Icons.location_on, color: Colors.black87),
+                            title: const Text("My Location"),
+                            subtitle: Text(location),
+                          ),
+                          ListTile(
+                            leading:
+                                const Icon(Icons.account_balance, color: Colors.black87),
+                            title: const Text("Bank Information"),
+                            subtitle: Text(bank),
+                          ),
+                          const ListTile(
+                            leading:
+                                Icon(Icons.verified_user, color: Colors.black87),
+                            title: Text("Account verification"),
+                          ),
+
+                          const SizedBox(height: 20),
+
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 40, vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                            ),
+                            onPressed: () async {
+                              _formKey.currentState!.save();
+                              await fakeUpdate();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text("Profile Updated Successfully!"),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            },
+                            child: const Text(
+                              "Save Changes",
+                              style: TextStyle(color: Colors.white, fontSize: 16),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+

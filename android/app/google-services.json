@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "1030223891349",
+    "project_id": "p22rently",
+    "storage_bucket": "p22rently.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1030223891349:android:9d80ec1f41de8dea39c49c",
+        "android_client_info": {
+          "package_name": "com.example.p2"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCY4TJk_b1EzgPfF1-DEjCtn7y3DUxiHpw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1030223891349:android:db8b71051fd861b539c49c",
+        "android_client_info": {
+          "package_name": "com.example.user"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCY4TJk_b1EzgPfF1-DEjCtn7y3DUxiHpw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
