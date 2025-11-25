@@ -406,7 +406,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
         child: SingleChildScrollView(
           child: Column(
             children: [
-              // ---------- Images ----------
+              
               Container(
                 height: 280,
                 margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -435,7 +435,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                       },
                     ),
 
-                    // ----- page indicator -----
+                   
                     Positioned(
                       bottom: 10,
                       left: 0,
@@ -460,7 +460,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                       ),
                     ),
 
-                    // ----- Back Button -----
+                   
                     Positioned(
                       top: 20,
                       left: 20,
@@ -478,7 +478,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                       ),
                     ),
 
-                    // ----- Favorite Icon -----
+                  
                     Positioned(
                       top: 20,
                       right: 20,
@@ -517,7 +517,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                 ),
               ),
 
-              // ---------- Details ----------
+              
               Padding(
                 padding: const EdgeInsets.all(20),
                 child: Column(
@@ -533,7 +533,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
 
                     const SizedBox(height: 10),
 
-                    // Rating + likes + rented count
+                   
                     Row(
                       children: [
                         Icon(Icons.star, color: Colors.amber[700], size: 22),
@@ -590,7 +590,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
 
                     const SizedBox(height: 20),
 
-                    // ---------- Date Selectors ----------
+                   
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -632,11 +632,11 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
 
                     const SizedBox(height: 20),
 
-                    // ---------- Rent Now + Location ----------
+                    
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // *** RENT NOW (fixed + navigation) ***
+                       
                         ElevatedButton(
                           onPressed: () {
                             OrdersManager.addOrder(equipment);
@@ -649,7 +649,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                               ),
                             );
 
-                            // Go to orders page after 300ms
+                    
                             Future.delayed(
                                 const Duration(milliseconds: 300), () {
                               Navigator.pushNamed(context, '/orders');
