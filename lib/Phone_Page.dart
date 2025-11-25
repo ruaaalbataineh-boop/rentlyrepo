@@ -236,31 +236,10 @@ class _PhonePageState extends State<PhonePage> {
                                   ],
                                 ),
                               ),
-
-                              SizedBox(height: 15),
-
-                              ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.grey,
-                                  padding: EdgeInsets.symmetric(horizontal: 50, vertical: 12),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(30),
-                                  ),
-                                ),
-                                onPressed: () {
-                                  Navigator.pushNamed(context, '/Code');
-                                },
-                                child: Text(
-                                  AppLocale.t('skip'),
-                                  style: TextStyle(color: Colors.white),
-                                ),
-                              ),
                             ],
                           ),
                         ],
                       ),
-
-                      SizedBox(height: 40),
                     ],
                   ),
                 ),
