@@ -163,13 +163,13 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
 
                         Row(
                           children: [
-                            Text(AppLocale.t('Already_have_account')),
+                            Text(AppLocale.t('Already have an account? ')),
                             GestureDetector(
                               onTap: () {
                                 Navigator.pushNamed(context, '/login');
                               },
                               child: Text(
-                                AppLocale.t('sign_in'),
+                                AppLocale.t('login'),
                                 style: const TextStyle(
                                   color: Colors.pink,
                                   fontWeight: FontWeight.bold,
@@ -283,21 +283,6 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
                                             const Icon(Icons.arrow_forward, color: Colors.white),
                                           ],
                                         ),
-                                ),
-                                const SizedBox(height: 15),
-                                ElevatedButton(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.grey,
-                                    padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 12),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(30),
-                                    ),
-                                  ),
-                                  onPressed: () {
-                                    Navigator.pushNamed(context, '/login');
-                                  },
-                                  child: Text(AppLocale.t('skip'),
-                                      style: const TextStyle(color: Colors.white)),
                                 ),
                               ],
                             ),
