@@ -1,13 +1,12 @@
-// ignore: file_names
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'EquipmentItem.dart';
 import 'package:image_picker/image_picker.dart';
 
 class AddItemPage extends StatefulWidget {
   const AddItemPage({super.key});
 
   @override
-  // ignore: library_private_types_in_public_api
   _AddItemPageState createState() => _AddItemPageState();
 }
 
@@ -18,6 +17,8 @@ class _AddItemPageState extends State<AddItemPage> {
 
   String? selectedCategory;
   File? pickedImage;
+  Condition? selectedCondition = Condition.good;
+  RentalType? selectedRentalType = RentalType.daily;
 
   final List<String> categories = [
     "Electronics",
@@ -45,19 +46,31 @@ class _AddItemPageState extends State<AddItemPage> {
         descController.text.isEmpty ||
         priceController.text.isEmpty ||
         selectedCategory == null ||
-        pickedImage == null) {
+        pickedImage == null ||
+        selectedCondition == null ||
+        selectedRentalType == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please fill all fields")),
       );
       return;
     }
 
-    final Map<String, dynamic> newItem = {
+    final newItem = {
       "name": nameController.text,
       "desc": descController.text,
       "price": priceController.text,
       "category": selectedCategory,
-      "image": pickedImage!.path, 
+      "condition": selectedCondition == Condition.newCondition
+          ? "New"
+          : selectedCondition == Condition.good
+              ? "Good"
+              : "Used",
+      "rentalType": selectedRentalType == RentalType.daily
+          ? "Daily"
+          : selectedRentalType == RentalType.weekly
+              ? "Weekly"
+              : "Monthly",
+      "image": pickedImage!.path,
     };
 
     Navigator.pop(context, newItem);
@@ -74,7 +87,6 @@ class _AddItemPageState extends State<AddItemPage> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            
             InkWell(
               onTap: pickImage,
               child: Container(
@@ -88,15 +100,11 @@ class _AddItemPageState extends State<AddItemPage> {
                     ? const Icon(Icons.camera_alt, size: 40)
                     : ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: Image.file(
-                          pickedImage!,
-                          fit: BoxFit.cover,
-                        ),
+                        child: Image.file(pickedImage!, fit: BoxFit.cover),
                       ),
               ),
             ),
             const SizedBox(height: 20),
-
             TextField(
               controller: nameController,
               decoration: const InputDecoration(
@@ -105,7 +113,6 @@ class _AddItemPageState extends State<AddItemPage> {
               ),
             ),
             const SizedBox(height: 15),
-
             TextField(
               controller: descController,
               maxLines: 3,
@@ -115,7 +122,6 @@ class _AddItemPageState extends State<AddItemPage> {
               ),
             ),
             const SizedBox(height: 15),
-
             TextField(
               controller: priceController,
               keyboardType: TextInputType.number,
@@ -125,27 +131,68 @@ class _AddItemPageState extends State<AddItemPage> {
               ),
             ),
             const SizedBox(height: 15),
-
-            DropdownButtonFormField(
+            DropdownButtonFormField<String>(
               decoration: const InputDecoration(
                 labelText: "Category",
                 border: OutlineInputBorder(),
               ),
-              items: categories.map((cat) {
-                return DropdownMenuItem(
-                  value: cat,
-                  child: Text(cat),
-                );
-              }).toList(),
+              value: selectedCategory,
+              items: categories
+                  .map((cat) => DropdownMenuItem(value: cat, child: Text(cat)))
+                  .toList(),
               onChanged: (value) {
                 setState(() {
-                  selectedCategory = value.toString();
+                  selectedCategory = value;
                 });
               },
             ),
-
+            const SizedBox(height: 15),
+            DropdownButtonFormField<Condition>(
+              decoration: const InputDecoration(
+                labelText: "Condition",
+                border: OutlineInputBorder(),
+              ),
+              value: selectedCondition,
+              items: Condition.values
+                  .map((c) => DropdownMenuItem(
+                        value: c,
+                        child: Text(c == Condition.newCondition
+                            ? "New"
+                            : c == Condition.good
+                                ? "Good"
+                                : "Used"),
+                      ))
+                  .toList(),
+              onChanged: (val) {
+                setState(() {
+                  selectedCondition = val;
+                });
+              },
+            ),
+            const SizedBox(height: 15),
+            DropdownButtonFormField<RentalType>(
+              decoration: const InputDecoration(
+                labelText: "Rental Type",
+                border: OutlineInputBorder(),
+              ),
+              value: selectedRentalType,
+              items: RentalType.values
+                  .map((r) => DropdownMenuItem(
+                        value: r,
+                        child: Text(r == RentalType.daily
+                            ? "Daily"
+                            : r == RentalType.weekly
+                                ? "Weekly"
+                                : "Monthly"),
+                      ))
+                  .toList(),
+              onChanged: (val) {
+                setState(() {
+                  selectedRentalType = val;
+                });
+              },
+            ),
             const SizedBox(height: 30),
-
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
