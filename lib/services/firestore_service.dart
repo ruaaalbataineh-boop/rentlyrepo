@@ -10,6 +10,7 @@ class FirestoreService {
     required String phone,
     required String idPhotoUrl,
     required String selfiePhotoUrl,
+    required String birthDate,
   }) async {
     await FirebaseFirestore.instance.collection("pending_users").doc(uid).set({
       "email": email,
@@ -18,6 +19,7 @@ class FirestoreService {
       "phone": phone,
       "idPhotoUrl": idPhotoUrl,
       "selfieFaceUrl": selfiePhotoUrl,
+      "birthDate": birthDate,
       "submittedAt": FieldValue.serverTimestamp(),
       "status": "pending",
     });
@@ -36,8 +38,11 @@ class FirestoreService {
       });
 
       await usersRef.set({
-        ...data.data()!,
-        "status": "approved",
+        "email": data["email"],
+        "firstName": data["firstName"],
+        "lastName": data["lastName"],
+        "phone": data["phone"],
+        "birthDate": data["birthDate"],
         "approvedAt": FieldValue.serverTimestamp(),
       });
     }
