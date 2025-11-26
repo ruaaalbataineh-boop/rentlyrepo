@@ -5,21 +5,21 @@ class FirestoreService {
   static Future<void> submitUserForApproval({
     required String uid,
     required String email,
-    required String firstName,
-    required String lastName,
+    //required String firstName,
+    //required String lastName,
     required String phone,
     required String idPhotoUrl,
     required String selfiePhotoUrl,
-    required String birthDate,
+    //required String birthDate,
   }) async {
     await FirebaseFirestore.instance.collection("pending_users").doc(uid).set({
       "email": email,
-      "firstName": firstName,
-      "lastName": lastName,
+     // "firstName": firstName,
+    //  "lastName": lastName,
       "phone": phone,
       "idPhotoUrl": idPhotoUrl,
       "selfieFaceUrl": selfiePhotoUrl,
-      "birthDate": birthDate,
+     // "birthDate": birthDate,
       "submittedAt": FieldValue.serverTimestamp(),
       "status": "pending",
     });

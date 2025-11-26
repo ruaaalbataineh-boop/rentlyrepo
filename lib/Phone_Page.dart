@@ -4,17 +4,29 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_custom_clippers/flutter_custom_clippers.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:p2/services/firestore_service.dart';
+import 'package:p2/services/storage_service.dart';
 import 'app_locale.dart';
 
 class PhonePage extends StatefulWidget {
-  const PhonePage({super.key});
+  final String uid;
+  final String email;
+
+  const PhonePage({
+    super.key,
+    required this.uid,
+    required this.email,
+  });
 
   @override
-  State<PhonePage> createState() => _PhonePageState();
+  State<StatefulWidget> createState() => _PhonePageState();
 }
 
 class _PhonePageState extends State<PhonePage> {
   final TextEditingController phoneController = TextEditingController();
+  //final TextEditingController firstNameController = TextEditingController();
+  //final TextEditingController lastNameController = TextEditingController();
+ // final TextEditingController birthDateController = TextEditingController();
 
   File? idImage;
   File? faceImage;
@@ -39,21 +51,53 @@ class _PhonePageState extends State<PhonePage> {
     }
   }
 
-  void validateAndContinue() {
-    String phone = phoneController.text.trim();
+  void validateAndContinue() async {
+    try {
+
+      if (idImage == null) {
+        showMsg("Please upload your ID photo");
+        return;
+      }
+
+      if (faceImage == null || faceDetected == false) {
+        showMsg("Please complete a valid face scan");
+        return;
+      }
+
+      String idUrl = await StorageService.uploadUserImage(
+        widget.uid,
+        idImage!,
+        "idPhoto.jpg",
+      );
+
+      String selfieUrl = await StorageService.uploadUserImage(
+        widget.uid,
+        faceImage!,
+        "selfie.jpg",
+      );
+
+      await FirestoreService.submitUserForApproval(
+        uid: widget.uid,
+        email: widget.email,
+        //firstName: firstNameController.text.trim(),
+       // lastName: lastNameController.text.trim(),
+        phone: phoneController.text.trim(),
+        //birthDate: birthDateController.text.trim(),
+        idPhotoUrl: idUrl,
+        selfiePhotoUrl: selfieUrl,
+      );
+
+     /* Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => PendingApprovalScreen()),
+      );*/
+    } catch (e) {
+      print("Error submitting user: $e");
+    }
+    /*String phone = phoneController.text.trim();
 
     if (phone.isEmpty) {
       showMsg("Please enter your phone number");
-      return;
-    }
-
-    if (idImage == null) {
-      showMsg("Please upload your ID photo");
-      return;
-    }
-
-    if (faceImage == null || faceDetected == false) {
-      showMsg("Please complete a valid face scan");
       return;
     }
 
@@ -65,7 +109,8 @@ class _PhonePageState extends State<PhonePage> {
         "idImage": idImage,
         "faceImage": faceImage,
       },
-    );
+    );*/
+
   }
 
   void showMsg(String msg) {

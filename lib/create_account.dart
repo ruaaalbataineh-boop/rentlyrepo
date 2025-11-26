@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_custom_clippers/flutter_custom_clippers.dart';
+import 'Phone_Page.dart';
 import 'app_locale.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class CreateAccountPage extends StatefulWidget {
   const CreateAccountPage({super.key});
@@ -9,21 +11,18 @@ class CreateAccountPage extends StatefulWidget {
   State<CreateAccountPage> createState() => _CreateAccountPageState();
 }
 
-
 class MockAuth {
   MockAuth._();
   static final MockAuth instance = MockAuth._();
 
- 
   final Set<String> _registeredEmails = {'test@example.com'};
 
-  Future<String?> signUpWithEmail(String name, String email, String password) async {
+  Future<String?> signUpWithEmail(String email, String password) async {
     await Future.delayed(const Duration(milliseconds: 700)); 
 
     final e = email.trim();
-    final n = name.trim();
 
-    if (n.isEmpty || e.isEmpty || password.isEmpty) {
+    if (e.isEmpty || password.isEmpty) {
       return 'Please fill in all fields';
     }
     if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(e)) {
@@ -43,7 +42,6 @@ class MockAuth {
 class _CreateAccountPageState extends State<CreateAccountPage> {
   final _formKey = GlobalKey<FormState>();
 
-  final TextEditingController usernameController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
 
@@ -53,7 +51,6 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
 
   @override
   void dispose() {
-    usernameController.dispose();
     emailController.dispose();
     passwordController.dispose();
     super.dispose();
@@ -66,36 +63,38 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
   }
 
   Future<void> _onContinue() async {
-  
-    setState(() => _errorMessage = null);
 
-    if (_formKey.currentState!.validate()) {
-      setState(() => isLoading = true);
+    setState(() {
+      isLoading = true;
+    });
 
-      try {
-        final name = usernameController.text.trim();
-        final email = emailController.text.trim();
-        final password = passwordController.text;
+    try {
 
-        final error = await MockAuth.instance.signUpWithEmail(name, email, password);
+      UserCredential userCred = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(
+        email: emailController.text.trim(),
+        password: passwordController.text.trim(),
+      );
 
-        if (error == null) {
-         
-          if (!mounted) return;
-          Navigator.pushReplacementNamed(context, '/phone');
-        } else {
-         
-          setState(() => _errorMessage = error);
-          _showError(error);
-        }
-      } catch (e) {
-        final msg = " An error occurred:  $e";
-        setState(() => _errorMessage = msg);
-        _showError(msg);
-      } finally {
-        if (mounted) setState(() => isLoading = false);
-      }
+      final uid = userCred.user!.uid;
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PhonePage(
+            uid: uid,
+            email: emailController.text.trim(),
+          ),
+        ),
+      );
+
+    } catch (e) {
+      print("Signup error: $e");
     }
+
+    setState(() {
+      isLoading = false;
+    });
   }
 
   @override
@@ -182,27 +181,6 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
                         const SizedBox(height: 30),
 
                         TextFormField(
-                          controller: usernameController,
-                          decoration: InputDecoration(
-                            labelText: AppLocale.t('user_name'),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(30),
-                            ),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return "Please enter your name";
-                            }
-                            if (!RegExp(r'^[a-zA-Z\s]+$').hasMatch(value)) {
-                              return "Name can contain only letters";
-                            }
-                            return null;
-                          },
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        TextFormField(
                           controller: emailController,
                           decoration: InputDecoration(
                             labelText: AppLocale.t('email'),
@@ -220,6 +198,7 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
                             return null;
                           },
                         ),
+
                         const SizedBox(height: 20),
 
                         TextFormField(
