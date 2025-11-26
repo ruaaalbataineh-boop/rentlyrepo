@@ -87,10 +87,10 @@ class _PhonePageState extends State<PhonePage> {
         selfiePhotoUrl: selfieUrl,
       );
 
-     /* Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => PendingApprovalScreen()),
-      );*/
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("You are submitted for approval")),
+      );
+
     } catch (e) {
       print("Error submitting user: $e");
     }

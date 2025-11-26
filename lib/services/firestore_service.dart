@@ -55,4 +55,57 @@ class FirestoreService {
     });
   }
 
+  static Future<void> submitItemForApproval({
+    required String ownerId,
+    required String name,
+    required String description,
+    required double price,
+    required String category,
+    required List<String> imageUrls,
+  }) async {
+
+    final docRef = FirebaseFirestore.instance.collection("pending_items").doc();
+
+    await docRef.set({
+      "itemId": docRef.id,
+      "ownerId": ownerId,
+      "title": name,
+      "description": description,
+      "price": price,
+      "category": category,
+      "imageUrls": imageUrls,
+      "status": "pending",
+      "submittedAt": FieldValue.serverTimestamp(),
+    });
+  }
+
+  static Future<void> approveItem(String itemId) async {
+    final pendingRef = FirebaseFirestore.instance.collection("pending_items").doc(itemId);
+    final itemsRef = FirebaseFirestore.instance.collection("items").doc(itemId);
+
+    final doc = await pendingRef.get();
+    if (!doc.exists) return;
+
+    final data = doc.data()!;
+
+    await itemsRef.set({
+      ...data,
+      "status": "approved",
+      "approvedAt": FieldValue.serverTimestamp(),
+    });
+
+    await pendingRef.update({
+      "status": "approved",
+      "reviewedAt": FieldValue.serverTimestamp(),
+    });
+  }
+
+  static Future<void> rejectItem(String itemId) async {
+    await FirebaseFirestore.instance.collection("pending_items")
+        .doc(itemId).update({
+      "status": "rejected",
+      "reviewedAt": FieldValue.serverTimestamp(),
+    });
+  }
+
 }

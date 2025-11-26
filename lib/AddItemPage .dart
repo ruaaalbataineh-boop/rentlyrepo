@@ -1,5 +1,8 @@
 import 'dart:io';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:p2/services/firestore_service.dart';
+import 'package:p2/services/storage_service.dart';
 import 'EquipmentItem.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -41,7 +44,7 @@ class _AddItemPageState extends State<AddItemPage> {
     }
   }
 
-  void addItem() {
+  Future<void> addItem() async {
     if (nameController.text.isEmpty ||
         descController.text.isEmpty ||
         priceController.text.isEmpty ||
@@ -55,25 +58,37 @@ class _AddItemPageState extends State<AddItemPage> {
       return;
     }
 
-    final newItem = {
-      "name": nameController.text,
-      "desc": descController.text,
-      "price": priceController.text,
-      "category": selectedCategory,
-      "condition": selectedCondition == Condition.newCondition
-          ? "New"
-          : selectedCondition == Condition.good
-              ? "Good"
-              : "Used",
-      "rentalType": selectedRentalType == RentalType.daily
-          ? "Daily"
-          : selectedRentalType == RentalType.weekly
-              ? "Weekly"
-              : "Monthly",
-      "image": pickedImage!.path,
-    };
+    try {
 
-    Navigator.pop(context, newItem);
+      final ownerId = FirebaseAuth.instance.currentUser!.uid;
+
+      String imageUrl = await StorageService.uploadUserImage(
+        ownerId,
+        pickedImage!,
+        "${DateTime.now().millisecondsSinceEpoch}.jpg",
+      );
+
+      await FirestoreService.submitItemForApproval(
+        ownerId: ownerId,
+        name: nameController.text.trim(),
+        description: descController.text.trim(),
+        price: double.parse(priceController.text.trim()),
+        category: selectedCategory!,
+        imageUrls: [imageUrl],
+      );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Item submitted for approval")),
+      );
+
+      Navigator.pop(context);
+
+    } catch (e) {
+      print("Error submitting item: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: $e")),
+      );
+    }
   }
 
   @override
