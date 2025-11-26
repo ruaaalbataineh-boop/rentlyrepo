@@ -15,6 +15,7 @@ import 'Phone_Page.dart';
 import 'Enter_The_Code.dart';
 import 'app_locale.dart';
 import 'Category_Equipment_Page.dart';
+import 'ProductListPage.dart';
 import 'Equipment_Detail_Page.dart';
 import 'Favourite.dart';
 import 'firebase_options.dart';
@@ -61,7 +62,7 @@ class MyApp extends StatelessWidget {
             GlobalCupertinoLocalizations.delegate,
           ],
 
-          home:  RentlyApp(),
+          home: RentlyApp(),
           routes: {
             '/login': (context) => const LoginPage(),
             '/create': (context) => const CreateAccountPage(),
@@ -75,7 +76,7 @@ class MyApp extends StatelessWidget {
             '/favorites': (context) => const FavouritePage(),
           },
           onGenerateRoute: (settings) {
-            
+           
             if (settings.name == CategoryEquipmentPage.routeName) {
               return MaterialPageRoute(
                 builder: (context) => const CategoryEquipmentPage(),
@@ -83,9 +84,15 @@ class MyApp extends StatelessWidget {
               );
             }
 
-            
+            if (settings.name == ProductListPage.routeName) {
+              return MaterialPageRoute(
+                builder: (context) => const ProductListPage(),
+                settings: settings,
+              );
+            }
+
+          
             if (settings.name == EquipmentDetailPage.routeName) {
-            
               return MaterialPageRoute(
                 builder: (context) => const EquipmentDetailPage(),
                 settings: settings,
@@ -101,7 +108,6 @@ class MyApp extends StatelessWidget {
                   settings: settings,
                 );
               } else {
-
                 return MaterialPageRoute(
                   builder: (context) => Scaffold(
                     appBar: AppBar(title: const Text('Map')),
@@ -165,7 +171,6 @@ class _MainPageState extends State<MainPage> {
     );
   }
 }
-
 
 
 

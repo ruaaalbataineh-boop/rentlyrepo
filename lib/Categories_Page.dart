@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:p2/AddItemPage%20.dart';
 import 'Category_Equipment_Page.dart';
 import 'Chats_Page.dart';
 import 'Orders.dart';
 import 'Setting.dart';
+
 
 class EquipmentCategory {
   final String id;
@@ -17,7 +19,6 @@ class EquipmentCategory {
     this.isFavorite = false,
   });
 }
-
 
 // ignore: non_constant_identifier_names
 final DUMMY_CATEGORIES = [
@@ -49,33 +50,30 @@ class _CategoryPageState extends State<CategoryPage> {
     return Scaffold(
       body: Column(
         children: [
-        
-ClipPath(
-  clipper: SideCurveClipper(),
-  child: Container(
-    height: 140,
-    decoration: const BoxDecoration(
-      gradient: LinearGradient(
-        colors: [Color(0xFF1F0F46), Color(0xFF8A005D)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ),
-    ),
-    child: const Center(
-      child: Text(
-        "Categories",
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 26,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    ),
-  ),
-),
+          ClipPath(
+            clipper: SideCurveClipper(),
+            child: Container(
+              height: 140,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF1F0F46), Color(0xFF8A005D)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: const Center(
+                child: Text(
+                  "Categories",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ),
 
-
-          
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             child: TextField(
@@ -98,7 +96,6 @@ ClipPath(
             ),
           ),
 
-         
           Expanded(
             child: filteredCategories.isEmpty
                 ? const Center(
@@ -148,7 +145,6 @@ ClipPath(
         ],
       ),
 
-      
       bottomNavigationBar: Container(
         height: 70,
         decoration: const BoxDecoration(
@@ -172,73 +168,70 @@ ClipPath(
     );
   }
 
- 
- Widget buildBottomIcon(IconData icon, int index) {
-  bool active = selectedBottom == index;
+  Widget buildBottomIcon(IconData icon, int index) {
+    bool active = selectedBottom == index;
 
-  return GestureDetector(
-    onTap: () {
-      setState(() {
-        selectedBottom = index;
-      });
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          selectedBottom = index;
+        });
 
-      
-      if (index == 0) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const SettingPage()),
-        );
-      } else if (index == 1) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const OrdersPage()),
-        );
-      } else if (index == 2) {
-       
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Add new equipment clicked")),
-        );
-      } else if (index == 3) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const ChatsPage()),
-        );
-      } else if (index == 4) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const CategoryPage()),
-        );
-      }
-    },
-    child: AnimatedContainer(
-      duration: const Duration(milliseconds: 250),
-      curve: Curves.easeOut,
-      margin: EdgeInsets.only(bottom: active ? 8 : 0),
-      padding: const EdgeInsets.all(12),
-      decoration: active
-          ? BoxDecoration(
-              color: Colors.grey[300],
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.15),
-                  blurRadius: 6,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            )
-          : null,
-      child: Icon(
-        icon,
-        size: active ? 32 : 26,
-        color: active ? Colors.black : Colors.white70,
+        if (index == 0) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const SettingPage()),
+          );
+        } else if (index == 1) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const OrdersPage()),
+          );
+        } else if (index == 2) {
+        
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const AddItemPage()),
+          );
+        } else if (index == 3) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const ChatsPage()),
+          );
+        } else if (index == 4) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const CategoryPage()),
+          );
+        }
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+        margin: EdgeInsets.only(bottom: active ? 8 : 0),
+        padding: const EdgeInsets.all(12),
+        decoration: active
+            ? BoxDecoration(
+                color: Colors.grey[300],
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.15),
+                    blurRadius: 6,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              )
+            : null,
+        child: Icon(
+          icon,
+          size: active ? 32 : 26,
+          color: active ? Colors.black : Colors.white70,
+        ),
       ),
-    ),
-  );
- }
+    );
+  }
 }
-
-
 
 class SideCurveClipper extends CustomClipper<Path> {
   @override
@@ -266,3 +259,4 @@ class SideCurveClipper extends CustomClipper<Path> {
   @override
   bool shouldReclip(CustomClipper<Path> oldClipper) => false;
 }
+
