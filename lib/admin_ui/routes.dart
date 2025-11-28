@@ -5,7 +5,6 @@ import 'package:p2/admin_ui/Pages/ComplaintsPage.dart';
 import 'package:p2/admin_ui/Pages/InteractionsPage.dart';
 import 'package:p2/admin_ui/Pages/ItemManagementPage.dart';
 import 'package:p2/admin_ui/Pages/LoginPage_admin.dart';
-import 'package:p2/admin_ui/Pages/ManageTripsPage.dart';
 import 'package:p2/admin_ui/Pages/NotificationsPage.dart';
 import 'package:p2/admin_ui/Pages/ReportsPage.dart';
 import 'package:p2/admin_ui/Pages/TransactionsPage.dart';
@@ -40,10 +39,6 @@ final GoRouter adminRouter = GoRouter(
         GoRoute(
           path: '/users',
           builder: (context, state) => const UserManagementPage(),
-        ),
-        GoRoute(
-          path: '/trips',
-          builder: (context, state) => const ManageTripsPage(),
         ),
         GoRoute(
           path: '/reports',

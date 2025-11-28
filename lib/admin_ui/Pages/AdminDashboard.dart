@@ -61,7 +61,6 @@ class AdminDashboard extends StatelessWidget {
                 mainAxisSpacing: 16,
                 children: [
                   _buildDashboardCard(context, "Manage Users", Icons.person, '/users'),
-                  _buildDashboardCard(context, "Manage Trips", Icons.directions_bus, '/trips'),
                   _buildDashboardCard(context, "Reports", Icons.bar_chart, '/reports'),
                   _buildDashboardCard(context, "Item Management", Icons.inventory, '/items'),
                   _buildDashboardCard(context, "Transactions", Icons.monetization_on, '/transactions'),
@@ -69,8 +68,6 @@ class AdminDashboard extends StatelessWidget {
                   _buildDashboardCard(context, "Notifications", Icons.notifications, '/notifications'),
                   _buildDashboardCard(context, "Chats", Icons.chat, '/chats'),
                   _buildDashboardCard(context, "Interactions", Icons.forum, '/interactions'),
-
-                 
                   _buildDashboardCard(context, "Logout", Icons.logout, '/adminLogin'),
                 ],
               ),
