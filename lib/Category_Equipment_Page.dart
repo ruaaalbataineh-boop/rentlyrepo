@@ -1,6 +1,7 @@
+
 import 'package:flutter/material.dart';
 import 'Fake data.dart';
-import 'EquipmentItem.dart';
+import 'EquipmentItem.dart' hide DUMMY_EQUIPMENT;
 import 'ProductListPage.dart';
 
 class CategoryEquipmentPage extends StatefulWidget {
