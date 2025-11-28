@@ -5,7 +5,6 @@ import 'Chats_Page.dart';
 import 'Orders.dart';
 import 'Setting.dart';
 
-
 class EquipmentCategory {
   final String id;
   final String title;
@@ -20,7 +19,6 @@ class EquipmentCategory {
   });
 }
 
-// ignore: non_constant_identifier_names
 final DUMMY_CATEGORIES = [
   EquipmentCategory(id: 'c1', title: 'Electronics', icon: Icons.electrical_services),
   EquipmentCategory(id: 'c2', title: 'Computers & Technology', icon: Icons.laptop),
@@ -73,7 +71,6 @@ class _CategoryPageState extends State<CategoryPage> {
               ),
             ),
           ),
-
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             child: TextField(
@@ -95,7 +92,6 @@ class _CategoryPageState extends State<CategoryPage> {
               },
             ),
           ),
-
           Expanded(
             child: filteredCategories.isEmpty
                 ? const Center(
@@ -144,7 +140,6 @@ class _CategoryPageState extends State<CategoryPage> {
           ),
         ],
       ),
-
       bottomNavigationBar: Container(
         height: 70,
         decoration: const BoxDecoration(
@@ -188,10 +183,9 @@ class _CategoryPageState extends State<CategoryPage> {
             MaterialPageRoute(builder: (context) => const OrdersPage()),
           );
         } else if (index == 2) {
-        
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const AddItemPage()),
+            MaterialPageRoute(builder: (context) => const AddItemPage(item: null)),
           );
         } else if (index == 3) {
           Navigator.pushReplacement(
@@ -259,4 +253,3 @@ class SideCurveClipper extends CustomClipper<Path> {
   @override
   bool shouldReclip(CustomClipper<Path> oldClipper) => false;
 }
-
