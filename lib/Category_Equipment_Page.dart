@@ -1,7 +1,8 @@
 
+
+
 import 'package:flutter/material.dart';
-import 'Fake data.dart';
-import 'EquipmentItem.dart' hide DUMMY_EQUIPMENT;
+import 'package:p2/EquipmentItem.dart';
 import 'ProductListPage.dart';
 
 class CategoryEquipmentPage extends StatefulWidget {
@@ -22,15 +23,15 @@ class _CategoryEquipmentPageState extends State<CategoryEquipmentPage> {
 
     if (routeArgs == null) return const SizedBox();
 
-    final categoryId = routeArgs['id']!;
     final categoryTitle = routeArgs['title']!;
 
-   
-    final allItems = DUMMY_EQUIPMENT
-        .where((eq) => eq.categories.contains(categoryId))
+  
+    final allItems = allEquipments
+        .where((eq) => eq.categories.any(
+              (cat) => cat.toLowerCase() == categoryTitle.toLowerCase(),
+            ))
         .toList();
 
-   
     final displayedItems = allItems
         .where((item) =>
             item.title.toLowerCase().contains(searchQuery.toLowerCase()))
@@ -40,7 +41,6 @@ class _CategoryEquipmentPageState extends State<CategoryEquipmentPage> {
       body: SafeArea(
         child: Column(
           children: [
-           
             ClipPath(
               clipper: SideCurveClipper(),
               child: Container(
@@ -76,8 +76,6 @@ class _CategoryEquipmentPageState extends State<CategoryEquipmentPage> {
                 ),
               ),
             ),
-
-           
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: TextField(
@@ -94,8 +92,6 @@ class _CategoryEquipmentPageState extends State<CategoryEquipmentPage> {
                 onChanged: (value) => setState(() => searchQuery = value),
               ),
             ),
-
-        
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(12.0),
@@ -137,13 +133,12 @@ class EquipmentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-       
         Navigator.pushNamed(
           context,
           ProductListPage.routeName,
           arguments: {
-            'type': item.title,   
-            'title': item.title, 
+            'type': item.type,
+            'title': item.title,
           },
         );
       },
@@ -166,7 +161,6 @@ class EquipmentCard extends StatelessWidget {
     );
   }
 }
-
 
 class SideCurveClipper extends CustomClipper<Path> {
   @override
