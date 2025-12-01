@@ -25,13 +25,17 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
   TimeOfDay? endTime;
   String? pickupTime;
   
-  int numberOfDays = 1;
+  int numberOfDays = 1; 
+  int numberOfWeeks = 1; 
+  int numberOfMonths = 1; 
+  int numberOfYears = 1;
 
   bool isLiked = false;
   int likesCount = 0;
 
   double userRating = 0.0;
   final TextEditingController reviewController = TextEditingController();
+  List<String> reviews = [];
 
   Future<void> _selectDate(BuildContext context, bool isStart) async {
     final DateTime? picked = await showDatePicker(
@@ -44,14 +48,12 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
       setState(() {
         if (isStart) {
           startDate = picked;
-      
+   
           if (selectedRentalType == RentalType.hourly) {
             endDate = picked;
           }
-      
-          if (selectedRentalType != RentalType.hourly) {
-            _updateEndDateFromDays();
-          }
+        
+          _updateEndDateFromPeriod();
         } else {
           if (startDate == null || picked.isBefore(startDate!)) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -80,7 +82,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
           startTime = picked;
         } else {
           endTime = picked;
-  
+         
           if (selectedRentalType == RentalType.hourly && 
               startTime != null && 
               endTime != null &&
@@ -88,7 +90,6 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
             final startDateTime = TimeOfDay(hour: startTime!.hour, minute: startTime!.minute);
             final endDateTime = TimeOfDay(hour: endTime!.hour, minute: endTime!.minute);
             
-          
             final startMinutes = startDateTime.hour * 60 + startDateTime.minute;
             final endMinutes = endDateTime.hour * 60 + endDateTime.minute;
             
@@ -108,10 +109,30 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     }
   }
 
-  void _updateEndDateFromDays() {
+  void _updateEndDateFromPeriod() {
     if (startDate != null && selectedRentalType != RentalType.hourly) {
       setState(() {
-        endDate = startDate!.add(Duration(days: numberOfDays));
+        Duration duration = Duration();
+        
+        switch (selectedRentalType) {
+          case RentalType.daily:
+            duration = Duration(days: numberOfDays);
+            break;
+          case RentalType.weekly:
+            duration = Duration(days: numberOfWeeks * 7);
+            break;
+          case RentalType.monthly:
+            duration = Duration(days: numberOfMonths * 30);
+            break;
+          case RentalType.yearly:
+            duration = Duration(days: numberOfYears * 365);
+            break;
+          case RentalType.hourly:
+           
+            break;
+        }
+        
+        endDate = startDate!.add(duration);
         _autoAdjustRentalType();
       });
     }
@@ -125,6 +146,9 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
       endTime = null;
       pickupTime = null;
       numberOfDays = 1;
+      numberOfWeeks = 1;
+      numberOfMonths = 1;
+      numberOfYears = 1;
     });
   }
 
@@ -140,25 +164,27 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     
     double totalHours = _calculateTotalHours();
     
-    RentalType requiredType = RentalType.hourly;
-    String typeName = "Hourly";
-    
-    if (totalHours > 24 * 365) {
-      requiredType = RentalType.yearly;
-      typeName = "Yearly";
-    } else if (totalHours > 24 * 30) {
-      requiredType = RentalType.monthly;
-      typeName = "Monthly";
-    } else if (totalHours > 24 * 6) {
-      requiredType = RentalType.weekly;
-      typeName = "Weekly";
-    } else if (totalHours > 24) {
-      requiredType = RentalType.daily;
-      typeName = "Daily";
-    }
-    
-    if (selectedRentalType != requiredType) {
-      _updateRentalType(requiredType, typeName);
+    if (!_isValidRentalTypeForDuration()) {
+      RentalType requiredType = RentalType.hourly;
+      String typeName = "Hourly";
+      
+      if (totalHours > 24 * 365) {
+        requiredType = RentalType.yearly;
+        typeName = "Yearly";
+      } else if (totalHours > 24 * 30) {
+        requiredType = RentalType.monthly;
+        typeName = "Monthly";
+      } else if (totalHours > 24 * 6) {
+        requiredType = RentalType.weekly;
+        typeName = "Weekly";
+      } else if (totalHours > 24) {
+        requiredType = RentalType.daily;
+        typeName = "Daily";
+      }
+      
+      if (selectedRentalType != requiredType) {
+        _updateRentalType(requiredType, typeName);
+      }
     }
   }
 
@@ -177,12 +203,16 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
         if (newType != RentalType.hourly) {
           startTime = null;
           endTime = null;
+      
           numberOfDays = 1;
+          numberOfWeeks = 1;
+          numberOfMonths = 1;
+          numberOfYears = 1;
           if (startDate != null) {
-            _updateEndDateFromDays();
+            _updateEndDateFromPeriod();
           }
         } else {
-      
+    
           if (startDate != null) {
             endDate = startDate;
           }
@@ -232,13 +262,13 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
       case RentalType.hourly:
         return totalHours <= 24 && totalHours > 0;
       case RentalType.daily:
-        return totalHours > 24 && totalHours <= 24 * 6;
+        return totalHours <= 24 * 6;
       case RentalType.weekly:
-        return totalHours > 24 * 6 && totalHours <= 24 * 30;
+        return totalHours <= 24 * 30;
       case RentalType.monthly:
-        return totalHours > 24 * 30 && totalHours <= 24 * 365;
+        return totalHours <= 24 * 365;
       case RentalType.yearly:
-        return totalHours > 24 * 365;
+        return totalHours > 24 * 365; 
     }
   }
 
@@ -375,6 +405,144 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
         final years = (days / 365).ceilToDouble();
         return basePrice * years;
     }
+  }
+
+  void _showReviewDialog() {
+    String newReview = '';
+    
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(20),
+          child: Container(
+            width: MediaQuery.of(context).size.width * 0.9,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: StatefulBuilder(
+              builder: (context, setStateSB) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      "Write a Review",
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    
+                
+                    TextField(
+                      maxLines: 4,
+                      decoration: const InputDecoration(
+                        hintText: "Write your review here...",
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: (value) {
+                        newReview = value;
+                      },
+                    ),
+                    
+                    const SizedBox(height: 20),
+                    
+            
+                    if (reviews.isNotEmpty) ...[
+                      const Text(
+                        "Previous Reviews:",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Container(
+                        height: 100,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey[300]!),
+                        ),
+                        child: ListView.builder(
+                          padding: const EdgeInsets.all(8),
+                          itemCount: reviews.length,
+                          itemBuilder: (context, index) {
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 4),
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: Colors.grey[200]!),
+                              ),
+                              child: Text(
+                                reviews[index],
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                    
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        Expanded(
+                          child: TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            child: const Text(
+                              "Cancel",
+                              style: TextStyle(fontSize: 16),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () {
+                              if (newReview.trim().isNotEmpty) {
+                                setState(() {
+                                  reviews.add(newReview);
+                                });
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text("Review added successfully"),
+                                    duration: Duration(seconds: 2),
+                                  ),
+                                );
+                              }
+                              Navigator.pop(context);
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF8A005D),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            child: const Text(
+                              "Submit",
+                              style: TextStyle(fontSize: 16, color: Colors.white),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -542,8 +710,10 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                     ),
                     const SizedBox(height: 10),
 
+                
                     Row(
                       children: [
+                    
                         GestureDetector(
                           onTap: () {
                             showDialog(
@@ -650,6 +820,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                         ),
                         const SizedBox(width: 20),
 
+                    
                         GestureDetector(
                           onTap: () {
                             setState(() {
@@ -666,6 +837,25 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                               ),
                               const SizedBox(width: 4),
                               Text("$likesCount",
+                                  style: const TextStyle(fontSize: 14)),
+                            ],
+                          ),
+                        ),
+                        
+                        const SizedBox(width: 20),
+                        
+              
+                        GestureDetector(
+                          onTap: _showReviewDialog,
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.reviews,
+                                color: Colors.blue,
+                                size: 22,
+                              ),
+                              const SizedBox(width: 4),
+                              Text("${reviews.length}",
                                   style: const TextStyle(fontSize: 14)),
                             ],
                           ),
@@ -816,14 +1006,17 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                               startDate = null;
                               endDate = null;
                               numberOfDays = 1;
+                              numberOfWeeks = 1;
+                              numberOfMonths = 1;
+                              numberOfYears = 1;
                             }),
                           ),
                         
                         const SizedBox(height: 10),
                         
-                
+                    
                         if (selectedRentalType != RentalType.hourly) 
-                          _buildNumberOfDaysSelector(),
+                          _buildPeriodSelector(),
                         
                         if (selectedRentalType == RentalType.hourly) ...[
                           const SizedBox(height: 10),
@@ -904,7 +1097,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                                   const SizedBox(height: 4),
                                 if (selectedRentalType != RentalType.hourly && startDate != null)
                                   Text(
-                                    "Duration: $numberOfDays Day${numberOfDays > 1 ? 's' : ''}",
+                                    _getDurationDescription(),
                                     style: const TextStyle(
                                       color: Color(0xFF8A005D),
                                       fontSize: 12,
@@ -1086,7 +1279,22 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  Widget _buildNumberOfDaysSelector() {
+  Widget _buildPeriodSelector() {
+    switch (selectedRentalType) {
+      case RentalType.daily:
+        return _buildDailySelector();
+      case RentalType.weekly:
+        return _buildWeeklySelector();
+      case RentalType.monthly:
+        return _buildMonthlySelector();
+      case RentalType.yearly:
+        return _buildYearlySelector();
+      case RentalType.hourly:
+        return Container();
+    }
+  }
+
+  Widget _buildDailySelector() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1112,7 +1320,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                   if (numberOfDays > 1) {
                     setState(() {
                       numberOfDays--;
-                      _updateEndDateFromDays();
+                      _updateEndDateFromPeriod();
                     });
                   }
                 },
@@ -1133,7 +1341,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                 onPressed: () {
                   setState(() {
                     numberOfDays++;
-                    _updateEndDateFromDays();
+                    _updateEndDateFromPeriod();
                   });
                 },
                 icon: const Icon(Icons.add, color: Color(0xFF8A005D)),
@@ -1152,6 +1360,237 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
             ),
             child: Text(
               "End Date: ${DateFormat('yyyy-MM-dd').format(startDate!.add(Duration(days: numberOfDays)))}",
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.green[800],
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildWeeklySelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Number of Weeks",
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: Colors.grey[200],
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              IconButton(
+                onPressed: () {
+                  if (numberOfWeeks > 1) {
+                    setState(() {
+                      numberOfWeeks--;
+                      _updateEndDateFromPeriod();
+                    });
+                  }
+                },
+                icon: const Icon(Icons.remove, color: Color(0xFF8A005D)),
+              ),
+              Expanded(
+                child: Text(
+                  "$numberOfWeeks Week${numberOfWeeks > 1 ? 's' : ''}",
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF8A005D),
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: () {
+                  setState(() {
+                    numberOfWeeks++;
+                    _updateEndDateFromPeriod();
+                  });
+                },
+                icon: const Icon(Icons.add, color: Color(0xFF8A005D)),
+              ),
+            ],
+          ),
+        ),
+        if (startDate != null && numberOfWeeks > 0)
+          const SizedBox(height: 8),
+        if (startDate != null && numberOfWeeks > 0)
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.green[50],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              "End Date: ${DateFormat('yyyy-MM-dd').format(startDate!.add(Duration(days: numberOfWeeks * 7)))}",
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.green[800],
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildMonthlySelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Number of Months",
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: Colors.grey[200],
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              IconButton(
+                onPressed: () {
+                  if (numberOfMonths > 1) {
+                    setState(() {
+                      numberOfMonths--;
+                      _updateEndDateFromPeriod();
+                    });
+                  }
+                },
+                icon: const Icon(Icons.remove, color: Color(0xFF8A005D)),
+              ),
+              Expanded(
+                child: Text(
+                  "$numberOfMonths Month${numberOfMonths > 1 ? 's' : ''}",
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF8A005D),
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: () {
+                  setState(() {
+                    numberOfMonths++;
+                    _updateEndDateFromPeriod();
+                  });
+                },
+                icon: const Icon(Icons.add, color: Color(0xFF8A005D)),
+              ),
+            ],
+          ),
+        ),
+        if (startDate != null && numberOfMonths > 0)
+          const SizedBox(height: 8),
+        if (startDate != null && numberOfMonths > 0)
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.green[50],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              "End Date: ${DateFormat('yyyy-MM-dd').format(startDate!.add(Duration(days: numberOfMonths * 30)))}",
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.green[800],
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildYearlySelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Number of Years",
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: Colors.grey[200],
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              IconButton(
+                onPressed: () {
+                  if (numberOfYears > 1) {
+                    setState(() {
+                      numberOfYears--;
+                      _updateEndDateFromPeriod();
+                    });
+                  }
+                },
+                icon: const Icon(Icons.remove, color: Color(0xFF8A005D)),
+              ),
+              Expanded(
+                child: Text(
+                  "$numberOfYears Year${numberOfYears > 1 ? 's' : ''}",
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF8A005D),
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: () {
+                  setState(() {
+                    numberOfYears++;
+                    _updateEndDateFromPeriod();
+                  });
+                },
+                icon: const Icon(Icons.add, color: Color(0xFF8A005D)),
+              ),
+            ],
+          ),
+        ),
+        if (startDate != null && numberOfYears > 0)
+          const SizedBox(height: 8),
+        if (startDate != null && numberOfYears > 0)
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.green[50],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              "End Date: ${DateFormat('yyyy-MM-dd').format(startDate!.add(Duration(days: numberOfYears * 365)))}",
               style: TextStyle(
                 fontSize: 12,
                 color: Colors.green[800],
@@ -1227,15 +1666,25 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
             if (isSelected == false) {
               if (selectedRentalType == RentalType.hourly && type != RentalType.hourly) {
                 _clearTimeSelections();
+        
                 numberOfDays = 1;
+                numberOfWeeks = 1;
+                numberOfMonths = 1;
+                numberOfYears = 1;
                 if (startDate != null) {
-                  _updateEndDateFromDays();
+                  _updateEndDateFromPeriod();
                 }
               } else if (selectedRentalType != RentalType.hourly && type == RentalType.hourly) {
                 _clearAllSelections();
               } else if (selectedRentalType != RentalType.hourly && type != RentalType.hourly) {
-                _clearAllSelections();
+      
                 numberOfDays = 1;
+                numberOfWeeks = 1;
+                numberOfMonths = 1;
+                numberOfYears = 1;
+                if (startDate != null) {
+                  _updateEndDateFromPeriod();
+                }
               }
             }
             selectedRentalType = type;
@@ -1292,7 +1741,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
         final startDateTime = TimeOfDay(hour: startTime!.hour, minute: startTime!.minute);
         final endDateTime = TimeOfDay(hour: endTime!.hour, minute: endTime!.minute);
         
-      
+
         final startMinutes = startDateTime.hour * 60 + startDateTime.minute;
         final endMinutes = endDateTime.hour * 60 + endDateTime.minute;
         
@@ -1313,6 +1762,21 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
       }
     }
     return "";
+  }
+  
+  String _getDurationDescription() {
+    switch (selectedRentalType) {
+      case RentalType.daily:
+        return "Duration: $numberOfDays Day${numberOfDays > 1 ? 's' : ''}";
+      case RentalType.weekly:
+        return "Duration: $numberOfWeeks Week${numberOfWeeks > 1 ? 's' : ''}";
+      case RentalType.monthly:
+        return "Duration: $numberOfMonths Month${numberOfMonths > 1 ? 's' : ''}";
+      case RentalType.yearly:
+        return "Duration: $numberOfYears Year${numberOfYears > 1 ? 's' : ''}";
+      case RentalType.hourly:
+        return "";
+    }
   }
 }
 
