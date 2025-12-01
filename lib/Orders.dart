@@ -212,6 +212,8 @@ class _OrdersPageState extends State<OrdersPage> {
     switch (type) {
       case RentalType.hourly:
         return 'hour';
+        case RentalType.daily:
+        return 'day';
       case RentalType.weekly:
         return 'week';
       case RentalType.monthly:
