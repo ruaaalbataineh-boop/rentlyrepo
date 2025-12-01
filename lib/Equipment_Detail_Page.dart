@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
@@ -22,6 +21,8 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
 
   DateTime? startDate;
   DateTime? endDate;
+  TimeOfDay? startTime;
+  TimeOfDay? endTime;
   String? pickupTime;
 
   bool isLiked = false;
@@ -34,50 +35,170 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
-      firstDate: DateTime(2024),
+      firstDate: DateTime.now(),
       lastDate: DateTime(2030),
     );
     if (picked != null) {
       setState(() {
         if (isStart) {
           startDate = picked;
+          if (endDate != null && endDate!.isBefore(startDate!)) {
+            endDate = null;
+          }
         } else {
+          if (startDate == null || picked.isBefore(startDate!)) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('End date must be after start date'),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+            return;
+          }
           endDate = picked;
         }
       });
     }
   }
 
+  Future<void> _selectTime(BuildContext context, bool isStart) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+    );
+    if (picked != null) {
+      setState(() {
+        if (isStart) {
+          startTime = picked;
+        } else {
+          endTime = picked;
+        }
+      });
+    }
+  }
+
+  void _clearAllSelections() {
+    setState(() {
+      startDate = null;
+      endDate = null;
+      startTime = null;
+      endTime = null;
+      pickupTime = null;
+    });
+  }
+
+ 
+  void _clearTimeSelections() {
+    setState(() {
+      startTime = null;
+      endTime = null;
+    });
+  }
+
   double calculateTotalPrice(EquipmentItem equipment) {
     final basePrice = equipment.getPriceForRentalType(selectedRentalType);
     
-    if (startDate != null && endDate != null) {
-      final difference = endDate!.difference(startDate!).inDays;
-      switch (selectedRentalType) {
-        case RentalType.hourly:
-          return basePrice * 24 * difference;
-        case RentalType.weekly:
-          return basePrice * (difference / 7);
-        case RentalType.monthly:
-          return basePrice * (difference / 30);
-        case RentalType.yearly:
-          return basePrice * (difference / 365);
-      }
+    bool hasAllRequiredData = false;
+    
+    switch (selectedRentalType) {
+      case RentalType.hourly:
+        hasAllRequiredData = startDate != null && 
+                            startTime != null && 
+                            endDate != null && 
+                            endTime != null;
+        break;
+      case RentalType.daily:
+      case RentalType.weekly:
+      case RentalType.monthly:
+      case RentalType.yearly:
+        hasAllRequiredData = startDate != null && endDate != null;
+        break;
     }
     
-    return basePrice;
-  }
-
-  void _navigateToChat(BuildContext context, EquipmentItem equipment) {
-   
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('The conversation with the owner will be opened${equipment.title}'),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    if (!hasAllRequiredData) {
+      return 0.0;
+    }
     
-   
+    switch (selectedRentalType) {
+      case RentalType.hourly:
+        DateTime startDateTime = DateTime(
+          startDate!.year,
+          startDate!.month,
+          startDate!.day,
+          startTime!.hour,
+          startTime!.minute,
+        );
+        
+        DateTime endDateTime = DateTime(
+          endDate!.year,
+          endDate!.month,
+          endDate!.day,
+          endTime!.hour,
+          endTime!.minute,
+        );
+        
+        if (endDateTime.isBefore(startDateTime)) {
+          return 0.0;
+        }
+        
+        final duration = endDateTime.difference(startDateTime);
+        final totalMinutes = duration.inMinutes;
+        
+        if (totalMinutes <= 60) {
+          return basePrice;
+        }
+        
+        final totalHours = (totalMinutes / 60).ceilToDouble();
+        return basePrice * totalHours;
+        
+      case RentalType.daily:
+        if (endDate!.isBefore(startDate!)) {
+          return 0.0;
+        }
+        
+        final difference = endDate!.difference(startDate!);
+        final days = difference.inDays;
+        
+        if (days == 0) {
+          return basePrice;
+        }
+        
+        final totalDays = difference.inHours % 24 > 0 ? days + 1 : days;
+        return basePrice * totalDays;
+        
+      case RentalType.weekly:
+        if (endDate!.isBefore(startDate!)) {
+          return 0.0;
+        }
+        
+        final difference = endDate!.difference(startDate!);
+        final days = difference.inDays;
+        
+        final weeks = (days / 7).ceilToDouble();
+        return basePrice * weeks;
+        
+      case RentalType.monthly:
+        if (endDate!.isBefore(startDate!)) {
+          return 0.0;
+        }
+        
+        final difference = endDate!.difference(startDate!);
+        final days = difference.inDays;
+        
+        final months = (days / 30).ceilToDouble();
+        return basePrice * months;
+        
+      case RentalType.yearly:
+        if (endDate!.isBefore(startDate!)) {
+          return 0.0;
+        }
+        
+        final difference = endDate!.difference(startDate!);
+        final days = difference.inDays;
+        
+        final years = (days / 365).ceilToDouble();
+        return basePrice * years;
+    }
   }
 
   @override
@@ -97,6 +218,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     }
 
     isFavoritePressed = FavouriteManager.favouriteItems.contains(equipment);
+    final totalPrice = calculateTotalPrice(equipment);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -206,13 +328,11 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                 ),
               ),
 
-             
               Padding(
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                  
                     Row(
                       children: [
                         Expanded(
@@ -226,7 +346,14 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                           ),
                         ),
                         IconButton(
-                          onPressed: () => _navigateToChat(context, equipment),
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Chat with owner of ${equipment.title}'),
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          },
                           icon: const Icon(
                             Icons.help_outline,
                             color: Color(0xFF8A005D),
@@ -238,10 +365,9 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                     ),
                     const SizedBox(height: 10),
 
-               
+                   
                     Row(
                       children: [
-                      
                         GestureDetector(
                           onTap: () {
                             showDialog(
@@ -289,19 +415,6 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                                                   ),
                                                 );
                                               }),
-                                            ),
-                                            const SizedBox(height: 20),
-                                            Container(
-                                              height: 4,
-                                              width: double.infinity,
-                                              decoration: BoxDecoration(
-                                                gradient: const LinearGradient(
-                                                  colors: [Colors.amber, Colors.grey],
-                                                  begin: Alignment.centerLeft,
-                                                  end: Alignment.centerRight,
-                                                ),
-                                                borderRadius: BorderRadius.circular(2),
-                                              ),
                                             ),
                                             const SizedBox(height: 20),
                                             Row(
@@ -361,7 +474,6 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                         ),
                         const SizedBox(width: 20),
 
-                      
                         GestureDetector(
                           onTap: () {
                             setState(() {
@@ -385,17 +497,38 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                       ],
                     ),
                     const SizedBox(height: 14),
-                    
-                  
+
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          "Rental Period:",
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              "Rental Period:",
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            if (startDate != null || startTime != null || endDate != null || endTime != null)
+                              TextButton(
+                                onPressed: _clearAllSelections,
+                                child: const Row(
+                                  children: [
+                                    Icon(Icons.clear, size: 16, color: Colors.red),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      "Clear All",
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.red,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
                         ),
                         const SizedBox(height: 8),
                         SingleChildScrollView(
@@ -403,6 +536,8 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                           child: Row(
                             children: [
                               _buildRentalTypeChip("Hourly", RentalType.hourly, equipment),
+                              const SizedBox(width: 8),
+                              _buildRentalTypeChip("Daily", RentalType.daily, equipment),
                               const SizedBox(width: 8),
                               _buildRentalTypeChip("Weekly", RentalType.weekly, equipment),
                               const SizedBox(width: 8),
@@ -413,180 +548,150 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        Text(
-                          "Total: JOD ${calculateTotalPrice(equipment).toStringAsFixed(2)}",
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF8A005D),
+                        
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[100],
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                        ),
-                      ],
-                    ),
-                    
-                    const SizedBox(height: 14),
-                    
-                 
-                    Text(equipment.description,
-                        style: const TextStyle(
-                            fontSize: 14, color: Colors.black54)),
-                    const SizedBox(height: 14),
-                    
-                 
-                    Text("Release Year: ${equipment.releaseYear}",
-                        style: const TextStyle(
-                            fontSize: 14, color: Colors.black87)),
-                    const SizedBox(height: 14),
-                   
-                    const Text("Specifications:",
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold)),
-                    ...equipment.specs.map(
-                      (spec) =>
-                          Text("• $spec", style: const TextStyle(fontSize: 14)),
-                    ),
-                    const SizedBox(height: 20),
-
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () => _selectDate(context, true),
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                            ),
-                            child: Text(startDate == null
-                                ? "Start Date"
-                                : DateFormat('yyyy-MM-dd').format(startDate!)),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () => _selectDate(context, false),
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                            ),
-                            child: Text(endDate == null
-                                ? "End Date"
-                                : DateFormat('yyyy-MM-dd').format(endDate!)),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    
-                   
-                    ElevatedButton(
-                      onPressed: () async {
-                        final TimeOfDay? picked = await showTimePicker(
-                          context: context,
-                          initialTime: TimeOfDay.now(),
-                        );
-                        if (picked != null) {
-                          setState(() {
-                            pickupTime = picked.format(context);
-                          });
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: const Size(double.infinity, 48),
-                      ),
-                      child: Text(pickupTime == null
-                          ? "Select Pickup Time"
-                          : pickupTime!),
-                    ),
-                    const SizedBox(height: 20),
-
-                    ElevatedButton(
-                      onPressed: () {
-                        TextEditingController c = TextEditingController();
-
-                        showDialog(
-                          context: context,
-                          builder: (_) {
-                            return AlertDialog(
-                              title: const Text("Write a Review"),
-                              content: TextField(
-                                controller: c,
-                                maxLines: 4,
-                                decoration: const InputDecoration(
-                                  hintText: "Write your comment...",
-                                  border: OutlineInputBorder(),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Total: JOD ${totalPrice.toStringAsFixed(2)}",
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: totalPrice > 0 
+                                      ? const Color(0xFF8A005D) 
+                                      : Colors.grey,
                                 ),
                               ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  child: const Text("Cancel"),
-                                ),
-                                ElevatedButton(
-                                  onPressed: () {
-                                    if (c.text.isNotEmpty) {
-                                      setState(() {
-                                        equipment.userReviews =
-                                            List<String>.from(
-                                          equipment.userReviews,
-                                        );
-                                        equipment.userReviews.add(c.text);
-                                        equipment.reviews++;
-                                      });
-                                    }
-                                    Navigator.pop(context);
-                                  },
-                                  child: const Text("Submit"),
+                              if (totalPrice == 0 && (startDate != null || startTime != null || endDate != null || endTime != null)) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  _getIncompleteMessage(),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.orange,
+                                  ),
                                 ),
                               ],
-                            );
-                          },
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: const Size(double.infinity, 48),
-                      ),
-                      child: const Text("Write Review"),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 10),
                     
-                    
-                    if (equipment.userReviews.isNotEmpty)
-                      TextButton(
-                        onPressed: () {
-                          showDialog(
-                            context: context,
-                            builder: (_) {
-                              return AlertDialog(
-                                title: const Text("All Reviews"),
-                                content: SizedBox(
-                                  width: double.maxFinite,
-                                  child: ListView(
-                                    shrinkWrap: true,
-                                    children: equipment.userReviews
-                                        .map((rev) => ListTile(
-                                              title: Text(rev),
-                                            ))
-                                        .toList(),
-                                  ),
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.pop(context),
-                                    child: const Text("Close"),
-                                  ),
-                                ],
-                              );
-                            },
-                          );
-                        },
-                        child: const Text("See All Reviews"),
-                      ),
                     const SizedBox(height: 20),
 
-                  
+                    Column(
+                      children: [
+
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildDateButton(
+                                "Start Date",
+                                startDate == null
+                                    ? "Select Start Date"
+                                    : DateFormat('yyyy-MM-dd').format(startDate!),
+                                () => _selectDate(context, true),
+                                startDate != null,
+                                onClear: () => setState(() {
+                                  startDate = null;
+                                
+                                  endDate = null;
+                                }),
+                              ),
+                            ),
+                            if (selectedRentalType == RentalType.hourly) ...[
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: _buildTimeButton(
+                                  "Start Time",
+                                  startTime == null
+                                      ? "Select Start Time"
+                                      : startTime!.format(context),
+                                  () => _selectTime(context, true),
+                                  startTime != null,
+                                  onClear: () => setState(() => startTime = null),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        
+                        const SizedBox(height: 10),
+                        
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildDateButton(
+                                "End Date",
+                                endDate == null
+                                    ? "Select End Date"
+                                    : DateFormat('yyyy-MM-dd').format(endDate!),
+                                () => _selectDate(context, false),
+                                endDate != null,
+                                onClear: () => setState(() => endDate = null),
+                              ),
+                            ),
+                            if (selectedRentalType == RentalType.hourly) ...[
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: _buildTimeButton(
+                                  "End Time",
+                                  endTime == null
+                                      ? "Select End Time"
+                                      : endTime!.format(context),
+                                  () => _selectTime(context, false),
+                                  endTime != null,
+                                  onClear: () => setState(() => endTime = null),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        
+                        const SizedBox(height: 10),
+                        
+                        _buildPickupTimeButton(),
+                        
+                        const SizedBox(height: 10),
+                       
+                        if (_hasSelectedPeriod())
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF8A005D).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: const Color(0xFF8A005D)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.calendar_today, color: Color(0xFF8A005D)),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _getRentalPeriodDescription(),
+                                    style: const TextStyle(
+                                      color: Color(0xFF8A005D),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 20),
+
                     ElevatedButton(
-                      onPressed: () {
+                      onPressed: _isSelectionComplete() && pickupTime != null ? () {
                         OrdersManager.addOrder(equipment);
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
@@ -599,25 +704,31 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                             const Duration(milliseconds: 300), () {
                           Navigator.pushNamed(context, '/orders');
                         });
-                      },
+                      } : null,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF8A005D),
+                        backgroundColor: _isSelectionComplete() && pickupTime != null 
+                            ? const Color(0xFF8A005D) 
+                            : Colors.grey[400],
                         minimumSize: const Size(double.infinity, 54),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30),
                         ),
                       ),
-                      child: const Text(
-                        "Rent Now",
+                      child: Text(
+                        _isSelectionComplete() && pickupTime != null 
+                            ? "Rent Now (JOD ${totalPrice.toStringAsFixed(2)})" 
+                            : "Select all options to rent",
                         style: TextStyle(
-                            fontSize: 18, 
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white),
+                          fontSize: 18, 
+                          fontWeight: FontWeight.bold,
+                          color: _isSelectionComplete() && pickupTime != null 
+                              ? Colors.white 
+                              : Colors.grey[700],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 20),
 
-                  
                     Container(
                       height: 100,
                       decoration: BoxDecoration(
@@ -665,6 +776,140 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
+  Widget _buildDateButton(String title, String text, VoidCallback onPressed, bool isSelected, {VoidCallback? onClear}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.grey,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            if (isSelected && onClear != null)
+              GestureDetector(
+                onTap: onClear,
+                child: const Icon(Icons.close, size: 16, color: Colors.red),
+              ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        ElevatedButton(
+          onPressed: onPressed,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: isSelected ? const Color(0xFF8A005D) : Colors.grey[200],
+            foregroundColor: isSelected ? Colors.white : Colors.grey[700],
+            minimumSize: const Size(double.infinity, 48),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+          ),
+          child: Text(
+            text,
+            style: const TextStyle(fontSize: 14),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ],
+    );
+  }
+
+ 
+  Widget _buildTimeButton(String title, String text, VoidCallback onPressed, bool isSelected, {VoidCallback? onClear}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.grey,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            if (isSelected && onClear != null)
+              GestureDetector(
+                onTap: onClear,
+                child: const Icon(Icons.close, size: 16, color: Colors.red),
+              ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        ElevatedButton(
+          onPressed: onPressed,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: isSelected ? const Color(0xFF8A005D) : Colors.grey[200],
+            foregroundColor: isSelected ? Colors.white : Colors.grey[700],
+            minimumSize: const Size(double.infinity, 48),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+          ),
+          child: Text(
+            text,
+            style: const TextStyle(fontSize: 14),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPickupTimeButton() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              "Pickup Time",
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            if (pickupTime != null)
+              GestureDetector(
+                onTap: () => setState(() => pickupTime = null),
+                child: const Icon(Icons.close, size: 16, color: Colors.red),
+              ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        ElevatedButton(
+          onPressed: () async {
+            final TimeOfDay? picked = await showTimePicker(
+              context: context,
+              initialTime: TimeOfDay.now(),
+            );
+            if (picked != null) {
+              setState(() {
+                pickupTime = picked.format(context);
+              });
+            }
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: pickupTime != null ? const Color(0xFF8A005D) : Colors.grey[200],
+            foregroundColor: pickupTime != null ? Colors.white : Colors.grey[700],
+            minimumSize: const Size(double.infinity, 48),
+          ),
+          child: Text(
+            pickupTime == null
+                ? "Select Pickup Time"
+                : "Pickup at $pickupTime",
+            style: const TextStyle(fontSize: 14),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildRentalTypeChip(String label, RentalType type, EquipmentItem equipment) {
     bool isSelected = selectedRentalType == type;
     return ChoiceChip(
@@ -672,6 +917,23 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
       selected: isSelected,
       onSelected: (selected) {
         setState(() {
+        
+          if (isSelected == false) {
+
+            if (selectedRentalType == RentalType.hourly && type != RentalType.hourly) {
+              _clearTimeSelections();
+            } 
+
+            else if (selectedRentalType != RentalType.hourly && type == RentalType.hourly) {
+              _clearAllSelections();
+            }
+           
+            else if (selectedRentalType != RentalType.hourly && type != RentalType.hourly) {
+              _clearAllSelections();
+            }
+          }
+          
+         
           selectedRentalType = type;
         });
       },
@@ -681,19 +943,57 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
       ),
     );
   }
-
-  // ignore: unused_element
-  String _getRentalTypeText(RentalType type) {
-    switch (type) {
+  
+  bool _isSelectionComplete() {
+    switch (selectedRentalType) {
       case RentalType.hourly:
-        return 'hour';
-      case RentalType.weekly:
-        return 'week';
-      case RentalType.monthly:
-        return 'month';
-      case RentalType.yearly:
-        return 'year';
+        return startDate != null && startTime != null && endDate != null && endTime != null;
+      default:
+        return startDate != null && endDate != null;
     }
+  }
+  
+  String _getIncompleteMessage() {
+    if (selectedRentalType == RentalType.hourly) {
+      if (startDate == null) return "Missing: Start Date";
+      if (startTime == null) return "Missing: Start Time";
+      if (endDate == null) return "Missing: End Date";
+      if (endTime == null) return "Missing: End Time";
+    } else {
+      if (startDate == null) return "Missing: Start Date";
+      if (endDate == null) return "Missing: End Date";
+    }
+    return "";
+  }
+  
+  bool _hasSelectedPeriod() {
+    switch (selectedRentalType) {
+      case RentalType.hourly:
+        return startDate != null && startTime != null && endDate != null && endTime != null;
+      default:
+        return startDate != null && endDate != null;
+    }
+  }
+  
+  String _getRentalPeriodDescription() {
+    if (selectedRentalType == RentalType.hourly) {
+      if (startDate != null && startTime != null && endDate != null && endTime != null) {
+        final duration = DateTime(
+          endDate!.year, endDate!.month, endDate!.day, endTime!.hour, endTime!.minute,
+        ).difference(
+          DateTime(startDate!.year, startDate!.month, startDate!.day, startTime!.hour, startTime!.minute),
+        );
+        final hours = duration.inHours;
+        final minutes = duration.inMinutes % 60;
+        return "Rental period: $hours hour(s) ${minutes > 0 ? 'and $minutes minute(s)' : ''}";
+      }
+    } else {
+      if (startDate != null && endDate != null) {
+        final days = endDate!.difference(startDate!).inDays;
+        return "Rental period: $days day(s)";
+      }
+    }
+    return "";
   }
 }
 
