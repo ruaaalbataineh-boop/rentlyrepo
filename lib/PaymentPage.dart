@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'Payment2.dart';
+import 'withdraw_page.dart'; 
 
 class PaymentPage extends StatefulWidget {
   const PaymentPage({super.key});
@@ -25,14 +25,10 @@ class _PaymentPageState extends State<PaymentPage> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          "Payment saved: $amount via $method",
-        ),
+        content: Text("Payment saved: $amount via $method"),
         duration: const Duration(seconds: 2),
       ),
     );
-
-    print("Saved Payments: $payments");
   }
 
   @override
@@ -40,7 +36,6 @@ class _PaymentPageState extends State<PaymentPage> {
     return Scaffold(
       body: Column(
         children: [
-      
           ClipPath(
             clipper: SideCurveClipper(),
             child: Container(
@@ -72,6 +67,7 @@ class _PaymentPageState extends State<PaymentPage> {
                     ),
                   ),
                   const SizedBox(height: 20),
+
                   Container(
                     width: double.infinity,
                     margin: const EdgeInsets.symmetric(horizontal: 30),
@@ -79,8 +75,6 @@ class _PaymentPageState extends State<PaymentPage> {
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
                         colors: [Color(0xFF1F0F46), Color(0xFF8A005D)],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
                       ),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: Colors.white30),
@@ -100,14 +94,10 @@ class _PaymentPageState extends State<PaymentPage> {
                               },
                             ),
                             const SizedBox(width: 10),
-                            const Text(
-                              "Credit Card",
-                              style:
-                                  TextStyle(color: Colors.white, fontSize: 16),
-                            ),
+                            const Text("Credit Card",
+                                style: TextStyle(color: Colors.white)),
                           ],
                         ),
-                        const SizedBox(height: 10),
                         Row(
                           children: [
                             Radio<String>(
@@ -121,11 +111,8 @@ class _PaymentPageState extends State<PaymentPage> {
                               },
                             ),
                             const SizedBox(width: 10),
-                            const Text(
-                              "Exchange agents",
-                              style:
-                                  TextStyle(color: Colors.white, fontSize: 16),
-                            ),
+                            const Text("Exchange agents",
+                                style: TextStyle(color: Colors.white)),
                           ],
                         ),
                       ],
@@ -136,14 +123,12 @@ class _PaymentPageState extends State<PaymentPage> {
             ),
           ),
 
-        
           Expanded(
             child: Container(
               width: double.infinity,
               color: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 15),
@@ -158,38 +143,38 @@ class _PaymentPageState extends State<PaymentPage> {
                       decoration: const InputDecoration(
                         border: InputBorder.none,
                         hintText: "Enter Charge Amount",
-                        hintStyle: TextStyle(color: Colors.black54),
                       ),
                     ),
                   ),
+
                   const SizedBox(height: 30),
+
                   ElevatedButton(
                     onPressed: () {
                       String amount = amountController.text.trim();
+
                       if (amount.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("Please enter amount")),
+                          const SnackBar(
+                              content: Text("Please enter amount")),
                         );
                         return;
                       }
 
-                    
                       savePaymentLocally(selectedOption, amount);
 
                       if (selectedOption == "Credit Card") {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const CardPaymentPage(),
+                            builder: (context) => const WithdrawPage(),
                           ),
                         );
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text(
-                              "Go to exchange agent to complete payment",
-                            ),
-                          ),
+                              content: Text(
+                                  "Go to exchange agent to complete payment")),
                         );
                       }
                     },
@@ -219,16 +204,26 @@ class _PaymentPageState extends State<PaymentPage> {
 class SideCurveClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {
+    double radius = 40;
     Path path = Path();
-    path.lineTo(0, size.height - 40);
-    path.quadraticBezierTo(
-        size.width / 2, size.height, size.width, size.height - 40);
+    path.moveTo(0, 0);
+    path.lineTo(0, size.height);
+    path.arcToPoint(
+      Offset(radius, size.height - radius),
+      radius: Radius.circular(radius),
+    );
+    path.lineTo(size.width - radius, size.height - radius);
+    path.arcToPoint(
+      Offset(size.width, size.height),
+      radius: Radius.circular(radius),
+    );
     path.lineTo(size.width, 0);
     path.close();
     return path;
   }
 
   @override
-  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
+  bool shouldReclip(CustomClipper<Path> oldClipper) => false;
 }
+
 
