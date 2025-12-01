@@ -101,35 +101,40 @@ class _OrdersPageState extends State<OrdersPage> {
   }
 
   Widget buildTab(String text, int index, double screenWidth) {
-    bool active = selectedTab == index;
-    final isSmallScreen = screenWidth < 360;
-    
-    return GestureDetector(
-      onTap: () => setState(() => selectedTab = index),
-      child: Container(
-        padding: EdgeInsets.symmetric(
-          horizontal: isSmallScreen ? 15 : 25,
-          vertical: isSmallScreen ? 10 : 12,
+  bool active = selectedTab == index;
+  final isSmallScreen = screenWidth < 380;
+
+  return GestureDetector(
+    onTap: () => setState(() => selectedTab = index),
+    child: Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: isSmallScreen ? 10 : 18,
+        vertical: isSmallScreen ? 8 : 10,
+      ),
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: active ? const Color(0xFF8A005D) : Colors.black,
+          width: 1.2,
         ),
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: active ? const Color(0xFF8A005D) : Colors.black,
-            width: 1.5,
-          ),
-          borderRadius: BorderRadius.circular(30),
-          color: active ? Colors.white : Colors.transparent,
-        ),
+        borderRadius: BorderRadius.circular(25),
+        color: active ? Colors.white : Colors.transparent,
+      ),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
         child: Text(
           text,
+          maxLines: 1,
           style: TextStyle(
-            fontSize: isSmallScreen ? 14 : 18,
+            fontSize: isSmallScreen ? 11 : 14,  
             color: active ? const Color(0xFF8A005D) : Colors.black,
             fontWeight: FontWeight.w600,
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
+
 
   Widget buildTabContent(double screenWidth) {
     List<EquipmentItem> items;
