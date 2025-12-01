@@ -50,12 +50,14 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('End date must be after start date'),
-                duration: const Duration(seconds: 2),
+                duration: Duration(seconds: 2),
               ),
             );
             return;
           }
           endDate = picked;
+          
+          _autoAdjustRentalType();
         }
       });
     }
@@ -72,6 +74,8 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
           startTime = picked;
         } else {
           endTime = picked;
+          
+          _autoAdjustRentalType();
         }
       });
     }
@@ -87,7 +91,6 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     });
   }
 
- 
   void _clearTimeSelections() {
     setState(() {
       startTime = null;
@@ -95,7 +98,126 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     });
   }
 
+  void _autoAdjustRentalType() {
+    if (startDate == null || endDate == null) return;
+    
+    double totalHours = _calculateTotalHours();
+    
+    RentalType requiredType = RentalType.hourly;
+    String typeName = "Hourly";
+    
+    if (totalHours > 24 * 365) {
+      requiredType = RentalType.yearly;
+      typeName = "Yearly";
+    } else if (totalHours > 24 * 30) {
+      requiredType = RentalType.monthly;
+      typeName = "Monthly";
+    } else if (totalHours > 24 * 6) {
+      requiredType = RentalType.weekly;
+      typeName = "Weekly";
+    } else if (totalHours > 24) {
+      requiredType = RentalType.daily;
+      typeName = "Daily";
+    }
+    
+    if (selectedRentalType != requiredType) {
+      _updateRentalType(requiredType, typeName);
+    }
+  }
+
+  void _updateRentalType(RentalType newType, String typeName) {
+    if (selectedRentalType != newType) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Rental type changed to $typeName based on selected duration'),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      
+      setState(() {
+        selectedRentalType = newType;
+        
+        if (newType != RentalType.hourly) {
+          startTime = null;
+          endTime = null;
+        }
+      });
+    }
+  }
+
+  double _calculateTotalHours() {
+    if (startDate == null || endDate == null) return 0.0;
+    
+    DateTime startDateTime;
+    DateTime endDateTime;
+    
+    if (selectedRentalType == RentalType.hourly && startTime != null && endTime != null) {
+      startDateTime = DateTime(
+        startDate!.year,
+        startDate!.month,
+        startDate!.day,
+        startTime!.hour,
+        startTime!.minute,
+      );
+      
+      endDateTime = DateTime(
+        endDate!.year,
+        endDate!.month,
+        endDate!.day,
+        endTime!.hour,
+        endTime!.minute,
+      );
+    } else {
+      startDateTime = DateTime(startDate!.year, startDate!.month, startDate!.day);
+      endDateTime = DateTime(endDate!.year, endDate!.month, endDate!.day, 23, 59);
+    }
+    
+    if (endDateTime.isBefore(startDateTime)) return 0.0;
+    
+    return endDateTime.difference(startDateTime).inHours.toDouble();
+  }
+
+  bool _isValidRentalTypeForDuration() {
+    if (startDate == null || endDate == null) return true;
+    
+    double totalHours = _calculateTotalHours();
+    
+    switch (selectedRentalType) {
+      case RentalType.hourly:
+        return totalHours <= 24;
+      case RentalType.daily:
+        return totalHours > 24 && totalHours <= 24 * 6;
+      case RentalType.weekly:
+        return totalHours > 24 * 6 && totalHours <= 24 * 30;
+      case RentalType.monthly:
+        return totalHours > 24 * 30 && totalHours <= 24 * 365;
+      case RentalType.yearly:
+        return totalHours > 24 * 365;
+    }
+  }
+
+  String _getRentalTypeErrorMessage() {
+    if (!_isValidRentalTypeForDuration()) {
+      double totalHours = _calculateTotalHours();
+      
+      if (selectedRentalType == RentalType.hourly && totalHours > 24) {
+        return "Hourly rental is not allowed for more than 24 hours. Please select Daily rental.";
+      } else if (selectedRentalType == RentalType.daily && totalHours > 24 * 6) {
+        return "Daily rental is not allowed for more than 6 days. Please select Weekly rental.";
+      } else if (selectedRentalType == RentalType.weekly && totalHours > 24 * 30) {
+        return "Weekly rental is not allowed for more than 30 days. Please select Monthly rental.";
+      } else if (selectedRentalType == RentalType.monthly && totalHours > 24 * 365) {
+        return "Monthly rental is not allowed for more than 365 days. Please select Yearly rental.";
+      }
+    }
+    return "";
+  }
+
   double calculateTotalPrice(EquipmentItem equipment) {
+    if (!_isValidRentalTypeForDuration()) {
+      return 0.0;
+    }
+    
     final basePrice = equipment.getPriceForRentalType(selectedRentalType);
     
     bool hasAllRequiredData = false;
@@ -219,6 +341,8 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
 
     isFavoritePressed = FavouriteManager.favouriteItems.contains(equipment);
     final totalPrice = calculateTotalPrice(equipment);
+    final errorMessage = _getRentalTypeErrorMessage();
+    final isValidRentalType = _isValidRentalTypeForDuration();
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -226,7 +350,6 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
         child: SingleChildScrollView(
           child: Column(
             children: [
-            
               Container(
                 height: 280,
                 margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -365,7 +488,6 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                     ),
                     const SizedBox(height: 10),
 
-                   
                     Row(
                       children: [
                         GestureDetector(
@@ -547,6 +669,31 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                             ],
                           ),
                         ),
+                        if (!isValidRentalType && errorMessage.isNotEmpty)
+                          Container(
+                            margin: const EdgeInsets.only(top: 8),
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.orange[50],
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.orange),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.warning, color: Colors.orange[800], size: 16),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    errorMessage,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.orange[800],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         const SizedBox(height: 12),
                         
                         Container(
@@ -563,7 +710,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                                 style: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
-                                  color: totalPrice > 0 
+                                  color: totalPrice > 0 && isValidRentalType
                                       ? const Color(0xFF8A005D) 
                                       : Colors.grey,
                                 ),
@@ -588,7 +735,6 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
 
                     Column(
                       children: [
-
                         Row(
                           children: [
                             Expanded(
@@ -601,7 +747,6 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                                 startDate != null,
                                 onClear: () => setState(() {
                                   startDate = null;
-                                
                                   endDate = null;
                                 }),
                               ),
@@ -691,7 +836,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                     const SizedBox(height: 20),
 
                     ElevatedButton(
-                      onPressed: _isSelectionComplete() && pickupTime != null ? () {
+                      onPressed: _isSelectionComplete() && pickupTime != null && isValidRentalType ? () {
                         OrdersManager.addOrder(equipment);
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
@@ -706,7 +851,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                         });
                       } : null,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: _isSelectionComplete() && pickupTime != null 
+                        backgroundColor: _isSelectionComplete() && pickupTime != null && isValidRentalType 
                             ? const Color(0xFF8A005D) 
                             : Colors.grey[400],
                         minimumSize: const Size(double.infinity, 54),
@@ -715,13 +860,13 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                         ),
                       ),
                       child: Text(
-                        _isSelectionComplete() && pickupTime != null 
+                        _isSelectionComplete() && pickupTime != null && isValidRentalType 
                             ? "Rent Now (JOD ${totalPrice.toStringAsFixed(2)})" 
                             : "Select all options to rent",
                         style: TextStyle(
                           fontSize: 18, 
                           fontWeight: FontWeight.bold,
-                          color: _isSelectionComplete() && pickupTime != null 
+                          color: _isSelectionComplete() && pickupTime != null && isValidRentalType 
                               ? Colors.white 
                               : Colors.grey[700],
                         ),
@@ -817,7 +962,6 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
- 
   Widget _buildTimeButton(String title, String text, VoidCallback onPressed, bool isSelected, {VoidCallback? onClear}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -912,34 +1056,32 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
 
   Widget _buildRentalTypeChip(String label, RentalType type, EquipmentItem equipment) {
     bool isSelected = selectedRentalType == type;
+    bool isValidForDuration = _isValidRentalTypeForDuration() || !_hasSelectedPeriod();
+    
     return ChoiceChip(
       label: Text("$label (JOD ${equipment.getPriceForRentalType(type).toStringAsFixed(2)})"),
       selected: isSelected,
       onSelected: (selected) {
-        setState(() {
-        
-          if (isSelected == false) {
-
-            if (selectedRentalType == RentalType.hourly && type != RentalType.hourly) {
-              _clearTimeSelections();
-            } 
-
-            else if (selectedRentalType != RentalType.hourly && type == RentalType.hourly) {
-              _clearAllSelections();
+        if (selected) {
+          setState(() {
+            if (isSelected == false) {
+              if (selectedRentalType == RentalType.hourly && type != RentalType.hourly) {
+                _clearTimeSelections();
+              } else if (selectedRentalType != RentalType.hourly && type == RentalType.hourly) {
+                _clearAllSelections();
+              } else if (selectedRentalType != RentalType.hourly && type != RentalType.hourly) {
+                _clearAllSelections();
+              }
             }
-           
-            else if (selectedRentalType != RentalType.hourly && type != RentalType.hourly) {
-              _clearAllSelections();
-            }
-          }
-          
-         
-          selectedRentalType = type;
-        });
+            selectedRentalType = type;
+          });
+        }
       },
       selectedColor: const Color(0xFF8A005D),
+      backgroundColor: isValidForDuration ? null : Colors.grey[300],
+      disabledColor: Colors.grey[300],
       labelStyle: TextStyle(
-        color: isSelected ? Colors.white : Colors.black,
+        color: isSelected ? Colors.white : (isValidForDuration ? Colors.black : Colors.grey),
       ),
     );
   }
