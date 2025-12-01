@@ -24,6 +24,8 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
   TimeOfDay? startTime;
   TimeOfDay? endTime;
   String? pickupTime;
+  
+  int numberOfDays = 1;
 
   bool isLiked = false;
   int likesCount = 0;
@@ -42,8 +44,13 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
       setState(() {
         if (isStart) {
           startDate = picked;
-          if (endDate != null && endDate!.isBefore(startDate!)) {
-            endDate = null;
+      
+          if (selectedRentalType == RentalType.hourly) {
+            endDate = picked;
+          }
+      
+          if (selectedRentalType != RentalType.hourly) {
+            _updateEndDateFromDays();
           }
         } else {
           if (startDate == null || picked.isBefore(startDate!)) {
@@ -56,7 +63,6 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
             return;
           }
           endDate = picked;
-          
           _autoAdjustRentalType();
         }
       });
@@ -74,9 +80,39 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
           startTime = picked;
         } else {
           endTime = picked;
+  
+          if (selectedRentalType == RentalType.hourly && 
+              startTime != null && 
+              endTime != null &&
+              startDate == endDate) {
+            final startDateTime = TimeOfDay(hour: startTime!.hour, minute: startTime!.minute);
+            final endDateTime = TimeOfDay(hour: endTime!.hour, minute: endTime!.minute);
+            
           
+            final startMinutes = startDateTime.hour * 60 + startDateTime.minute;
+            final endMinutes = endDateTime.hour * 60 + endDateTime.minute;
+            
+            if (endMinutes <= startMinutes) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('End time must be after start time'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+              return;
+            }
+          }
           _autoAdjustRentalType();
         }
+      });
+    }
+  }
+
+  void _updateEndDateFromDays() {
+    if (startDate != null && selectedRentalType != RentalType.hourly) {
+      setState(() {
+        endDate = startDate!.add(Duration(days: numberOfDays));
+        _autoAdjustRentalType();
       });
     }
   }
@@ -88,6 +124,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
       startTime = null;
       endTime = null;
       pickupTime = null;
+      numberOfDays = 1;
     });
   }
 
@@ -140,6 +177,15 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
         if (newType != RentalType.hourly) {
           startTime = null;
           endTime = null;
+          numberOfDays = 1;
+          if (startDate != null) {
+            _updateEndDateFromDays();
+          }
+        } else {
+      
+          if (startDate != null) {
+            endDate = startDate;
+          }
         }
       });
     }
@@ -184,7 +230,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     
     switch (selectedRentalType) {
       case RentalType.hourly:
-        return totalHours <= 24;
+        return totalHours <= 24 && totalHours > 0;
       case RentalType.daily:
         return totalHours > 24 && totalHours <= 24 * 6;
       case RentalType.weekly:
@@ -200,8 +246,12 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     if (!_isValidRentalTypeForDuration()) {
       double totalHours = _calculateTotalHours();
       
-      if (selectedRentalType == RentalType.hourly && totalHours > 24) {
-        return "Hourly rental is not allowed for more than 24 hours. Please select Daily rental.";
+      if (selectedRentalType == RentalType.hourly) {
+        if (totalHours <= 0) {
+          return "End time must be after start time";
+        } else if (totalHours > 24) {
+          return "Hourly rental is not allowed for more than 24 hours. Please select Daily rental.";
+        }
       } else if (selectedRentalType == RentalType.daily && totalHours > 24 * 6) {
         return "Daily rental is not allowed for more than 6 days. Please select Weekly rental.";
       } else if (selectedRentalType == RentalType.weekly && totalHours > 24 * 30) {
@@ -265,6 +315,10 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
         
         final duration = endDateTime.difference(startDateTime);
         final totalMinutes = duration.inMinutes;
+        
+        if (totalMinutes <= 0) {
+          return 0.0;
+        }
         
         if (totalMinutes <= 60) {
           return basePrice;
@@ -735,24 +789,46 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
 
                     Column(
                       children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildDateButton(
-                                "Start Date",
-                                startDate == null
-                                    ? "Select Start Date"
-                                    : DateFormat('yyyy-MM-dd').format(startDate!),
-                                () => _selectDate(context, true),
-                                startDate != null,
-                                onClear: () => setState(() {
-                                  startDate = null;
-                                  endDate = null;
-                                }),
-                              ),
-                            ),
-                            if (selectedRentalType == RentalType.hourly) ...[
-                              const SizedBox(width: 10),
+                        if (selectedRentalType == RentalType.hourly)
+                          _buildDateButton(
+                            "Date",
+                            startDate == null
+                                ? "Select Date"
+                                : DateFormat('yyyy-MM-dd').format(startDate!),
+                            () => _selectDate(context, true),
+                            startDate != null,
+                            onClear: () => setState(() {
+                              startDate = null;
+                              endDate = null;
+                              startTime = null;
+                              endTime = null;
+                            }),
+                          )
+                        else
+                          _buildDateButton(
+                            "Start Date",
+                            startDate == null
+                                ? "Select Start Date"
+                                : DateFormat('yyyy-MM-dd').format(startDate!),
+                            () => _selectDate(context, true),
+                            startDate != null,
+                            onClear: () => setState(() {
+                              startDate = null;
+                              endDate = null;
+                              numberOfDays = 1;
+                            }),
+                          ),
+                        
+                        const SizedBox(height: 10),
+                        
+                
+                        if (selectedRentalType != RentalType.hourly) 
+                          _buildNumberOfDaysSelector(),
+                        
+                        if (selectedRentalType == RentalType.hourly) ...[
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
                               Expanded(
                                 child: _buildTimeButton(
                                   "Start Time",
@@ -764,26 +840,6 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                                   onClear: () => setState(() => startTime = null),
                                 ),
                               ),
-                            ],
-                          ],
-                        ),
-                        
-                        const SizedBox(height: 10),
-                        
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildDateButton(
-                                "End Date",
-                                endDate == null
-                                    ? "Select End Date"
-                                    : DateFormat('yyyy-MM-dd').format(endDate!),
-                                () => _selectDate(context, false),
-                                endDate != null,
-                                onClear: () => setState(() => endDate = null),
-                              ),
-                            ),
-                            if (selectedRentalType == RentalType.hourly) ...[
                               const SizedBox(width: 10),
                               Expanded(
                                 child: _buildTimeButton(
@@ -797,8 +853,8 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                                 ),
                               ),
                             ],
-                          ],
-                        ),
+                          ),
+                        ],
                         
                         const SizedBox(height: 10),
                         
@@ -814,19 +870,46 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(color: const Color(0xFF8A005D)),
                             ),
-                            child: Row(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Icon(Icons.calendar_today, color: Color(0xFF8A005D)),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    _getRentalPeriodDescription(),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.calendar_today, color: Color(0xFF8A005D)),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        _getRentalPeriodDescription(),
+                                        style: const TextStyle(
+                                          color: Color(0xFF8A005D),
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (startDate != null && endDate != null)
+                                  const SizedBox(height: 4),
+                                if (startDate != null && endDate != null)
+                                  Text(
+                                    selectedRentalType == RentalType.hourly
+                                        ? "Date: ${DateFormat('yyyy-MM-dd').format(startDate!)}"
+                                        : "From: ${DateFormat('yyyy-MM-dd').format(startDate!)} To: ${DateFormat('yyyy-MM-dd').format(endDate!)}",
                                     style: const TextStyle(
                                       color: Color(0xFF8A005D),
-                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
                                     ),
                                   ),
-                                ),
+                                if (selectedRentalType != RentalType.hourly && startDate != null)
+                                  const SizedBox(height: 4),
+                                if (selectedRentalType != RentalType.hourly && startDate != null)
+                                  Text(
+                                    "Duration: $numberOfDays Day${numberOfDays > 1 ? 's' : ''}",
+                                    style: const TextStyle(
+                                      color: Color(0xFF8A005D),
+                                      fontSize: 12,
+                                    ),
+                                  ),
                               ],
                             ),
                           ),
@@ -836,7 +919,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                     const SizedBox(height: 20),
 
                     ElevatedButton(
-                      onPressed: _isSelectionComplete() && pickupTime != null && isValidRentalType ? () {
+                      onPressed: _isSelectionComplete() && pickupTime != null && isValidRentalType && totalPrice > 0 ? () {
                         OrdersManager.addOrder(equipment);
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
@@ -851,7 +934,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                         });
                       } : null,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: _isSelectionComplete() && pickupTime != null && isValidRentalType 
+                        backgroundColor: _isSelectionComplete() && pickupTime != null && isValidRentalType && totalPrice > 0
                             ? const Color(0xFF8A005D) 
                             : Colors.grey[400],
                         minimumSize: const Size(double.infinity, 54),
@@ -860,13 +943,13 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                         ),
                       ),
                       child: Text(
-                        _isSelectionComplete() && pickupTime != null && isValidRentalType 
+                        _isSelectionComplete() && pickupTime != null && isValidRentalType && totalPrice > 0
                             ? "Rent Now (JOD ${totalPrice.toStringAsFixed(2)})" 
                             : "Select all options to rent",
                         style: TextStyle(
                           fontSize: 18, 
                           fontWeight: FontWeight.bold,
-                          color: _isSelectionComplete() && pickupTime != null && isValidRentalType 
+                          color: _isSelectionComplete() && pickupTime != null && isValidRentalType && totalPrice > 0
                               ? Colors.white 
                               : Colors.grey[700],
                         ),
@@ -1003,6 +1086,83 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
+  Widget _buildNumberOfDaysSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Number of Days",
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: Colors.grey[200],
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              IconButton(
+                onPressed: () {
+                  if (numberOfDays > 1) {
+                    setState(() {
+                      numberOfDays--;
+                      _updateEndDateFromDays();
+                    });
+                  }
+                },
+                icon: const Icon(Icons.remove, color: Color(0xFF8A005D)),
+              ),
+              Expanded(
+                child: Text(
+                  "$numberOfDays Day${numberOfDays > 1 ? 's' : ''}",
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF8A005D),
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: () {
+                  setState(() {
+                    numberOfDays++;
+                    _updateEndDateFromDays();
+                  });
+                },
+                icon: const Icon(Icons.add, color: Color(0xFF8A005D)),
+              ),
+            ],
+          ),
+        ),
+        if (startDate != null && numberOfDays > 0)
+          const SizedBox(height: 8),
+        if (startDate != null && numberOfDays > 0)
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.green[50],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              "End Date: ${DateFormat('yyyy-MM-dd').format(startDate!.add(Duration(days: numberOfDays)))}",
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.green[800],
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _buildPickupTimeButton() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1067,13 +1227,23 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
             if (isSelected == false) {
               if (selectedRentalType == RentalType.hourly && type != RentalType.hourly) {
                 _clearTimeSelections();
+                numberOfDays = 1;
+                if (startDate != null) {
+                  _updateEndDateFromDays();
+                }
               } else if (selectedRentalType != RentalType.hourly && type == RentalType.hourly) {
                 _clearAllSelections();
               } else if (selectedRentalType != RentalType.hourly && type != RentalType.hourly) {
                 _clearAllSelections();
+                numberOfDays = 1;
               }
             }
             selectedRentalType = type;
+            
+        
+            if (type == RentalType.hourly && startDate != null) {
+              endDate = startDate;
+            }
           });
         }
       },
@@ -1089,7 +1259,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
   bool _isSelectionComplete() {
     switch (selectedRentalType) {
       case RentalType.hourly:
-        return startDate != null && startTime != null && endDate != null && endTime != null;
+        return startDate != null && startTime != null && endTime != null;
       default:
         return startDate != null && endDate != null;
     }
@@ -1097,9 +1267,8 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
   
   String _getIncompleteMessage() {
     if (selectedRentalType == RentalType.hourly) {
-      if (startDate == null) return "Missing: Start Date";
+      if (startDate == null) return "Missing: Date";
       if (startTime == null) return "Missing: Start Time";
-      if (endDate == null) return "Missing: End Date";
       if (endTime == null) return "Missing: End Time";
     } else {
       if (startDate == null) return "Missing: Start Date";
@@ -1111,7 +1280,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
   bool _hasSelectedPeriod() {
     switch (selectedRentalType) {
       case RentalType.hourly:
-        return startDate != null && startTime != null && endDate != null && endTime != null;
+        return startDate != null && startTime != null && endTime != null;
       default:
         return startDate != null && endDate != null;
     }
@@ -1119,14 +1288,22 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
   
   String _getRentalPeriodDescription() {
     if (selectedRentalType == RentalType.hourly) {
-      if (startDate != null && startTime != null && endDate != null && endTime != null) {
-        final duration = DateTime(
-          endDate!.year, endDate!.month, endDate!.day, endTime!.hour, endTime!.minute,
-        ).difference(
-          DateTime(startDate!.year, startDate!.month, startDate!.day, startTime!.hour, startTime!.minute),
-        );
-        final hours = duration.inHours;
-        final minutes = duration.inMinutes % 60;
+      if (startDate != null && startTime != null && endTime != null) {
+        final startDateTime = TimeOfDay(hour: startTime!.hour, minute: startTime!.minute);
+        final endDateTime = TimeOfDay(hour: endTime!.hour, minute: endTime!.minute);
+        
+      
+        final startMinutes = startDateTime.hour * 60 + startDateTime.minute;
+        final endMinutes = endDateTime.hour * 60 + endDateTime.minute;
+        
+        if (endMinutes <= startMinutes) {
+          return "Invalid time selection";
+        }
+        
+        final totalMinutes = endMinutes - startMinutes;
+        final hours = totalMinutes ~/ 60;
+        final minutes = totalMinutes % 60;
+        
         return "Rental period: $hours hour(s) ${minutes > 0 ? 'and $minutes minute(s)' : ''}";
       }
     } else {
@@ -1138,5 +1315,4 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     return "";
   }
 }
-
 
