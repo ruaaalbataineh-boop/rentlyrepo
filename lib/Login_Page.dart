@@ -3,42 +3,16 @@ import 'app_locale.dart';
 import 'package:flutter_custom_clippers/flutter_custom_clippers.dart';
 import 'fake_uid.dart';
 
+
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
+
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
   @override
   State<LoginPage> createState() => _LoginPageState();
 }
-
-
-class MockAuth {
-  MockAuth._();
-  static final MockAuth instance = MockAuth._();
-
-  Future<String?> signInWithEmail(String email, String password) async {
-    await Future.delayed(const Duration(milliseconds: 600));
-
-    if (email.trim().isEmpty || password.isEmpty) {
-      return "Please fill in your email and password";
-    }
-
-    if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(email)) {
-      return "Enter a valid email address";
-    }
-
-  
-    if (email == "ali@rently.com" && password == "123456") {
-      return "testUser1";
-    }
-
-    if (email == "sara@rently.com" && password == "123456") {
-      return "testUser2";
-    }
-
-    return "Incorrect email or password";
-  }
-}
-
 
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
@@ -57,7 +31,7 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-
+  // ---------------- LOGIN FUNCTION ----------------
   void login() async {
     setState(() {
       _errorMessage = null;
@@ -69,32 +43,42 @@ class _LoginPageState extends State<LoginPage> {
       _isLoading = true;
     });
 
-    final result = await MockAuth.instance
-        .signInWithEmail(emailController.text.trim(), passwordController.text);
+    try {
+      
+      UserCredential userCred = await FirebaseAuth.instance
+          .signInWithEmailAndPassword(
+        email: emailController.text.trim(),
+        password: passwordController.text.trim(),
+      );
 
-    setState(() {
-      _isLoading = false;
-    });
+      User user = userCred.user!;
 
- 
-    if (result == "testUser1" || result == "testUser2") {
-      LoginUID.uid = result!;
+  
+      LoginUID.uid = user.uid;
+
+  
+      await FirebaseDatabase.instance.ref("users/${user.uid}").update({
+        "name": user.email!.split("@")[0],
+        "email": user.email,
+      });
 
       if (!mounted) return;
-      Navigator.pushReplacementNamed(context, '/category');
-    } 
-    else {
-      setState(() => _errorMessage = result);
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result!)),
-        );
-      }
+      Navigator.pushReplacementNamed(context, '/category');
+    } on FirebaseAuthException catch (e) {
+      setState(() => _errorMessage = e.message);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message ?? "Login failed"),
+        ),
+      );
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
-  
+
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<Locale>(
