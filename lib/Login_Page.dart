@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'app_locale.dart';
 import 'package:flutter_custom_clippers/flutter_custom_clippers.dart';
-
+import 'fake_uid.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -9,24 +9,36 @@ class LoginPage extends StatefulWidget {
   @override
   State<LoginPage> createState() => _LoginPageState();
 }
+
+
 class MockAuth {
- 
   MockAuth._();
   static final MockAuth instance = MockAuth._();
 
-  
   Future<String?> signInWithEmail(String email, String password) async {
     await Future.delayed(const Duration(milliseconds: 600));
-   
-    if (email.trim() == 'test@example.com' && password == '123456') {
-      return null;
+
+    if (email.trim().isEmpty || password.isEmpty) {
+      return "Please fill in your email and password";
     }
-   
-    if (email.trim().isEmpty || password.isEmpty) return 'Please fill in your email and password';
-    if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(email)) return 'Enter a valid email address  ';
-    return 'Incorrect email or password';
+
+    if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(email)) {
+      return "Enter a valid email address";
+    }
+
+  
+    if (email == "ali@rently.com" && password == "123456") {
+      return "testUser1";
+    }
+
+    if (email == "sara@rently.com" && password == "123456") {
+      return "testUser2";
+    }
+
+    return "Incorrect email or password";
   }
 }
+
 
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
@@ -45,8 +57,8 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
+
   void login() async {
-  
     setState(() {
       _errorMessage = null;
     });
@@ -57,31 +69,32 @@ class _LoginPageState extends State<LoginPage> {
       _isLoading = true;
     });
 
-   
-    final error = await MockAuth.instance
+    final result = await MockAuth.instance
         .signInWithEmail(emailController.text.trim(), passwordController.text);
 
     setState(() {
       _isLoading = false;
     });
 
-    if (error == null) {
-     
+ 
+    if (result == "testUser1" || result == "testUser2") {
+      LoginUID.uid = result!;
+
       if (!mounted) return;
       Navigator.pushReplacementNamed(context, '/category');
-    } else {
-     
-      setState(() {
-        _errorMessage = error;
-      });
+    } 
+    else {
+      setState(() => _errorMessage = result);
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error)),
+          SnackBar(content: Text(result!)),
         );
       }
     }
   }
 
+  
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<Locale>(
@@ -129,8 +142,7 @@ class _LoginPageState extends State<LoginPage> {
                 ),
 
                 Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 30, vertical: 20),
+                  padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 20),
                   child: Form(
                     key: _formKey,
                     child: Column(
@@ -161,6 +173,7 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                         const SizedBox(height: 30),
 
+                        // Email
                         TextFormField(
                           controller: emailController,
                           decoration: InputDecoration(
@@ -182,6 +195,7 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                         const SizedBox(height: 20),
 
+                        // PASSWORD
                         TextFormField(
                           controller: passwordController,
                           obscureText: _obscurePassword,
@@ -227,13 +241,11 @@ class _LoginPageState extends State<LoginPage> {
                                     ? const CircularProgressIndicator()
                                     : ElevatedButton(
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor:
-                                              const Color(0xFF8A005D),
+                                          backgroundColor: const Color(0xFF8A005D),
                                           padding: const EdgeInsets.symmetric(
                                               horizontal: 40, vertical: 12),
                                           shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(30),
+                                            borderRadius: BorderRadius.circular(30),
                                           ),
                                         ),
                                         onPressed: login,
@@ -270,4 +282,3 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 }
-
