@@ -3,7 +3,6 @@ import 'app_locale.dart';
 import 'package:flutter_custom_clippers/flutter_custom_clippers.dart';
 import 'fake_uid.dart';
 
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 
@@ -31,7 +30,7 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  // ---------------- LOGIN FUNCTION ----------------
+ 
   void login() async {
     setState(() {
       _errorMessage = null;
@@ -52,14 +51,27 @@ class _LoginPageState extends State<LoginPage> {
       );
 
       User user = userCred.user!;
-
-  
       LoginUID.uid = user.uid;
 
-  
-      await FirebaseDatabase.instance.ref("users/${user.uid}").update({
+      final userRef =
+          FirebaseDatabase.instance.ref("users/${user.uid}");
+
+      
+      await userRef.update({
         "name": user.email!.split("@")[0],
         "email": user.email,
+      });
+
+     
+      await userRef.update({
+        "status": "online",
+        "lastSeen": ServerValue.timestamp,
+      });
+
+      // OFFLINE AUTOMATICALLY
+      userRef.onDisconnect().update({
+        "status": "offline",
+        "lastSeen": ServerValue.timestamp,
       });
 
       if (!mounted) return;
@@ -77,7 +89,6 @@ class _LoginPageState extends State<LoginPage> {
       setState(() => _isLoading = false);
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
