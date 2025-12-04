@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+/*import 'package:flutter/material.dart';
 import 'EquipmentItem.dart';
 
 final List<EquipmentItem> fakeDataList = [
@@ -230,4 +230,4 @@ final List<EquipmentItem> fakeDataList = [
 
 List<EquipmentItem> getAllEquipment() {
   return [...allEquipments, ...fakeDataList];
-}
+}*/

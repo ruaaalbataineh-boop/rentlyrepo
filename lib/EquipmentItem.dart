@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 
 enum Condition { newCondition, good, used }
@@ -7,14 +6,22 @@ enum ProductStatus { available, rented }
 
 class EquipmentItem {
   final String id;
+
+  // OWNER DATA
+  final String ownerUid;
+  final String ownerName;
+  final String? ownerPhoto;
+
   final List<String> categories;
   final String type;
   final String title;
+
   final double pricePerHour;
   final double? pricePerDay;
   final double? pricePerWeek;
   final double? pricePerMonth;
   final double? pricePerYear;
+
   final Condition condition;
   final RentalType rentalType;
   final IconData icon;
@@ -25,6 +32,7 @@ class EquipmentItem {
   int reviews;
   int likes;
   int rentedCount;
+
   final int releaseYear;
   final List<String> specs;
   final List<String> images;
@@ -39,6 +47,9 @@ class EquipmentItem {
 
   EquipmentItem({
     required this.id,
+    required this.ownerUid,
+    required this.ownerName,
+    this.ownerPhoto,
     required this.categories,
     required this.type,
     required this.title,
@@ -87,6 +98,9 @@ final List<EquipmentItem> allEquipments = [
 
   EquipmentItem(
     id: "1",
+    ownerUid: "user001",
+    ownerName: "Ahmad",
+    ownerPhoto: null,
     categories: ["Electronics", "Computers & Technology"],
     type: "Laptop",
     title: "Laptop",
@@ -110,9 +124,11 @@ final List<EquipmentItem> allEquipments = [
     status: ProductStatus.available,
   ),
 
-  
   EquipmentItem(
     id: "2",
+    ownerUid: "user002",
+    ownerName: "Omar",
+    ownerPhoto: null,
     categories: ["Sports & Camping", "Outdoor"],
     type: "Tent",
     title: "4-Person Camping Tent",
@@ -136,9 +152,11 @@ final List<EquipmentItem> allEquipments = [
     status: ProductStatus.available,
   ),
 
- 
   EquipmentItem(
     id: "3",
+    ownerUid: "user003",
+    ownerName: "Yousef",
+    ownerPhoto: null,
     categories: ["Tools & Equipment", "Garden & Home"],
     type: "Power Drill",
     title: "Bosch Power Drill",
@@ -162,9 +180,11 @@ final List<EquipmentItem> allEquipments = [
     status: ProductStatus.rented,
   ),
 
-
   EquipmentItem(
     id: "4",
+    ownerUid: "user004",
+    ownerName: "Sara",
+    ownerPhoto: null,
     categories: ["Tools & Equipment", "Garden & Home"],
     type: "Lawn Mower",
     title: "Electric Lawn Mower",
@@ -188,9 +208,11 @@ final List<EquipmentItem> allEquipments = [
     status: ProductStatus.available,
   ),
 
-  
   EquipmentItem(
     id: "5",
+    ownerUid: "user005",
+    ownerName: "Lina",
+    ownerPhoto: null,
     categories: ["Clothing & Fashion", "Formal Wear"],
     type: "Evening Dress",
     title: "Designer Evening Gown",
@@ -214,9 +236,11 @@ final List<EquipmentItem> allEquipments = [
     status: ProductStatus.available,
   ),
 
- 
   EquipmentItem(
     id: "6",
+    ownerUid: "user006",
+    ownerName: "Mohammad",
+    ownerPhoto: null,
     categories: ["Electronics", "Computers & Technology"],
     type: "Tablet",
     title: "iPad Pro 12.9-inch",
@@ -240,9 +264,11 @@ final List<EquipmentItem> allEquipments = [
     status: ProductStatus.available,
   ),
 
-  
   EquipmentItem(
     id: "7",
+    ownerUid: "user007",
+    ownerName: "Rania",
+    ownerPhoto: null,
     categories: ["Sports & Camping", "Fitness"],
     type: "Dumbbells",
     title: "Adjustable Dumbbells Set",
@@ -268,6 +294,9 @@ final List<EquipmentItem> allEquipments = [
 
   EquipmentItem(
     id: "8",
+    ownerUid: "user008",
+    ownerName: "Hani",
+    ownerPhoto: null,
     categories: ["Tools & Equipment", "Power Tools"],
     type: "Circular Saw",
     title: "Cordless Circular Saw",
@@ -291,9 +320,11 @@ final List<EquipmentItem> allEquipments = [
     status: ProductStatus.available,
   ),
 
-  
   EquipmentItem(
     id: "9",
+    ownerUid: "user009",
+    ownerName: "Majd",
+    ownerPhoto: null,
     categories: ["Clothing & Fashion", "Accessories"],
     type: "Designer Handbag",
     title: "Luxury Handbag",
@@ -317,9 +348,11 @@ final List<EquipmentItem> allEquipments = [
     status: ProductStatus.available,
   ),
 
- 
   EquipmentItem(
     id: "10",
+    ownerUid: "user010",
+    ownerName: "Fadi",
+    ownerPhoto: null,
     categories: ["Electronics", "Audio"],
     type: "Headphones",
     title: "Sony WH-1000XM4",
@@ -342,171 +375,6 @@ final List<EquipmentItem> allEquipments = [
     longitude: 35.92,
     status: ProductStatus.available,
   ),
-
-  EquipmentItem(
-    id: "11",
-    categories: ["Sports & Camping", "Cycling"],
-    type: "Mountain Bike",
-    title: "27-Speed Mountain Bike",
-    pricePerHour: 1.5,
-    pricePerDay: 18.0,
-    pricePerWeek: 110.0,
-    pricePerMonth: 380.0,
-    pricePerYear: 3000.0,
-    condition: Condition.good,
-    rentalType: RentalType.daily,
-    icon: Icons.directions_bike,
-    description: "Professional mountain bike for trail riding.",
-    specs: ["27 Speeds", "Aluminum Frame", "Disc Brakes", "Shock Absorber"],
-    images: [],
-    rating: 4.7,
-    reviews: 156,
-    likes: 134,
-    rentedCount: 78,
-    latitude: 31.994,
-    longitude: 35.960,
-    status: ProductStatus.available,
-  ),
-
- 
-  EquipmentItem(
-    id: "12",
-    categories: ["Tools & Equipment", "Garden & Home"],
-    type: "Pruning Shears",
-    title: "Professional Pruning Shears",
-    pricePerHour: 0.5,
-    pricePerDay: 6.0,
-    pricePerWeek: 35.0,
-    pricePerMonth: 120.0,
-    pricePerYear: 900.0,
-    condition: Condition.good,
-    rentalType: RentalType.daily,
-    icon: Icons.content_cut,
-    description: "Professional pruning shears for gardening.",
-    specs: ["Bypass Design", "Non-stick Coating", "Comfort Grip", "Sharp Blades"],
-    images: [],
-    rating: 4.3,
-    reviews: 45,
-    likes: 32,
-    rentedCount: 28,
-    latitude: 31.988,
-    longitude: 35.953,
-    status: ProductStatus.available,
-  ),
-
-  
-  EquipmentItem(
-    id: "13",
-    categories: ["Clothing & Fashion", "Formal Wear"],
-    type: "Suit",
-    title: "Business Suit",
-    pricePerHour: 2.5,
-    pricePerDay: 30.0,
-    pricePerWeek: 180.0,
-    pricePerMonth: 600.0,
-    pricePerYear: 4800.0,
-    condition: Condition.good,
-    rentalType: RentalType.daily,
-    icon: Icons.people,
-    description: "Professional business suit for meetings and interviews.",
-    specs: ["Size 42", "Wool Blend", "Dry Clean Only", "Includes Tie"],
-    images: [],
-    rating: 4.6,
-    reviews: 78,
-    likes: 89,
-    rentedCount: 45,
-    latitude: 32.012,
-    longitude: 35.980,
-    status: ProductStatus.available,
-  ),
-
-
-  EquipmentItem(
-    id: "14",
-    categories: ["Electronics", "Photography"],
-    type: "Camera",
-    title: "Camera Canon 250D",
-    pricePerHour: 3.0,
-    pricePerDay: 35.0,
-    pricePerWeek: 220.0,
-    pricePerMonth: 800.0,
-    pricePerYear: 7000.0,
-    condition: Condition.newCondition,
-    rentalType: RentalType.hourly,
-    icon: Icons.camera_alt,
-    description: "4K camera perfect for photography and video shooting.",
-    specs: ["4K Video", "24MP", "Touch Screen"],
-    images: [],
-    rating: 4.9,
-    reviews: 76,
-    likes: 140,
-    rentedCount: 63,
-    latitude: 31.95,
-    longitude: 35.91,
-    status: ProductStatus.rented,
-  ),
-
-  
-  EquipmentItem(
-    id: "15",
-    categories: ["Sports & Camping", "Water Sports"],
-    type: "Kayak",
-    title: "2-Person Inflatable Kayak",
-    pricePerHour: 2.0,
-    pricePerDay: 24.0,
-    pricePerWeek: 145.0,
-    pricePerMonth: 480.0,
-    pricePerYear: 3800.0,
-    condition: Condition.good,
-    rentalType: RentalType.daily,
-    icon: Icons.kayaking,
-    description: "Inflatable kayak for water adventures.",
-    specs: ["2-Person Capacity", "Includes Paddles", "Pump Included", "Carry Bag"],
-    images: [],
-    rating: 4.8,
-    reviews: 67,
-    likes: 56,
-    rentedCount: 34,
-    latitude: 31.996,
-    longitude: 35.962,
-    status: ProductStatus.available,
-  ),
 ];
 
 final DUMMY_EQUIPMENT = allEquipments;
-
-
-class EquipmentManager {
-  static List<EquipmentItem> getByCategory(String category) {
-    return allEquipments.where((item) => item.categories.contains(category)).toList();
-  }
-
-  static List<EquipmentItem> getByType(String type) {
-    return allEquipments.where((item) => item.type == type).toList();
-  }
-
-  static List<EquipmentItem> getAvailableItems() {
-    return allEquipments.where((item) => item.status == ProductStatus.available).toList();
-  }
-
-  static List<EquipmentItem> searchItems(String query) {
-    return allEquipments.where((item) =>
-        item.title.toLowerCase().contains(query.toLowerCase()) ||
-        item.description.toLowerCase().contains(query.toLowerCase()) ||
-        item.categories.any((category) => category.toLowerCase().contains(query.toLowerCase())))
-        .toList();
-  }
-
-  static List<EquipmentItem> getFavorites() {
-    return allEquipments.where((item) => item.isFavorite).toList();
-  }
-
-  static EquipmentItem? getById(String id) {
-    try {
-      return allEquipments.firstWhere((item) => item.id == id);
-    } catch (e) {
-      return null;
-    }
-  }
-}
-

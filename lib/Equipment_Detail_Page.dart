@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:p2/ChatScreen.dart';
 import 'Orders.dart';
 import 'EquipmentItem.dart';
 import 'Favourite.dart';
@@ -690,22 +691,47 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                             ),
                           ),
                         ),
-                        IconButton(
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Chat with owner of ${equipment.title}'),
-                                duration: const Duration(seconds: 2),
-                              ),
-                            );
-                          },
-                          icon: const Icon(
-                            Icons.help_outline,
-                            color: Color(0xFF8A005D),
-                            size: 28,
-                          ),
-                          tooltip: 'Ask the owner',
-                        ),
+                       IconButton(
+  onPressed: () {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text("Chat with Owner"),
+          content: const Text("Do you want to chat with the owner?"),
+          actions: [
+            TextButton(
+              child: const Text("No"),
+              onPressed: () => Navigator.pop(context),
+            ),
+            ElevatedButton(
+              child: const Text("Yes"),
+              onPressed: () {
+                Navigator.pop(context);
+
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ChatScreen(
+                      personName: equipment.ownerName,
+                      personUid: equipment.ownerUid,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        );
+      },
+    );
+  },
+  icon: const Icon(
+    Icons.help_outline,
+    color: Color(0xFF8A005D),
+    size: 28,
+  ),
+  tooltip: "Ask the owner",
+),
                       ],
                     ),
                     const SizedBox(height: 10),

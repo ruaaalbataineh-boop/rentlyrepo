@@ -22,17 +22,45 @@ class _ChatScreenState extends State<ChatScreen> {
   late String chatId;
   final database = FirebaseDatabase.instance;
 
+  Map<String, dynamic>? personData;
+
   @override
   void initState() {
     super.initState();
 
-    // Unique Chat ID
+    
     chatId = LoginUID.uid.compareTo(widget.personUid) > 0
         ? "${LoginUID.uid}-${widget.personUid}"
         : "${widget.personUid}-${LoginUID.uid}";
+
+    
+    database.ref("users/${widget.personUid}").onValue.listen((event) {
+      if (event.snapshot.value != null) {
+        setState(() {
+          personData =
+              Map<String, dynamic>.from(event.snapshot.value as Map);
+        });
+      }
+    });
   }
 
-  // ---------------- SEND MESSAGE ----------------
+  //  FORMAT TIME 
+  String formatTime(int timestamp) {
+    final t = DateTime.fromMillisecondsSinceEpoch(timestamp);
+
+    int hour = t.hour;
+    int minute = t.minute;
+
+    String ampm = hour >= 12 ? "PM" : "AM";
+    hour = hour % 12;
+    if (hour == 0) hour = 12;
+
+    String m = minute.toString().padLeft(2, '0');
+
+    return "$hour:$m $ampm";
+  }
+
+  // SEND MESSAGE
   void sendMessage() {
     if (messageController.text.trim().isEmpty) return;
 
@@ -52,7 +80,6 @@ class _ChatScreenState extends State<ChatScreen> {
     return Scaffold(
       appBar: AppBar(
         elevation: 0,
-        automaticallyImplyLeading: true,
         backgroundColor: Colors.transparent,
         iconTheme: const IconThemeData(color: Colors.white),
         flexibleSpace: Container(
@@ -67,17 +94,45 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ),
         ),
-        title: Text(
-          widget.personName,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
+
+        title: Row(
+          children: [
+            CircleAvatar(
+              radius: 20,
+              backgroundImage: personData?["photoUrl"] != null
+                  ? NetworkImage(personData!["photoUrl"])
+                  : null,
+              child: personData?["photoUrl"] == null
+                  ? const Icon(Icons.person, color: Colors.white)
+                  : null,
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  personData?["name"] ?? widget.personName,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  personData?["status"] ?? "offline",
+                  style: TextStyle(
+                    color: (personData?["status"] == "online")
+                        ? Colors.greenAccent
+                        : Colors.white70,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
 
-      // ---------------- BODY ----------------
+   
       body: Column(
         children: [
           Expanded(
@@ -87,19 +142,20 @@ class _ChatScreenState extends State<ChatScreen> {
                   .orderByChild("timestamp")
                   .onValue,
               builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting ||
-                    !snapshot.hasData ||
+                if (!snapshot.hasData ||
                     snapshot.data!.snapshot.value == null) {
                   return const Center(child: CircularProgressIndicator());
                 }
 
                 final rawData =
                     snapshot.data!.snapshot.value as Map<dynamic, dynamic>;
+
+           
                 final messages = rawData.entries.map((e) {
-                  final msg = Map<String, dynamic>.from(e.value);
-                  return msg;
+                  return Map<String, dynamic>.from(e.value);
                 }).toList();
 
+                
                 messages.sort(
                     (a, b) => a["timestamp"].compareTo(b["timestamp"]));
 
@@ -111,8 +167,9 @@ class _ChatScreenState extends State<ChatScreen> {
                     bool isMe = msg["sender"] == LoginUID.uid;
 
                     return Align(
-                      alignment:
-                          isMe ? Alignment.centerRight : Alignment.centerLeft,
+                      alignment: isMe
+                          ? Alignment.centerRight
+                          : Alignment.centerLeft,
                       child: Container(
                         margin: const EdgeInsets.symmetric(vertical: 5),
                         padding: const EdgeInsets.all(12),
@@ -122,9 +179,20 @@ class _ChatScreenState extends State<ChatScreen> {
                               : const Color.fromARGB(255, 142, 37, 81),
                           borderRadius: BorderRadius.circular(15),
                         ),
-                        child: Text(
-                          msg["text"],
-                          style: const TextStyle(color: Color.fromARGB(255, 255, 255, 255)),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              msg["text"],
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
+                              formatTime(msg["timestamp"]), 
+                              style: const TextStyle(
+                                  color: Colors.white70, fontSize: 10),
+                            )
+                          ],
                         ),
                       ),
                     );
@@ -134,7 +202,7 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ),
 
-          // ---------------- INPUT FIELD ----------------
+       
           Container(
             padding: const EdgeInsets.all(12),
             child: Row(
