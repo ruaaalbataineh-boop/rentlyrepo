@@ -82,9 +82,9 @@ class _OrdersPageState extends State<OrdersPage> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  buildTab(AppLocale.t('new_orders'), 0, screenWidth),
+                  buildTab(AppLocale.t('pending_orders'), 0, screenWidth),
                   SizedBox(width: isSmallScreen ? 20 : 40),
-                  buildTab(AppLocale.t('current_orders'), 1, screenWidth),
+                  buildTab(AppLocale.t('active_orders'), 1, screenWidth),
                   SizedBox(width: isSmallScreen ? 20 : 40),
                   buildTab(AppLocale.t('previous_orders'), 2, screenWidth),
                 ],
@@ -94,7 +94,6 @@ class _OrdersPageState extends State<OrdersPage> {
             ],
           ),
 
-          /// USE SHARED NAV
           bottomNavigationBar: const SharedBottomNav(currentIndex: 1),
         );
       },
@@ -140,10 +139,10 @@ class _OrdersPageState extends State<OrdersPage> {
     String emptyText;
 
     if (selectedTab == 0) {
-      items = OrdersManager.newOrders;
+      items = OrdersManager.pendingOrders;
       emptyText = AppLocale.t('no_new_orders');
     } else if (selectedTab == 1) {
-      items = OrdersManager.currentOrders;
+      items = OrdersManager.activeOrders;
       emptyText = AppLocale.t('no_current_orders');
     } else {
       items = OrdersManager.previousOrders;
@@ -232,22 +231,22 @@ class _OrdersPageState extends State<OrdersPage> {
 }
 
 class OrdersManager {
-  static final List<EquipmentItem> newOrders = [];
-  static final List<EquipmentItem> currentOrders = [];
+  static final List<EquipmentItem> pendingOrders = [];
+  static final List<EquipmentItem> activeOrders = [];
   static final List<EquipmentItem> previousOrders = [];
 
   static void addOrder(EquipmentItem item) {
-    if (!newOrders.contains(item)) {
-      newOrders.add(item);
+    if (!pendingOrders.contains(item)) {
+      pendingOrders.add(item);
     }
   }
 
   static void moveToCurrent(EquipmentItem item) {
-    if (newOrders.remove(item)) currentOrders.add(item);
+    if (pendingOrders.remove(item)) activeOrders.add(item);
   }
 
   static void moveToPrevious(EquipmentItem item) {
-    if (currentOrders.remove(item)) previousOrders.add(item);
+    if (activeOrders.remove(item)) previousOrders.add(item);
   }
 }
 

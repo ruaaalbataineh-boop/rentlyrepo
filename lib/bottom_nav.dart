@@ -11,7 +11,7 @@ class SharedBottomNav extends StatelessWidget {
   const SharedBottomNav({super.key, required this.currentIndex});
 
   void _navigate(BuildContext context, int index) {
-    if (index == currentIndex) return; // Prevent reloading same page
+    if (index == currentIndex) return;
 
     switch (index) {
       case 0:
