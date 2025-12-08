@@ -98,8 +98,8 @@ final List<EquipmentItem> allEquipments = [
 
   EquipmentItem(
     id: "1",
-    ownerUid: "user001",
-    ownerName: "Ahmad",
+    ownerUid: "iJ6LJ6sQPBblHXq29xGMNXQqt0h2",
+    ownerName: "",
     ownerPhoto: null,
     categories: ["Electronics", "Computers & Technology"],
     type: "Laptop",
@@ -124,10 +124,11 @@ final List<EquipmentItem> allEquipments = [
     status: ProductStatus.available,
   ),
 
+ 
   EquipmentItem(
     id: "2",
-    ownerUid: "user002",
-    ownerName: "Omar",
+    ownerUid: "GNsiZcg9HyZxtbADqyC8PeDnu8k2",
+    ownerName: "",
     ownerPhoto: null,
     categories: ["Sports & Camping", "Outdoor"],
     type: "Tent",
@@ -152,10 +153,11 @@ final List<EquipmentItem> allEquipments = [
     status: ProductStatus.available,
   ),
 
+ 
   EquipmentItem(
     id: "3",
-    ownerUid: "user003",
-    ownerName: "Yousef",
+    ownerUid: "iJ6LJ6sQPBblHXq29xGMNXQqt0h2",
+    ownerName: "",
     ownerPhoto: null,
     categories: ["Tools & Equipment", "Garden & Home"],
     type: "Power Drill",
@@ -180,10 +182,11 @@ final List<EquipmentItem> allEquipments = [
     status: ProductStatus.rented,
   ),
 
+  
   EquipmentItem(
     id: "4",
-    ownerUid: "user004",
-    ownerName: "Sara",
+    ownerUid: "GNsiZcg9HyZxtbADqyC8PeDnu8k2",
+    ownerName: "",
     ownerPhoto: null,
     categories: ["Tools & Equipment", "Garden & Home"],
     type: "Lawn Mower",
@@ -196,8 +199,8 @@ final List<EquipmentItem> allEquipments = [
     condition: Condition.good,
     rentalType: RentalType.daily,
     icon: Icons.grass,
-    description: "Lightweight electric lawn mower for small to medium gardens.",
-    specs: ["40cm Cutting Width", "Foldable Handle", "Grass Collector", "Adjustable Height"],
+    description: "Electric mower for medium gardens.",
+    specs: ["40cm Cutting Width", "Foldable Handle", "Grass Collector"],
     images: [],
     rating: 4.5,
     reviews: 92,
@@ -210,8 +213,8 @@ final List<EquipmentItem> allEquipments = [
 
   EquipmentItem(
     id: "5",
-    ownerUid: "user005",
-    ownerName: "Lina",
+    ownerUid: "iJ6LJ6sQPBblHXq29xGMNXQqt0h2",
+    ownerName: "",
     ownerPhoto: null,
     categories: ["Clothing & Fashion", "Formal Wear"],
     type: "Evening Dress",
@@ -224,8 +227,8 @@ final List<EquipmentItem> allEquipments = [
     condition: Condition.good,
     rentalType: RentalType.daily,
     icon: Icons.checkroom,
-    description: "Elegant designer evening dress for special occasions.",
-    specs: ["Size M", "Silk Material", "Dry Clean Only", "Gold Embellishments"],
+    description: "Elegant designer dress.",
+    specs: ["Size M", "Silk Material", "Dry Clean Only"],
     images: [],
     rating: 4.9,
     reviews: 145,
@@ -236,10 +239,11 @@ final List<EquipmentItem> allEquipments = [
     status: ProductStatus.available,
   ),
 
+ 
   EquipmentItem(
     id: "6",
-    ownerUid: "user006",
-    ownerName: "Mohammad",
+    ownerUid: "GNsiZcg9HyZxtbADqyC8PeDnu8k2",
+    ownerName: "",
     ownerPhoto: null,
     categories: ["Electronics", "Computers & Technology"],
     type: "Tablet",
@@ -252,8 +256,8 @@ final List<EquipmentItem> allEquipments = [
     condition: Condition.good,
     rentalType: RentalType.daily,
     icon: Icons.tablet,
-    description: "Professional tablet for design and creative work.",
-    specs: ["M1 Chip", "12.9-inch Display", "5G Support", "Apple Pencil Compatible"],
+    description: "Professional tablet.",
+    specs: ["M1 Chip", "12.9-inch", "5G"],
     images: [],
     rating: 4.8,
     reviews: 167,
@@ -264,10 +268,11 @@ final List<EquipmentItem> allEquipments = [
     status: ProductStatus.available,
   ),
 
+ 
   EquipmentItem(
     id: "7",
-    ownerUid: "user007",
-    ownerName: "Rania",
+    ownerUid: "iJ6LJ6sQPBblHXq29xGMNXQqt0h2",
+    ownerName: "",
     ownerPhoto: null,
     categories: ["Sports & Camping", "Fitness"],
     type: "Dumbbells",
@@ -280,7 +285,7 @@ final List<EquipmentItem> allEquipments = [
     condition: Condition.good,
     rentalType: RentalType.hourly,
     icon: Icons.fitness_center,
-    description: "Adjustable dumbbells 5–30kg.",
+    description: "Adjustable dumbbells.",
     specs: ["30KG Max", "Rubber Grip"],
     images: [],
     rating: 4.5,
@@ -292,10 +297,11 @@ final List<EquipmentItem> allEquipments = [
     status: ProductStatus.available,
   ),
 
+ 
   EquipmentItem(
     id: "8",
-    ownerUid: "user008",
-    ownerName: "Hani",
+    ownerUid: "GNsiZcg9HyZxtbADqyC8PeDnu8k2",
+    ownerName: "",
     ownerPhoto: null,
     categories: ["Tools & Equipment", "Power Tools"],
     type: "Circular Saw",
@@ -308,8 +314,8 @@ final List<EquipmentItem> allEquipments = [
     condition: Condition.good,
     rentalType: RentalType.daily,
     icon: Icons.cut,
-    description: "Powerful cordless circular saw for woodworking.",
-    specs: ["6.5-inch Blade", "Battery Included", "Laser Guide", "Safety Lock"],
+    description: "Cordless circular saw.",
+    specs: ["6.5-inch Blade", "Battery Included", "Laser Guide"],
     images: [],
     rating: 4.7,
     reviews: 78,
@@ -320,10 +326,11 @@ final List<EquipmentItem> allEquipments = [
     status: ProductStatus.available,
   ),
 
+
   EquipmentItem(
     id: "9",
-    ownerUid: "user009",
-    ownerName: "Majd",
+    ownerUid: "iJ6LJ6sQPBblHXq29xGMNXQqt0h2",
+    ownerName: "",
     ownerPhoto: null,
     categories: ["Clothing & Fashion", "Accessories"],
     type: "Designer Handbag",
@@ -336,8 +343,8 @@ final List<EquipmentItem> allEquipments = [
     condition: Condition.good,
     rentalType: RentalType.daily,
     icon: Icons.shopping_bag,
-    description: "Designer luxury handbag for events and special occasions.",
-    specs: ["Genuine Leather", "Gold Hardware", "Shoulder Strap", "Dust Bag Included"],
+    description: "Designer luxury handbag.",
+    specs: ["Leather", "Gold Hardware", "Shoulder Strap"],
     images: [],
     rating: 4.7,
     reviews: 98,
@@ -348,10 +355,11 @@ final List<EquipmentItem> allEquipments = [
     status: ProductStatus.available,
   ),
 
+ 
   EquipmentItem(
     id: "10",
-    ownerUid: "user010",
-    ownerName: "Fadi",
+    ownerUid: "GNsiZcg9HyZxtbADqyC8PeDnu8k2",
+    ownerName: "",
     ownerPhoto: null,
     categories: ["Electronics", "Audio"],
     type: "Headphones",
@@ -364,7 +372,7 @@ final List<EquipmentItem> allEquipments = [
     condition: Condition.good,
     rentalType: RentalType.hourly,
     icon: Icons.headphones,
-    description: "Noise cancelling headphones with high sound quality.",
+    description: "Noise cancelling headphones.",
     specs: ["Noise Canceling", "Bluetooth 5.0", "30h Battery"],
     images: [],
     rating: 4.8,
