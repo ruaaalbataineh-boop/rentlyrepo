@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:p2/AddItemPage%20.dart';
 import 'package:p2/Chats_Page.dart';
@@ -13,6 +12,7 @@ import 'Favourite.dart';
 import 'Coupons.dart';
 import 'About App.dart';
 import 'Remove Account.dart';
+import 'bottom_nav.dart';
 
 class SettingPage extends StatefulWidget {
   const SettingPage({super.key});
@@ -24,7 +24,6 @@ class SettingPage extends StatefulWidget {
 class _SettingPageState extends State<SettingPage> {
   bool muteNotifications = false;
   bool appAppearance = false;
-  int selectedBottom = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -138,7 +137,8 @@ class _SettingPageState extends State<SettingPage> {
                     ListTile(
                       leading: CircleAvatar(
                         backgroundColor: Colors.grey[300],
-                        child: const Icon(Icons.headset_mic, color: Colors.black),
+                        child: const Icon(Icons.headset_mic,
+                            color: Colors.black),
                       ),
                       title: Text(AppLocale.t('support_help')),
                       onTap: () {
@@ -210,14 +210,14 @@ class _SettingPageState extends State<SettingPage> {
                       secondary: CircleAvatar(
                         backgroundColor: Colors.grey[300],
                         child:
-                            const Icon(Icons.brightness_4, color: Colors.black),
+                        const Icon(Icons.brightness_4, color: Colors.black),
                       ),
                     ),
                     ListTile(
                       leading: CircleAvatar(
                         backgroundColor: Colors.grey[300],
                         child:
-                            const Icon(Icons.delete_forever, color: Colors.black),
+                        const Icon(Icons.delete_forever, color: Colors.black),
                       ),
                       title: Text(AppLocale.t('remove_account')),
                       onTap: () {
@@ -239,7 +239,7 @@ class _SettingPageState extends State<SettingPage> {
                           context,
                           MaterialPageRoute(
                               builder: (context) =>
-                                  const LogoutConfirmationPage()),
+                              const LogoutConfirmationPage()),
                         );
                       },
                     ),
@@ -248,86 +248,11 @@ class _SettingPageState extends State<SettingPage> {
               ),
             ],
           ),
-          bottomNavigationBar: Container(
-            height: 70,
-            decoration: const BoxDecoration(
-              color: Color(0xFF1B2230),
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(25),
-                topRight: Radius.circular(25),
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                buildBottomIcon(Icons.settings, 0),
-                buildBottomIcon(Icons.inventory_2_outlined, 1),
-                buildBottomIcon(Icons.add, 2),
-                buildBottomIcon(Icons.chat_bubble_outline, 3),
-                buildBottomIcon(Icons.home_outlined, 4),
-              ],
-            ),
-          ),
+
+          /// USE SHARED NAV
+          bottomNavigationBar: const SharedBottomNav(currentIndex: 0),
         );
       },
-    );
-  }
-
-  Widget buildBottomIcon(IconData icon, int index) {
-    bool active = selectedBottom == index;
-
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          selectedBottom = index;
-        });
-
-        if (index == 1) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const OrdersPage()),
-          );
-        } else if (index == 2) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const AddItemPage(item: null)),
-          );
-        } else if (index == 3) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const ChatsPage()),
-          );
-        } else if (index == 4) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const CategoryPage()),
-          );
-        }
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeOut,
-        margin: EdgeInsets.only(bottom: active ? 8 : 0),
-        padding: const EdgeInsets.all(12),
-        decoration: active
-            ? BoxDecoration(
-                color: Colors.grey[300],
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.15),
-                    blurRadius: 6,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              )
-            : null,
-        child: Icon(
-          icon,
-          size: active ? 32 : 26,
-          color: active ? Colors.black : Colors.white70,
-        ),
-      ),
     );
   }
 }

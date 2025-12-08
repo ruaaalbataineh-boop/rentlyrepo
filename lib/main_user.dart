@@ -68,6 +68,7 @@ class MyApp extends StatelessWidget {
           ],
 
           home: const RentlyApp(),
+
           routes: {
             '/login': (context) => const LoginPage(),
             '/create': (context) => const CreateAccountPage(),
@@ -77,12 +78,11 @@ class MyApp extends StatelessWidget {
             '/setting': (context) => const SettingPage(),
             '/payment': (context) => const PaymentPage(),
             '/category': (context) => const CategoryPage(),
-          
             '/favorites': (context) => const FavouritePage(),
             '/cardPayment': (context) => const CardPaymentPage(),
-          
             '/wallet': (context) => const WalletPage(),
            },
+
           onGenerateRoute: (settings) {
            
             if (settings.name == CategoryEquipmentPage.routeName) {
@@ -143,49 +143,12 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class MainPage extends StatefulWidget {
+class MainPage extends StatelessWidget {
   const MainPage({super.key});
 
   @override
-  State<MainPage> createState() => _MainPageState();
-}
-
-class _MainPageState extends State<MainPage> {
-  int _selectedIndex = 0;
-
-  final List<Widget> _pages = const [
-    OrdersPage(),
-    SettingPage(),
-  ];
-
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: _pages[_selectedIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: const Color(0xFF1B2230),
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.white70,
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        items: [
-          BottomNavigationBarItem(
-            icon: const Icon(Icons.inventory_2_outlined),
-            label: AppLocale.t('orders'),
-          ),
-          BottomNavigationBarItem(
-            icon: const Icon(Icons.settings),
-            label: AppLocale.t('settings'),
-          ),
-        ],
-      ),
-    );
+    return const CategoryPage();
   }
 }
 

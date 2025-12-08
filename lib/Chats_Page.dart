@@ -1,4 +1,3 @@
-
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'ChatScreen.dart';
@@ -6,6 +5,8 @@ import 'Categories_Page.dart';
 import 'Orders.dart';
 import 'Setting.dart';
 import 'fake_uid.dart';
+import 'AddItemPage .dart';
+import 'bottom_nav.dart';
 
 class ChatsPage extends StatefulWidget {
   const ChatsPage({super.key});
@@ -17,10 +18,8 @@ class ChatsPage extends StatefulWidget {
 class _ChatsPageState extends State<ChatsPage> {
   int selectedBottom = 3;
 
-  // TIME FORMAT 
   String formatTime(int timestamp) {
     final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
-
     int hour = date.hour;
     int minute = date.minute;
 
@@ -46,7 +45,9 @@ class _ChatsPageState extends State<ChatsPage> {
           Expanded(child: _usersList()),
         ],
       ),
-      bottomNavigationBar: _bottomNav(),
+
+      /// USE SHARED NAV
+      bottomNavigationBar: const SharedBottomNav(currentIndex: 3),
     );
   }
 
@@ -74,7 +75,6 @@ class _ChatsPageState extends State<ChatsPage> {
     );
   }
 
-
   Widget _searchBar() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -94,7 +94,6 @@ class _ChatsPageState extends State<ChatsPage> {
     );
   }
 
- 
   Widget _usersList() {
     return StreamBuilder(
       stream: FirebaseDatabase.instance.ref("users").onValue,
@@ -110,12 +109,8 @@ class _ChatsPageState extends State<ChatsPage> {
 
         List<Map<String, dynamic>> users = data.entries.map((e) {
           final userData = Map<String, dynamic>.from(e.value);
-          return {
-            "id": e.key,
-            "name": userData["name"],
-          };
+          return {"id": e.key, "name": userData["name"]};
         }).toList();
-        
 
         users = users.where((u) => u["id"] != LoginUID.uid).toList();
 
@@ -125,8 +120,8 @@ class _ChatsPageState extends State<ChatsPage> {
           itemBuilder: (context, index) {
             var user = users[index];
 
-            
-            String chatId = LoginUID.uid.compareTo(user["id"]) > 0
+            String chatId =
+            LoginUID.uid.compareTo(user["id"]) > 0
                 ? "${LoginUID.uid}-${user["id"]}"
                 : "${user["id"]}-${LoginUID.uid}";
 
@@ -142,10 +137,9 @@ class _ChatsPageState extends State<ChatsPage> {
 
                 if (msgSnap.hasData &&
                     msgSnap.data!.snapshot.value != null) {
-                  final msgRaw =
-                      msgSnap.data!.snapshot.value as Map<dynamic, dynamic>;
+                  final msgRaw = msgSnap.data!.snapshot.value as Map;
                   final msgMap =
-                      Map<String, dynamic>.from(msgRaw.values.first);
+                  Map<String, dynamic>.from(msgRaw.values.first);
 
                   lastMsg = msgMap["text"] ?? "";
                   lastTime = formatTime(msgMap["timestamp"]);
@@ -173,21 +167,16 @@ class _ChatsPageState extends State<ChatsPage> {
                     ),
                     child: Row(
                       children: [
-                        
                         const CircleAvatar(
                           radius: 26,
                           backgroundColor: Colors.grey,
                           child: Icon(Icons.person, color: Colors.white),
                         ),
-
                         const SizedBox(width: 12),
-
-                        
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // NAME
                               Text(
                                 user["name"],
                                 style: const TextStyle(
@@ -196,15 +185,11 @@ class _ChatsPageState extends State<ChatsPage> {
                                   color: Colors.black,
                                 ),
                               ),
-
                               const SizedBox(height: 6),
-
-                              // LAST MESSAGE , TIME 
                               Row(
                                 mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
+                                MainAxisAlignment.spaceBetween,
                                 children: [
-                                
                                   Expanded(
                                     child: Text(
                                       lastMsg,
@@ -216,10 +201,7 @@ class _ChatsPageState extends State<ChatsPage> {
                                       ),
                                     ),
                                   ),
-
                                   const SizedBox(width: 8),
-
-                                  
                                   Text(
                                     lastTime,
                                     style: TextStyle(
@@ -241,61 +223,6 @@ class _ChatsPageState extends State<ChatsPage> {
           },
         );
       },
-    );
-  }
-
-    Widget _bottomNav() {
-    return Container(
-      height: 70,
-      decoration: const BoxDecoration(
-        color: Color(0xFF1B2230),
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(25),
-          topRight: Radius.circular(25),
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _navIcon(Icons.settings, 0, const SettingPage()),
-          _navIcon(Icons.inventory_2_outlined, 1, const OrdersPage()),
-          _navIcon(Icons.add, 2, null),
-          _navIcon(Icons.chat_bubble_outline, 3, const ChatsPage()),
-          _navIcon(Icons.home_outlined, 4, const CategoryPage()),
-        ],
-      ),
-    );
-  }
-
-  Widget _navIcon(IconData icon, int index, Widget? page) {
-    bool active = selectedBottom == index;
-
-    return GestureDetector(
-      onTap: () {
-        setState(() => selectedBottom = index);
-        if (page != null) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => page),
-          );
-        }
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        margin: EdgeInsets.only(bottom: active ? 8 : 0),
-        padding: const EdgeInsets.all(12),
-        decoration: active
-            ? BoxDecoration(
-                color: Colors.grey[300],
-                shape: BoxShape.circle,
-              )
-            : null,
-        child: Icon(
-          icon,
-          size: active ? 32 : 26,
-          color: active ? Colors.white : Colors.white70,
-        ),
-      ),
     );
   }
 }
