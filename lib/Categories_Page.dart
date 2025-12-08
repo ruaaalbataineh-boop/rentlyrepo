@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:p2/AddItemPage%20.dart';
+import 'package:p2/AddItemPage .dart';
 import 'Category_Equipment_Page.dart';
-import 'Chats_Page.dart';
-import 'Orders.dart';
-import 'Setting.dart';
 import 'bottom_nav.dart';
 
 class EquipmentCategory {
@@ -20,13 +17,42 @@ class EquipmentCategory {
   });
 }
 
-final DUMMY_CATEGORIES = [
-  EquipmentCategory(id: 'c1', title: 'Electronics', icon: Icons.electrical_services),
-  EquipmentCategory(id: 'c2', title: 'Computers & Technology', icon: Icons.laptop),
-  EquipmentCategory(id: 'c3', title: 'Sports & Camping', icon: Icons.directions_bike),
-  EquipmentCategory(id: 'c4', title: 'Tools & Equipment', icon: Icons.build),
-  EquipmentCategory(id: 'c5', title: 'Garden & Home', icon: Icons.grass),
-  EquipmentCategory(id: 'c6', title: 'Clothing & Fashion', icon: Icons.checkroom),
+final CATEGORY_LIST = [
+  EquipmentCategory(
+    id: 'c1',
+    title: 'Electronics',
+    icon: Icons.electrical_services,
+  ),
+  EquipmentCategory(
+    id: 'c2',
+    title: 'Computers & Mobiles',
+    icon: Icons.devices_other,
+  ),
+  EquipmentCategory(
+    id: 'c3',
+    title: 'Video Games',
+    icon: Icons.sports_esports,
+  ),
+  EquipmentCategory(
+    id: 'c4',
+    title: 'Sports',
+    icon: Icons.directions_bike,
+  ),
+  EquipmentCategory(
+    id: 'c5',
+    title: 'Tools & Devices',
+    icon: Icons.handyman,
+  ),
+  EquipmentCategory(
+    id: 'c6',
+    title: 'Home & Garden',
+    icon: Icons.grass,
+  ),
+  EquipmentCategory(
+    id: 'c7',
+    title: 'Fashion & Clothing',
+    icon: Icons.checkroom,
+  ),
 ];
 
 class CategoryPage extends StatefulWidget {
@@ -41,7 +67,7 @@ class _CategoryPageState extends State<CategoryPage> {
 
   @override
   Widget build(BuildContext context) {
-    final filteredCategories = DUMMY_CATEGORIES.where((cat) {
+    final filteredCategories = CATEGORY_LIST.where((cat) {
       return cat.title.toLowerCase().contains(searchQuery.toLowerCase());
     }).toList();
 
@@ -71,6 +97,7 @@ class _CategoryPageState extends State<CategoryPage> {
               ),
             ),
           ),
+
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             child: TextField(
@@ -91,46 +118,58 @@ class _CategoryPageState extends State<CategoryPage> {
               },
             ),
           ),
+
           Expanded(
             child: GridView.builder(
-                    padding: const EdgeInsets.all(12),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
+              padding: const EdgeInsets.all(12),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+              ),
+              itemCount: filteredCategories.length,
+              itemBuilder: (ctx, index) {
+                final category = filteredCategories[index];
+
+                return InkWell(
+                  onTap: () {
+                    Navigator.of(context).pushNamed(
+                      CategoryEquipmentPage.routeName,
+                      arguments: {
+                        'id': category.id,
+                        'title': category.title,
+                      },
+                    );
+                  },
+                  child: Card(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
                     ),
-                    itemCount: filteredCategories.length,
-                    itemBuilder: (ctx, index) {
-                      final category = filteredCategories[index];
-                      return InkWell(
-                        onTap: () {
-                          Navigator.of(context).pushNamed(
-                            CategoryEquipmentPage.routeName,
-                            arguments: {'id': category.id, 'title': category.title},
-                          );
-                        },
-                        child: Card(
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                          elevation: 4,
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(category.icon, size: 60, color: const Color(0xFF8A005D)),
-                              const SizedBox(height: 10),
-                              Text(
-                                category.title,
-                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
+                    elevation: 4,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(category.icon,
+                            size: 60, color: const Color(0xFF8A005D)),
+                        const SizedBox(height: 10),
+                        Text(
+                          category.title,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
                           ),
+                          textAlign: TextAlign.center,
                         ),
-                      );
-                    },
+                      ],
+                    ),
                   ),
+                );
+              },
+            ),
           ),
         ],
       ),
+
       bottomNavigationBar: const SharedBottomNav(currentIndex: 2),
     );
   }
