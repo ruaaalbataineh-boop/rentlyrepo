@@ -21,7 +21,7 @@ final CATEGORY_LIST = [
   EquipmentCategory(
     id: 'c1',
     title: 'Electronics',
-    icon: Icons.electrical_services,
+    icon: Icons.headphones,
   ),
   EquipmentCategory(
     id: 'c2',
