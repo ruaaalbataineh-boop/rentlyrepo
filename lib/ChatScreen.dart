@@ -18,59 +18,81 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController messageController = TextEditingController();
+  final db = FirebaseDatabase.instance;
 
   late String chatId;
-  final database = FirebaseDatabase.instance;
-
   Map<String, dynamic>? personData;
 
   @override
   void initState() {
     super.initState();
 
-    
     chatId = LoginUID.uid.compareTo(widget.personUid) > 0
         ? "${LoginUID.uid}-${widget.personUid}"
         : "${widget.personUid}-${LoginUID.uid}";
 
     
-    database.ref("users/${widget.personUid}").onValue.listen((event) {
+    db.ref("users/${widget.personUid}").onValue.listen((event) {
       if (event.snapshot.value != null) {
         setState(() {
-          personData =
-              Map<String, dynamic>.from(event.snapshot.value as Map);
+          personData = Map<String, dynamic>.from(event.snapshot.value as Map);
         });
       }
     });
   }
 
-  //  FORMAT TIME 
   String formatTime(int timestamp) {
     final t = DateTime.fromMillisecondsSinceEpoch(timestamp);
-
-    int hour = t.hour;
-    int minute = t.minute;
-
-    String ampm = hour >= 12 ? "PM" : "AM";
-    hour = hour % 12;
-    if (hour == 0) hour = 12;
-
-    String m = minute.toString().padLeft(2, '0');
-
-    return "$hour:$m $ampm";
+    int h = t.hour;
+    int m = t.minute;
+    String ampm = h >= 12 ? "PM" : "AM";
+    h = h % 12;
+    if (h == 0) h = 12;
+    return "$h:${m.toString().padLeft(2, '0')} $ampm";
   }
 
-  // SEND MESSAGE
-  void sendMessage() {
+  Future<void> createChatIfNotExists(String msg) async {
+    final chatRef = db.ref("chats/$chatId");
+
+    final snapshot = await chatRef.get();
+    int now = DateTime.now().millisecondsSinceEpoch;
+
+    String user1 = LoginUID.uid.compareTo(widget.personUid) > 0
+        ? LoginUID.uid
+        : widget.personUid;
+
+    String user2 = LoginUID.uid.compareTo(widget.personUid) > 0
+        ? widget.personUid
+        : LoginUID.uid;
+
+    if (!snapshot.exists) {
+      await chatRef.set({
+        "user1": user1,
+        "user2": user2,
+        "lastMessage": msg,
+        "timestamp": now,
+      });
+    } else {
+      await chatRef.update({
+        "lastMessage": msg,
+        "timestamp": now,
+      });
+    }
+  }
+
+  void sendMessage() async {
     if (messageController.text.trim().isEmpty) return;
 
-    final msg = {
-      "sender": LoginUID.uid,
-      "text": messageController.text.trim(),
-      "timestamp": DateTime.now().millisecondsSinceEpoch,
-    };
+    String text = messageController.text.trim();
+    int now = DateTime.now().millisecondsSinceEpoch;
 
-    database.ref("messages/$chatId").push().set(msg);
+    await db.ref("messages/$chatId").push().set({
+      "sender": LoginUID.uid,
+      "text": text,
+      "timestamp": now,
+    });
+
+    await createChatIfNotExists(text);
 
     messageController.clear();
   }
@@ -85,113 +107,74 @@ class _ChatScreenState extends State<ChatScreen> {
         flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              colors: [
-                Color(0xFF1F0F46),
-                Color(0xFF8A005D),
-              ],
+              colors: [Color(0xFF1F0F46), Color(0xFF8A005D)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
           ),
         ),
-
         title: Row(
           children: [
             CircleAvatar(
               radius: 20,
+              child: personData?["photoUrl"] == null
+                  ? const Icon(Icons.person)
+                  : null,
               backgroundImage: personData?["photoUrl"] != null
                   ? NetworkImage(personData!["photoUrl"])
                   : null,
-              child: personData?["photoUrl"] == null
-                  ? const Icon(Icons.person, color: Colors.white)
-                  : null,
             ),
             const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  personData?["name"] ?? widget.personName,
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  personData?["status"] ?? "offline",
-                  style: TextStyle(
-                    color: (personData?["status"] == "online")
-                        ? Colors.greenAccent
-                        : Colors.white70,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
+
+          
+            Text(
+              personData?["name"] ?? "User",
+              style: const TextStyle(color: Colors.white),
             ),
           ],
         ),
       ),
 
-   
       body: Column(
         children: [
           Expanded(
             child: StreamBuilder(
-              stream: database
-                  .ref("messages/$chatId")
-                  .orderByChild("timestamp")
-                  .onValue,
+              stream: db.ref("messages/$chatId").orderByChild("timestamp").onValue,
               builder: (context, snapshot) {
                 if (!snapshot.hasData ||
                     snapshot.data!.snapshot.value == null) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const Center(child: Text("No messages yet"));
                 }
 
-                final rawData =
-                    snapshot.data!.snapshot.value as Map<dynamic, dynamic>;
-
-           
-                final messages = rawData.entries.map((e) {
-                  return Map<String, dynamic>.from(e.value);
-                }).toList();
-
-                
-                messages.sort(
-                    (a, b) => a["timestamp"].compareTo(b["timestamp"]));
+                final raw = snapshot.data!.snapshot.value as Map;
+                final messages = raw.entries
+                    .map((e) => Map<String, dynamic>.from(e.value))
+                    .toList()
+                  ..sort((a, b) => a["timestamp"].compareTo(b["timestamp"]));
 
                 return ListView.builder(
                   padding: const EdgeInsets.all(12),
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
-                    var msg = messages[index];
+                    final msg = messages[index];
                     bool isMe = msg["sender"] == LoginUID.uid;
 
                     return Align(
-                      alignment: isMe
-                          ? Alignment.centerRight
-                          : Alignment.centerLeft,
+                      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
                       child: Container(
-                        margin: const EdgeInsets.symmetric(vertical: 5),
                         padding: const EdgeInsets.all(12),
+                        margin: const EdgeInsets.symmetric(vertical: 5),
                         decoration: BoxDecoration(
-                          color: isMe
-                              ? const Color.fromARGB(255, 45, 34, 142)
-                              : const Color.fromARGB(255, 142, 37, 81),
-                          borderRadius: BorderRadius.circular(15),
+                          color: isMe ? Colors.deepPurple : Colors.pink.shade600,
+                          borderRadius: BorderRadius.circular(14),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            Text(
-                              msg["text"],
-                              style: const TextStyle(color: Colors.white),
-                            ),
-                            const SizedBox(height: 5),
-                            Text(
-                              formatTime(msg["timestamp"]), 
-                              style: const TextStyle(
-                                  color: Colors.white70, fontSize: 10),
-                            )
+                            Text(msg["text"], style: const TextStyle(color: Colors.white)),
+                            const SizedBox(height: 4),
+                            Text(formatTime(msg["timestamp"]),
+                                style: const TextStyle(color: Colors.white70, fontSize: 10)),
                           ],
                         ),
                       ),
@@ -202,7 +185,6 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ),
 
-       
           Container(
             padding: const EdgeInsets.all(12),
             child: Row(
@@ -222,7 +204,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 )
               ],
             ),
-          )
+          ),
         ],
       ),
     );
