@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:p2/AddItemPage .dart';
+import 'package:p2/sub_category_page.dart';
 import 'Category_Equipment_Page.dart';
 import 'bottom_nav.dart';
 
@@ -35,7 +36,7 @@ final CATEGORY_LIST = [
   ),
   EquipmentCategory(
     id: 'c4',
-    title: 'Sports',
+    title: 'Sports and hobbies',
     icon: Icons.directions_bike,
   ),
   EquipmentCategory(
@@ -133,12 +134,14 @@ class _CategoryPageState extends State<CategoryPage> {
 
                 return InkWell(
                   onTap: () {
-                    Navigator.of(context).pushNamed(
-                      CategoryEquipmentPage.routeName,
-                      arguments: {
-                        'id': category.id,
-                        'title': category.title,
-                      },
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => SubCategoryPage(
+                          categoryId: category.id,
+                          categoryTitle: category.title,
+                        ),
+                      ),
                     );
                   },
                   child: Card(

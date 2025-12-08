@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-
+import 'sub_category_page.dart';
 import 'package:p2/EquipmentItem.dart';
 import 'Categories_Page.dart';
 import 'PaymentPage.dart';
@@ -84,13 +84,6 @@ class MyApp extends StatelessWidget {
            },
 
           onGenerateRoute: (settings) {
-           
-            if (settings.name == CategoryEquipmentPage.routeName) {
-              return MaterialPageRoute(
-                builder: (context) => const CategoryEquipmentPage(),
-                settings: settings,
-              );
-            }
 
             if (settings.name == ProductListPage.routeName) {
               return MaterialPageRoute(
@@ -99,7 +92,6 @@ class MyApp extends StatelessWidget {
               );
             }
 
-          
             if (settings.name == EquipmentDetailPage.routeName) {
               
               final equipment = settings.arguments as EquipmentItem?;

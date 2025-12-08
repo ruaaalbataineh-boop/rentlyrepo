@@ -1,7 +1,7 @@
 
 
 
-import 'package:flutter/material.dart';
+/*import 'package:flutter/material.dart';
 import 'package:p2/EquipmentItem.dart';
 import 'ProductListPage.dart';
 
@@ -27,7 +27,7 @@ class _CategoryEquipmentPageState extends State<CategoryEquipmentPage> {
 
   
     final allItems = allEquipments
-        .where((eq) => eq.categories.any(
+        .where((eq) => eq.category.any(
               (cat) => cat.toLowerCase() == categoryTitle.toLowerCase(),
             ))
         .toList();
@@ -190,3 +190,4 @@ class SideCurveClipper extends CustomClipper<Path> {
 }
 
 
+*/
