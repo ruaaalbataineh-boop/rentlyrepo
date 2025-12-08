@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:p2/ChatScreen.dart';
-import 'package:p2/services/firestore_service.dart';
+import 'package:p2/fake_uid.dart';
 import 'Orders.dart';
 import 'EquipmentItem.dart';
 import 'Favourite.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
 
 class EquipmentDetailPage extends StatefulWidget {
   static const routeName = '/product-details';
@@ -16,6 +19,39 @@ class EquipmentDetailPage extends StatefulWidget {
 }
 
 class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
+ 
+        String ownerNameFromDB = "Loading...";
+        bool isLoadingOwner = true;
+
+        void fetchOwnerName(String ownerUid) async {
+          final ref = FirebaseDatabase.instance.ref("users/$ownerUid/name");
+
+          final snapshot = await ref.get();
+          if (snapshot.exists) {
+            setState(() {
+              ownerNameFromDB = snapshot.value.toString();
+              isLoadingOwner = false;
+            });
+          } else {
+            setState(() {
+              ownerNameFromDB = "Owner";
+              isLoadingOwner = false;
+            });
+          }
+        }
+
+        @override
+        void initState() {
+          super.initState();
+
+          Future.delayed(const Duration(milliseconds: 200), () {
+            final equipment = ModalRoute.of(context)?.settings.arguments as EquipmentItem?;
+            if (equipment != null) {
+              fetchOwnerName(equipment.ownerUid);
+            }
+          });
+        }
+ 
   bool isFavoritePressed = false;
   int _currentPage = 0;
   
@@ -692,47 +728,51 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                             ),
                           ),
                         ),
-                       IconButton(
-  onPressed: () {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text("Chat with Owner"),
-          content: const Text("Do you want to chat with the owner?"),
-          actions: [
-            TextButton(
-              child: const Text("No"),
-              onPressed: () => Navigator.pop(context),
-            ),
-            ElevatedButton(
-              child: const Text("Yes"),
-              onPressed: () {
-                Navigator.pop(context);
+ //  hide ? icon 
+if (LoginUID.uid != equipment.ownerUid)
+  IconButton(
+    onPressed: () {
+      showDialog(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text("Chat with Owner"),
+            content: const Text("Do you want to chat with the owner?"),
+            actions: [
+              TextButton(
+                child: const Text("No"),
+                onPressed: () => Navigator.pop(context),
+              ),
+              ElevatedButton(
+                child: const Text("Yes"),
+                onPressed: () {
+                  Navigator.pop(context);
 
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ChatScreen(
-                      personName: equipment.ownerName,
-                      personUid: equipment.ownerUid,
+                  // فتح شاشة الشات فقط بدون إنشاء chat مسبقاً
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ChatScreen(
+                        personName: equipment.ownerName,
+                        personUid: equipment.ownerUid,
+                      ),
                     ),
-                  ),
-                );
-              },
-            ),
-          ],
-        );
-      },
-    );
-  },
-  icon: const Icon(
-    Icons.help_outline,
-    color: Color(0xFF8A005D),
-    size: 28,
+                  );
+                },
+              ),
+            ],
+          );
+        },
+      );
+    },
+    icon: const Icon(
+      Icons.help_outline,
+      color: Color(0xFF8A005D),
+      size: 28,
+    ),
+    tooltip: "Ask the owner",
   ),
-  tooltip: "Ask the owner",
-),
+
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -1138,94 +1178,44 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                     
                     const SizedBox(height: 20),
 
-            ElevatedButton(
-              onPressed: _isSelectionComplete() &&
-                  pickupTime != null &&
-                  isValidRentalType &&
-                  totalPrice > 0
-                  ? () async {
-                try {
-                  String startDateStr = startDate != null
-                      ? DateFormat('yyyy-MM-dd').format(startDate!)
-                      : "";
-
-                  String endDateStr = endDate != null
-                      ? DateFormat('yyyy-MM-dd').format(endDate!)
-                      : "";
-
-                  String? startTimeStr =
-                  startTime != null ? startTime!.format(context) : null;
-
-                  String? endTimeStr =
-                  endTime != null ? endTime!.format(context) : null;
-
-                  await FirestoreService.createRentalRequest(
-                    itemId: equipment.id,
-                    itemTitle: equipment.title,
-                    itemOwnerUid: equipment.ownerUid,
-                    rentalType: selectedRentalType.name,
-                    startDate: startDateStr,
-                    endDate: endDateStr,
-                    startTime: startTimeStr,
-                    endTime: endTimeStr,
-                    pickupTime: pickupTime!,
-                    totalPrice: totalPrice,
-                  );
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content:
-                      Text('${equipment.title} rental request submitted'),
-                      duration: const Duration(seconds: 2),
+                    ElevatedButton(
+                      onPressed: _isSelectionComplete() && pickupTime != null && isValidRentalType && totalPrice > 0 ? () {
+                        OrdersManager.addOrder(equipment);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content:
+                                Text('${equipment.title} added to Orders'),
+                            duration: const Duration(seconds: 1),
+                          ),
+                        );
+                        Future.delayed(
+                            const Duration(milliseconds: 300), () {
+                          Navigator.pushNamed(context, '/orders');
+                        });
+                      } : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _isSelectionComplete() && pickupTime != null && isValidRentalType && totalPrice > 0
+                            ? const Color(0xFF8A005D) 
+                            : Colors.grey[400],
+                        minimumSize: const Size(double.infinity, 54),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                      ),
+                      child: Text(
+                        _isSelectionComplete() && pickupTime != null && isValidRentalType && totalPrice > 0
+                            ? "Rent Now (JOD ${totalPrice.toStringAsFixed(2)})" 
+                            : "Select all options to rent",
+                        style: TextStyle(
+                          fontSize: 18, 
+                          fontWeight: FontWeight.bold,
+                          color: _isSelectionComplete() && pickupTime != null && isValidRentalType && totalPrice > 0
+                              ? Colors.white 
+                              : Colors.grey[700],
+                        ),
+                      ),
                     ),
-                  );
-
-                  Future.delayed(const Duration(milliseconds: 300), () {
-                    Navigator.pushNamed(context, '/orders');
-                  });
-                } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text("Failed: $e"),
-                      duration: const Duration(seconds: 2),
-                    ),
-                  );
-                }
-              }
-                  : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _isSelectionComplete() &&
-                    pickupTime != null &&
-                    isValidRentalType &&
-                    totalPrice > 0
-                    ? const Color(0xFF8A005D)
-                    : Colors.grey[400],
-                minimumSize: const Size(double.infinity, 54),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
-              ),
-              child: Text(
-                _isSelectionComplete() &&
-                    pickupTime != null &&
-                    isValidRentalType &&
-                    totalPrice > 0
-                    ? "Rent Now (JOD ${totalPrice.toStringAsFixed(2)})"
-                    : "Select all options to rent",
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: _isSelectionComplete() &&
-                      pickupTime != null &&
-                      isValidRentalType &&
-                      totalPrice > 0
-                      ? Colors.white
-                      : Colors.grey[700],
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 20),
+                    const SizedBox(height: 20),
 
                     Container(
                       height: 100,
