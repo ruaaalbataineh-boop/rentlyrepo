@@ -15,7 +15,6 @@ import 'create_account.dart';
 import 'Phone_Page.dart';
 import 'Enter_The_Code.dart';
 import 'app_locale.dart';
-import 'Category_Equipment_Page.dart';
 import 'ProductListPage.dart';
 import 'Equipment_Detail_Page.dart';
 import 'Favourite.dart';
