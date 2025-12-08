@@ -3,7 +3,7 @@ import 'Categories_Page.dart';
 import 'Chats_Page.dart';
 import 'Orders.dart';
 import 'Setting.dart';
-import 'AddItemPage .dart';
+import 'owner_listings.dart';
 
 class SharedBottomNav extends StatelessWidget {
   final int currentIndex;
@@ -45,7 +45,7 @@ class SharedBottomNav extends StatelessWidget {
       case 4:
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const AddItemPage(item: null)),
+          MaterialPageRoute(builder: (_) => const OwnerItemsPage()),
         );
         break;
     }
@@ -66,10 +66,10 @@ class SharedBottomNav extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _buildIcon(Icons.settings, 0, context),
-          _buildIcon(Icons.inventory_2_outlined, 1, context),
+          _buildIcon(Icons.shopping_bag_outlined, 1, context),
           _buildIcon(Icons.home_outlined, 2, context),
           _buildIcon(Icons.chat_bubble_outline, 3, context),
-          _buildIcon(Icons.add, 4, context),
+          _buildIcon(Icons.storage_rounded, 4, context),
         ],
       ),
     );
