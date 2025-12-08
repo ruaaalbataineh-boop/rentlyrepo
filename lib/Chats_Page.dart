@@ -5,8 +5,6 @@ import 'Categories_Page.dart';
 import 'Orders.dart';
 import 'Setting.dart';
 import 'fake_uid.dart';
-import 'AddItemPage .dart';
-import 'bottom_nav.dart';
 
 class ChatsPage extends StatefulWidget {
   const ChatsPage({super.key});
@@ -22,14 +20,10 @@ class _ChatsPageState extends State<ChatsPage> {
     final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
     int hour = date.hour;
     int minute = date.minute;
-
     String ampm = hour >= 12 ? "PM" : "AM";
     hour = hour % 12;
     if (hour == 0) hour = 12;
-
-    String m = minute.toString().padLeft(2, '0');
-
-    return "$hour:$m $ampm";
+    return "$hour:${minute.toString().padLeft(2, '0')} $ampm";
   }
 
   @override
@@ -42,12 +36,10 @@ class _ChatsPageState extends State<ChatsPage> {
           const SizedBox(height: 20),
           _searchBar(),
           const SizedBox(height: 10),
-          Expanded(child: _usersList()),
+          Expanded(child: _chatList()),
         ],
       ),
-
-      /// USE SHARED NAV
-      bottomNavigationBar: const SharedBottomNav(currentIndex: 3),
+      bottomNavigationBar: _bottomNav(),
     );
   }
 
@@ -94,65 +86,61 @@ class _ChatsPageState extends State<ChatsPage> {
     );
   }
 
-  Widget _usersList() {
+  /// --------------------------
+  /// CHAT LIST 
+  /// --------------------------
+  Widget _chatList() {
     return StreamBuilder(
-      stream: FirebaseDatabase.instance.ref("users").onValue,
+      stream: FirebaseDatabase.instance.ref("chats").onValue,
       builder: (context, snapshot) {
         if (!snapshot.hasData ||
-            snapshot.data == null ||
             snapshot.data!.snapshot.value == null) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(child: Text("No conversations yet"));
         }
 
         final raw = snapshot.data!.snapshot.value as Map;
-        final data = Map<String, dynamic>.from(raw);
+        final chats = Map<String, dynamic>.from(raw);
 
-        List<Map<String, dynamic>> users = data.entries.map((e) {
-          final userData = Map<String, dynamic>.from(e.value);
-          return {"id": e.key, "name": userData["name"]};
-        }).toList();
+        List<Map<String, dynamic>> myChats = chats.entries.map((e) {
+          final data = Map<String, dynamic>.from(e.value);
+          data["chatId"] = e.key;
+          return data;
+        }).where((chat) =>
+            chat["user1"] == LoginUID.uid ||
+            chat["user2"] == LoginUID.uid).toList();
 
-        users = users.where((u) => u["id"] != LoginUID.uid).toList();
+        if (myChats.isEmpty) {
+          return const Center(child: Text("No conversations yet"));
+        }
+
+        myChats.sort((a, b) => b["timestamp"].compareTo(a["timestamp"]));
 
         return ListView.builder(
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          itemCount: users.length,
+          itemCount: myChats.length,
           itemBuilder: (context, index) {
-            var user = users[index];
+            var chat = myChats[index];
+            String otherUid =
+                chat["user1"] == LoginUID.uid ? chat["user2"] : chat["user1"];
 
-            String chatId =
-            LoginUID.uid.compareTo(user["id"]) > 0
-                ? "${LoginUID.uid}-${user["id"]}"
-                : "${user["id"]}-${LoginUID.uid}";
-
-            return StreamBuilder(
-              stream: FirebaseDatabase.instance
-                  .ref("messages/$chatId")
-                  .orderByChild("timestamp")
-                  .limitToLast(1)
-                  .onValue,
-              builder: (context, msgSnap) {
-                String lastMsg = "No messages yet";
-                String lastTime = "";
-
-                if (msgSnap.hasData &&
-                    msgSnap.data!.snapshot.value != null) {
-                  final msgRaw = msgSnap.data!.snapshot.value as Map;
-                  final msgMap =
-                  Map<String, dynamic>.from(msgRaw.values.first);
-
-                  lastMsg = msgMap["text"] ?? "";
-                  lastTime = formatTime(msgMap["timestamp"]);
+            return FutureBuilder(
+              future: FirebaseDatabase.instance.ref("users/$otherUid").get(),
+              builder: (context, snap) {
+                if (!snap.hasData || snap.data!.value == null) {
+                  return const SizedBox();
                 }
+
+                final rawUser = snap.data!.value as Map;
+                final user = Map<String, dynamic>.from(rawUser);
 
                 return GestureDetector(
                   onTap: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => ChatScreen(
+                        builder: (_) => ChatScreen(
                           personName: user["name"],
-                          personUid: user["id"],
+                          personUid: otherUid,
                         ),
                       ),
                     );
@@ -178,36 +166,30 @@ class _ChatsPageState extends State<ChatsPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                user["name"],
+                                user["name"] ?? "",
                                 style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.black,
                                 ),
                               ),
                               const SizedBox(height: 6),
                               Row(
-                                mainAxisAlignment:
-                                MainAxisAlignment.spaceBetween,
                                 children: [
                                   Expanded(
                                     child: Text(
-                                      lastMsg,
+                                      chat["lastMessage"] ?? "",
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
-                                        fontSize: 13,
-                                        color: Colors.grey.shade700,
-                                      ),
+                                          fontSize: 13,
+                                          color: Colors.grey.shade700),
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
                                   Text(
-                                    lastTime,
+                                    formatTime(chat["timestamp"]),
                                     style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey.shade600,
-                                    ),
+                                        fontSize: 12,
+                                        color: Colors.grey.shade600),
                                   ),
                                 ],
                               ),
@@ -223,6 +205,58 @@ class _ChatsPageState extends State<ChatsPage> {
           },
         );
       },
+    );
+  }
+
+  /// --------------------------
+  ///  NAV BAR 
+  /// --------------------------
+  Widget _bottomNav() {
+    return Container(
+      height: 70,
+      decoration: const BoxDecoration(
+        color: Color(0xFF1B2230),
+        borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(25), topRight: Radius.circular(25)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _navIcon(Icons.settings, 0, const SettingPage()),
+          _navIcon(Icons.inventory_2_outlined, 1, const OrdersPage()),
+          _navIcon(Icons.add, 2, null),
+          _navIcon(Icons.chat_bubble_outline, 3, const ChatsPage()),
+          _navIcon(Icons.home_outlined, 4, const CategoryPage()),
+        ],
+      ),
+    );
+  }
+
+  Widget _navIcon(IconData icon, int index, Widget? page) {
+    bool active = selectedBottom == index;
+
+    return GestureDetector(
+      onTap: () {
+        setState(() => selectedBottom = index);
+        if (page != null) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => page),
+          );
+        }
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        margin: EdgeInsets.only(bottom: active ? 8 : 0),
+        padding: const EdgeInsets.all(12),
+        decoration:
+            active ? BoxDecoration(color: Colors.grey[300], shape: BoxShape.circle) : null,
+        child: Icon(
+          icon,
+          size: active ? 32 : 26,
+          color: active ? Colors.white : Colors.white70,
+        ),
+      ),
     );
   }
 }
