@@ -58,6 +58,8 @@ final CATEGORY_LIST = [
 class CategoryPage extends StatefulWidget {
   const CategoryPage({super.key});
 
+  static Object? get routeName => null;
+
   @override
   State<CategoryPage> createState() => _CategoryPageState();
 }
