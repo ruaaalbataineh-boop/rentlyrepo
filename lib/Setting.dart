@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:p2/AddItemPage%20.dart';
 import 'package:p2/Chats_Page.dart';
-import 'package:p2/PaymentPage.dart';
+import 'package:p2/WalletPage.dart';
+
 import 'Orders.dart';
 import 'Categories_Page.dart';
 import 'app_locale.dart';
@@ -87,7 +88,7 @@ class _SettingPageState extends State<SettingPage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (context) => const PaymentPage()),
+                              builder: (context) => const WalletHomePage()),
                         );
                       },
                     ),
@@ -283,3 +284,4 @@ class SideCurveClipper extends CustomClipper<Path> {
   @override
   bool shouldReclip(CustomClipper<Path> oldClipper) => false;
 }
+
