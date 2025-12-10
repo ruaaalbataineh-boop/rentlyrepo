@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:p2/Categories_Page.dart';
+import 'package:p2/CreditCardPaymentPage.dart';
 
 class PaymentFailedPage extends StatelessWidget {
   final String returnTo;
@@ -265,7 +267,7 @@ class PaymentFailedPage extends StatelessWidget {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) => const CreditCardPaymentPage(amount: amount),
+          builder: (context) => const CreditCardPaymentPage(amount: 0.0),
         ),
       );
     
@@ -283,7 +285,7 @@ class PaymentFailedPage extends StatelessWidget {
   
     Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(builder: (context) => const CategoriesScreen()),
+      MaterialPageRoute(builder: (context) => const CategoryPage()),
       (route) => false,
     );
    
