@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:p2/Categories_Page.dart';
+import 'package:p2/WalletPage.dart';
 
 
 
@@ -246,7 +248,7 @@ class PaymentSuccessPage extends StatelessWidget {
    
     Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(builder: (context) => const WalletScreen()),
+      MaterialPageRoute(builder: (context) => const WalletHomePage()),
       (route) => false,
     );
     
@@ -263,7 +265,7 @@ class PaymentSuccessPage extends StatelessWidget {
     
     Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(builder: (context) => const CategoriesScreen()),
+      MaterialPageRoute(builder: (context) => const CategoryPage()),
       (route) => false,
     );
   
