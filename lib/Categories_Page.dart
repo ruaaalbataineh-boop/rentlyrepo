@@ -173,7 +173,6 @@ class _CategoryPageState extends State<CategoryPage> {
           ),
         ],
       ),
-
       bottomNavigationBar: const SharedBottomNav(currentIndex: 2),
     );
   }

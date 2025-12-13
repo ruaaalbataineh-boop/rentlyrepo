@@ -15,7 +15,6 @@ class ChatsPage extends StatefulWidget {
 }
 
 class _ChatsPageState extends State<ChatsPage> {
-  int selectedBottom = 3;
 
   String formatTime(int timestamp) {
     final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
@@ -40,7 +39,7 @@ class _ChatsPageState extends State<ChatsPage> {
           Expanded(child: _chatList()),
         ],
       ),
-      bottomNavigationBar: const SharedBottomNav(currentIndex: 4),
+      bottomNavigationBar: const SharedBottomNav(currentIndex: 3),
     );
   }
 
@@ -87,12 +86,12 @@ class _ChatsPageState extends State<ChatsPage> {
     );
   }
 
-  /// --------------------------
-  /// CHAT LIST 
-  /// --------------------------
+  // CHAT LIST
   Widget _chatList() {
     return StreamBuilder(
-      stream: FirebaseDatabase.instance.ref("chats").onValue,
+      stream: FirebaseDatabase.instance
+          .ref("chats")
+          .onValue,
       builder: (context, snapshot) {
         if (!snapshot.hasData ||
             snapshot.data!.snapshot.value == null) {
@@ -107,7 +106,7 @@ class _ChatsPageState extends State<ChatsPage> {
           data["chatId"] = e.key;
           return data;
         }).where((chat) =>
-            chat["user1"] == LoginUID.uid ||
+        chat["user1"] == LoginUID.uid ||
             chat["user2"] == LoginUID.uid).toList();
 
         if (myChats.isEmpty) {
@@ -122,7 +121,7 @@ class _ChatsPageState extends State<ChatsPage> {
           itemBuilder: (context, index) {
             var chat = myChats[index];
             String otherUid =
-                chat["user1"] == LoginUID.uid ? chat["user2"] : chat["user1"];
+            chat["user1"] == LoginUID.uid ? chat["user2"] : chat["user1"];
 
             return FutureBuilder(
               future: FirebaseDatabase.instance.ref("users/$otherUid").get(),
@@ -139,10 +138,11 @@ class _ChatsPageState extends State<ChatsPage> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => ChatScreen(
-                          personName: user["name"],
-                          personUid: otherUid,
-                        ),
+                        builder: (_) =>
+                            ChatScreen(
+                              personName: user["name"],
+                              personUid: otherUid,
+                            ),
                       ),
                     );
                   },
@@ -206,58 +206,6 @@ class _ChatsPageState extends State<ChatsPage> {
           },
         );
       },
-    );
-  }
-
-  /// --------------------------
-  ///  NAV BAR
-  /// --------------------------
-  Widget _bottomNav() {
-    return Container(
-      height: 70,
-      decoration: const BoxDecoration(
-        color: Color(0xFF1B2230),
-        borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(25), topRight: Radius.circular(25)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _navIcon(Icons.settings, 0, const SettingPage()),
-          _navIcon(Icons.inventory_2_outlined, 1, const OrdersPage()),
-          _navIcon(Icons.add, 2, null),
-          _navIcon(Icons.chat_bubble_outline, 3, const ChatsPage()),
-          _navIcon(Icons.home_outlined, 4, const CategoryPage()),
-        ],
-      ),
-    );
-  }
-
-  Widget _navIcon(IconData icon, int index, Widget? page) {
-    bool active = selectedBottom == index;
-
-    return GestureDetector(
-      onTap: () {
-        setState(() => selectedBottom = index);
-        if (page != null) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => page),
-          );
-        }
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        margin: EdgeInsets.only(bottom: active ? 8 : 0),
-        padding: const EdgeInsets.all(12),
-        decoration:
-            active ? BoxDecoration(color: Colors.grey[300], shape: BoxShape.circle) : null,
-        child: Icon(
-          icon,
-          size: active ? 32 : 26,
-          color: active ? Colors.white : Colors.white70,
-        ),
-      ),
     );
   }
 }

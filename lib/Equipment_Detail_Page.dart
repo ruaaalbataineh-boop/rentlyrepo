@@ -3,14 +3,11 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:p2/services/firestore_service.dart';
-import 'package:p2/services/rental_logic.dart';
 import 'package:p2/user_manager.dart';
 import 'Item.dart';
 import 'FavouriteManager.dart';
-import 'Orders.dart';
 import 'ChatScreen.dart';
 import 'AllReviewsPage.dart';
-import 'package:p2/models/rental_request.dart';
 
 class EquipmentDetailPage extends StatefulWidget {
   static const routeName = '/product-details';
@@ -21,13 +18,10 @@ class EquipmentDetailPage extends StatefulWidget {
 }
 
 class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
-  // IMAGE SLIDER INDEX
   int currentPage = 0;
 
-  // OWNER NAME
   String ownerName = "Loading...";
 
-  // RENTAL SELECTION
   String? selectedPeriod;
   DateTime? startDate;
   DateTime? endDate;
@@ -36,78 +30,86 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
   int count = 1;
   String? pickupTime;
 
-  // REVIEWS PREVIEW
   List<Map<String, dynamic>> topReviews = [];
-  double userRating = 0;
+
+  Item? _item;
+  bool _loaded = false;
+
+  bool get isOwner => _item != null && _item!.ownerId == UserManager.uid;
 
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    if (!_loaded) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is Item) {
+        _item = args;
+        loadOwnerName(_item!.ownerId);
+        loadTopReviews(_item!.id);
+      }
+      _loaded = true;
+    }
   }
 
-  // LOAD OWNER NAME FROM REALTIME DATABASE
   Future<void> loadOwnerName(String uid) async {
     final snap = await FirebaseDatabase.instance.ref("users/$uid/name").get();
+    if (!mounted) return;
     setState(() {
       ownerName = snap.exists ? snap.value.toString() : "Owner";
     });
   }
 
-  // FETCH TOP 3 REVIEWS
   Future<void> loadTopReviews(String itemId) async {
     final snap = await FirebaseDatabase.instance
         .ref("reviews/$itemId")
         .limitToFirst(3)
         .get();
 
-    if (snap.exists) {
-      List<Map<String, dynamic>> list = [];
-      for (var child in snap.children) {
-        list.add({
-          "rating": child.child("rating").value ?? 0,
-          "review": child.child("review").value ?? "",
-          "userId": child.child("userId").value ?? "",
-        });
-      }
+    if (!mounted) return;
 
+    if (snap.exists) {
       setState(() {
-        topReviews = list;
+        topReviews = snap.children.map((c) {
+          return {
+            "rating": c.child("rating").value ?? 0,
+            "review": c.child("review").value ?? "",
+          };
+        }).toList();
       });
+    } else {
+      setState(() => topReviews = []);
     }
   }
 
-  // AUTO CALCULATE END DATE (Daily/Weekly/Monthly/Yearly)
   void calculateEndDate() {
     if (startDate == null || selectedPeriod == null) {
       endDate = null;
       return;
     }
 
-    int daysToAdd = 0;
     final p = selectedPeriod!.toLowerCase();
+    int days = 0;
 
-    if (p == "daily") daysToAdd = count;
-    else if (p == "weekly") daysToAdd = count * 7;
-    else if (p == "monthly") daysToAdd = count * 30;
-    else if (p == "yearly") daysToAdd = count * 365;
+    if (p == "daily") days = count;
+    if (p == "weekly") days = count * 7;
+    if (p == "monthly") days = count * 30;
+    if (p == "yearly") days = count * 365;
 
-    endDate = startDate!.add(Duration(days: daysToAdd));
+    endDate = startDate!.add(Duration(days: days));
   }
 
-  // PRICE CALCULATOR
   double computeTotalPrice(Item item) {
-
     if (selectedPeriod == null) return 0;
 
-    double base = double.tryParse("${item.rentalPeriods[selectedPeriod]}") ?? 0;
+    final base = double.tryParse("${item.rentalPeriods[selectedPeriod]}") ?? 0;
 
     if (selectedPeriod!.toLowerCase() == "hourly") {
       if (startTime != null && endTime != null) {
-        int minutes = (endTime!.hour * 60 + endTime!.minute) -
-            (startTime!.hour * 60 + startTime!.minute);
-        if (minutes > 0) {
-          return base * (minutes / 60).ceil();
-        }
+        final minutes =
+            (endTime!.hour * 60 + endTime!.minute) -
+                (startTime!.hour * 60 + startTime!.minute);
+        if (minutes > 0) return base * (minutes / 60).ceil();
       }
       return base;
     }
@@ -117,11 +119,17 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final item = ModalRoute.of(context)!.settings.arguments as Item;
+    // ✅ FIX: don't do _item! before it's ready
+    if (_item == null) {
+      return const Scaffold(
+        backgroundColor: Colors.white,
+        body: SafeArea(
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
 
-    loadOwnerName(item.ownerId);
-    loadTopReviews(item.id);
-
+    final item = _item!;
     final periods = item.rentalPeriods.keys.toList();
 
     return Scaffold(
@@ -130,18 +138,44 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
         child: SingleChildScrollView(
           child: Column(
             children: [
-              buildTopHeader(context, "Item Details"),
+              buildTopHeader(context),
               buildImageSlider(item.images),
               buildHeader(item),
               buildOwnerSection(),
               buildDescription(item),
               buildRatingSection(item),
-              buildRentalChips(periods, item),
-              buildRentalSelector(item),
-              buildEndDateDisplay(),
-              buildTotalPrice(item),
-              buildPickupSelector(),
-              buildRentButton(item),
+
+              // ✅ FIX: else must also be ...[ ]
+              if (!isOwner) ...[
+                buildRentalChips(periods, item),
+                buildRentalSelector(item),
+                buildEndDateDisplay(),
+                buildTotalPrice(item),
+                buildPickupSelector(),
+                buildRentButton(item),
+              ] else ...[
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: const Text(
+                      "This is your item. You cannot rent your own item.",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.black54,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+
               buildReviewsSection(item),
               buildMapSection(item),
               const SizedBox(height: 40),
@@ -152,7 +186,8 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  Widget buildTopHeader(BuildContext context, String title) {
+  // ---------------- TOP HEADER ----------------
+  Widget buildTopHeader(BuildContext context) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
@@ -169,26 +204,24 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
             icon: const Icon(Icons.arrow_back, color: Colors.white),
             onPressed: () => Navigator.pop(context),
           ),
-
-          Expanded(
+          const Expanded(
             child: Text(
-              title,
+              "Item Details",
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
               ),
             ),
           ),
-
           const SizedBox(width: 40),
         ],
       ),
     );
   }
 
-  // IMAGE SLIDER
+  // ---------------- IMAGE SLIDER ----------------
   Widget buildImageSlider(List<String> images) {
     return Container(
       height: 260,
@@ -212,7 +245,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  // HEADER
+  // ---------------- HEADER ----------------
   Widget buildHeader(Item item) {
     final isFav = FavouriteManager.isFavourite(item.id);
 
@@ -221,14 +254,18 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
       child: Row(
         children: [
           Expanded(
-            child: Text(item.name,
-                style:
-                const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+            child: Text(
+              item.name,
+              style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+            ),
           ),
 
           IconButton(
-            icon: Icon(Icons.favorite,
-                color: isFav ? Colors.red : Colors.grey, size: 30),
+            icon: Icon(
+              Icons.favorite,
+              color: isFav ? Colors.red : Colors.grey,
+              size: 30,
+            ),
             onPressed: () {
               setState(() {
                 isFav
@@ -238,16 +275,18 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
             },
           ),
 
-          if (item.ownerId != UserManager.uid!)
+          // chat only if not owner
+          if (!isOwner)
             IconButton(
-              icon:
-              const Icon(Icons.chat, color: Color(0xFF8A005D), size: 28),
+              icon: const Icon(Icons.chat, color: Color(0xFF8A005D), size: 28),
               onPressed: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) =>
-                        ChatScreen(personUid: item.ownerId, personName: ownerName),
+                    builder: (_) => ChatScreen(
+                      personUid: item.ownerId,
+                      personName: ownerName,
+                    ),
                   ),
                 );
               },
@@ -257,7 +296,6 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  // OWNER
   Widget buildOwnerSection() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -265,13 +303,12 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
         children: [
           const Icon(Icons.person, color: Color(0xFF8A005D)),
           const SizedBox(width: 8),
-          Text("Owner: $ownerName", style: const TextStyle(fontSize: 16)),
+          Text("Owner: $ownerName"),
         ],
       ),
     );
   }
 
-  // DESCRIPTION
   Widget buildDescription(Item item) {
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -280,7 +317,6 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  // RATING
   Widget buildRatingSection(Item item) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
@@ -294,7 +330,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  // RENTAL CHIPS
+  // ---------------- RENTAL CHIPS ----------------
   Widget buildRentalChips(List<String> periods, Item item) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -304,14 +340,17 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
           return ChoiceChip(
             label: Text("$p (JOD ${item.rentalPeriods[p]})"),
             selected: selectedPeriod == p,
-            onSelected: (_) => setState(() {
-              selectedPeriod = p;
-              startDate = null;
-              endDate = null;
-              startTime = null;
-              endTime = null;
-              count = 1;
-            }),
+            onSelected: (_) {
+              setState(() {
+                selectedPeriod = p;
+                startDate = null;
+                endDate = null;
+                startTime = null;
+                endTime = null;
+                count = 1;
+                pickupTime = null;
+              });
+            },
             selectedColor: const Color(0xFF8A005D),
             labelStyle: TextStyle(
               color: selectedPeriod == p ? Colors.white : Colors.black,
@@ -322,69 +361,57 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  // RENTAL SELECTOR
+  // ---------------- RENTAL SELECTOR ----------------
   Widget buildRentalSelector(Item item) {
     if (selectedPeriod == null) return const SizedBox.shrink();
-
     final p = selectedPeriod!.toLowerCase();
 
-    // HOURLY
     if (p == "hourly") return buildHourlySelector();
 
-    // DAILY/WEEKLY/MONTHLY/YEARLY
     return buildDaySelector();
   }
 
-  // HOURLY SELECTOR
   Widget buildHourlySelector() {
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
         children: [
-          buildTimePicker("Start Time", startTime, (selected) {
-            setState(() => startTime = selected);
+          buildTimePicker("Start Time", startTime, (t) {
+            setState(() => startTime = t);
           }),
           const SizedBox(height: 12),
-          buildTimePicker("End Time", endTime, (selected) {
-            setState(() => endTime = selected);
+          buildTimePicker("End Time", endTime, (t) {
+            setState(() => endTime = t);
           }),
         ],
       ),
     );
   }
 
-  // DAY SELECTOR
   Widget buildDaySelector() {
-    // Determine the label for quantity based on rental period
     String unitLabel = "Days";
-    if (selectedPeriod != null) {
-      final p = selectedPeriod!.toLowerCase();
-      if (p == "weekly") unitLabel = "Weeks";
-      if (p == "monthly") unitLabel = "Months";
-      if (p == "yearly") unitLabel = "Years";
-    }
+    final p = selectedPeriod?.toLowerCase();
+    if (p == "weekly") unitLabel = "Weeks";
+    if (p == "monthly") unitLabel = "Months";
+    if (p == "yearly") unitLabel = "Years";
 
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          buildDatePicker("Start Date", startDate, (selected) {
+          buildDatePicker("Start Date", startDate, (d) {
             setState(() {
-              startDate = selected;
+              startDate = d;
               calculateEndDate();
             });
           }),
-
           const SizedBox(height: 22),
-
-          const Text(
-            "Number of Units",
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+          Text(
+            "Number of $unitLabel",
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
           ),
-
           const SizedBox(height: 10),
-
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             decoration: BoxDecoration(
@@ -403,10 +430,9 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                       });
                     }
                   },
-                  child: const Icon(Icons.remove, color: Color(0xFF8A005D), size: 26),
+                  child: const Icon(Icons.remove,
+                      color: Color(0xFF8A005D), size: 26),
                 ),
-
-                // COUNT + LABEL (center)
                 Text(
                   "$count $unitLabel",
                   style: const TextStyle(
@@ -415,7 +441,6 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                     color: Color(0xFF8A005D),
                   ),
                 ),
-
                 GestureDetector(
                   onTap: () {
                     setState(() {
@@ -423,7 +448,8 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                       calculateEndDate();
                     });
                   },
-                  child: const Icon(Icons.add, color: Color(0xFF8A005D), size: 26),
+                  child:
+                  const Icon(Icons.add, color: Color(0xFF8A005D), size: 26),
                 ),
               ],
             ),
@@ -433,30 +459,22 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  // DATE PICKER
   Widget buildDatePicker(
       String title, DateTime? value, Function(DateTime) onSelect) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start, // <-- Ensures left alignment
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-
-        // LEFT-ALIGNED LABEL
         Padding(
           padding: const EdgeInsets.only(left: 4, bottom: 4),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              title,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-              ),
+          child: Text(
+            title,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
             ),
           ),
         ),
-
-        // DATE PICK BUTTON
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
@@ -478,7 +496,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
             ),
             child: Text(
               value == null
-                  ? "Select Date"
+                  ? "Select Start Date"
                   : DateFormat("yyyy-MM-dd").format(value),
               style: const TextStyle(fontSize: 15),
             ),
@@ -488,7 +506,6 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  // TIME PICKER
   Widget buildTimePicker(
       String title, TimeOfDay? value, Function(TimeOfDay) onSelect) {
     return Column(
@@ -497,19 +514,28 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
         Text(title,
             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
-        ElevatedButton(
-          onPressed: () async {
-            final pick =
-            await showTimePicker(context: context, initialTime: TimeOfDay.now());
-            if (pick != null) onSelect(pick);
-          },
-          child: Text(value == null ? "Select Time" : value.format(context)),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: () async {
+              final pick =
+              await showTimePicker(context: context, initialTime: TimeOfDay.now());
+              if (pick != null) onSelect(pick);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF8A005D),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: Text(value == null ? "Select Time" : value.format(context)),
+          ),
         ),
       ],
     );
   }
 
-  // END DATE DISPLAY
   Widget buildEndDateDisplay() {
     if (endDate == null || selectedPeriod?.toLowerCase() == "hourly") {
       return const SizedBox.shrink();
@@ -528,21 +554,22 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  // TOTAL PRICE
   Widget buildTotalPrice(Item item) {
     if (selectedPeriod == null) return const SizedBox.shrink();
+
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Text(
         "Total Price: JOD ${computeTotalPrice(item).toStringAsFixed(2)}",
         style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF8A005D)),
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+          color: Color(0xFF8A005D),
+        ),
       ),
     );
   }
-// PICKUP TIME
+
   Widget buildPickupSelector() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -553,14 +580,9 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
             padding: EdgeInsets.only(left: 4, bottom: 4),
             child: Text(
               "Pickup Time",
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-              ),
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
             ),
           ),
-
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
@@ -587,15 +609,19 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  // RENT BUTTON
   Widget buildRentButton(Item item) {
     return Padding(
       padding: const EdgeInsets.all(20),
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF8A005D),
-            minimumSize: const Size(double.infinity, 55)),
+          backgroundColor: const Color(0xFF8A005D),
+          minimumSize: const Size(double.infinity, 55),
+        ),
         onPressed: () async {
+          if (isOwner) return;
+
+          calculateEndDate();
+
           if (selectedPeriod == null) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text("Please select a rental period")),
@@ -603,11 +629,26 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
             return;
           }
 
-          calculateEndDate(); // ensure it's updated
+          final p = selectedPeriod!.toLowerCase();
+          if (p == "hourly") {
+            if (startTime == null || endTime == null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Please select start & end time")),
+              );
+              return;
+            }
+          } else {
+            if (startDate == null || endDate == null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Please select start date")),
+              );
+              return;
+            }
+          }
 
-          if (startDate == null || endDate == null) {
+          if (pickupTime == null) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Please select a start date")),
+              const SnackBar(content: Text("Please select pickup time")),
             );
             return;
           }
@@ -616,78 +657,65 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
             "itemId": item.id,
             "itemTitle": item.name,
             "itemOwnerUid": item.ownerId,
-
-            "rentalType": selectedPeriod!,
+            "customerUid": UserManager.uid,
+            "status": "pending",
+            "rentalType": selectedPeriod,
             "rentalQuantity": count,
-
-            "startDate": startDate!.toIso8601String(),
-            "endDate": endDate!.toIso8601String(),
-
+            "startDate": startDate?.toIso8601String(),
+            "endDate": endDate?.toIso8601String(),
             "pickupTime": pickupTime,
             "totalPrice": computeTotalPrice(item),
-
-            // Only hourly
             "startTime": selectedPeriod == "Hourly" ? startTime?.format(context) : null,
             "endTime": selectedPeriod == "Hourly" ? endTime?.format(context) : null,
           };
 
           try {
             await FirestoreService.createRentalRequest(data);
-
             if (!mounted) return;
-
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text("Rental request submitted!")),
             );
-
             Navigator.pushNamed(context, "/orders");
           } catch (e) {
-            ScaffoldMessenger.of(context)
-                .showSnackBar(SnackBar(content: Text("Error: $e")));
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text("Error: $e")),
+            );
           }
         },
-        child: const Text("Rent Now",
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        child: const Text(
+          "Rent Now",
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
       ),
     );
   }
-// REVIEWS
+
+  // ---------------- REVIEWS ----------------
   Widget buildReviewsSection(Item item) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start, // TITLE + NO REVIEWS + LINK LEFT
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-
           const Text(
             "Reviews",
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
-
           const SizedBox(height: 10),
-
-          // If NO reviews → LEFT aligned
           if (topReviews.isEmpty)
             const Text(
               "No reviews yet",
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.black54,
-              ),
+              style: TextStyle(fontSize: 14, color: Colors.black54),
             )
           else
-          // Reviews exist → Center the card(s)
             Column(
-              crossAxisAlignment: CrossAxisAlignment.center, // CENTER CARDS
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: topReviews.map((rev) {
                 return Container(
                   width: double.infinity,
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(12),
-                  constraints: const BoxConstraints(maxWidth: 350), // CENTERED WIDTH
+                  constraints: const BoxConstraints(maxWidth: 350),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: Colors.grey.shade300, width: 1),
@@ -703,9 +731,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                           Text("${rev['rating']}"),
                         ],
                       ),
-
                       const SizedBox(height: 6),
-
                       Text(
                         rev['review'],
                         style: const TextStyle(fontSize: 14),
@@ -715,9 +741,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                 );
               }).toList(),
             ),
-
           const SizedBox(height: 6),
-
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton(
@@ -729,10 +753,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                   ),
                 );
               },
-              child: const Text(
-                "Show All Reviews →",
-                style: TextStyle(fontSize: 14),
-              ),
+              child: const Text("Show All Reviews →"),
             ),
           ),
         ],
@@ -740,7 +761,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  // MAP
+  // ---------------- MAP ----------------
   Widget buildMapSection(Item item) {
     if (item.latitude == null || item.longitude == null) {
       return Container(
@@ -751,10 +772,11 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
           borderRadius: BorderRadius.circular(16),
         ),
         child: const Center(
-            child: Text(
-              "📍 Location not provided",
-              style: TextStyle(fontSize: 16, color: Colors.black54),
-            )),
+          child: Text(
+            "📍 Location not provided",
+            style: TextStyle(fontSize: 16, color: Colors.black54),
+          ),
+        ),
       );
     }
 
@@ -763,7 +785,9 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
       margin: const EdgeInsets.all(20),
       child: GoogleMap(
         initialCameraPosition: CameraPosition(
-            target: LatLng(item.latitude!, item.longitude!), zoom: 14),
+          target: LatLng(item.latitude!, item.longitude!),
+          zoom: 14,
+        ),
         markers: {
           Marker(
             markerId: const MarkerId("itemLoc"),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'Categories_Page.dart';
 import 'app_locale.dart';
 import 'package:flutter_custom_clippers/flutter_custom_clippers.dart';
 import 'fake_uid.dart';
@@ -76,7 +77,11 @@ class _LoginPageState extends State<LoginPage> {
 
       if (!mounted) return;
 
-      Navigator.pushReplacementNamed(context, '/category');
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const CategoryPage()),
+      );
+
     } on FirebaseAuthException catch (e) {
       setState(() => _errorMessage = e.message);
 

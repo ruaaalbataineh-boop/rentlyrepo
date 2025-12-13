@@ -249,8 +249,6 @@ class _SettingPageState extends State<SettingPage> {
               ),
             ],
           ),
-
-          /// USE SHARED NAV
           bottomNavigationBar: const SharedBottomNav(currentIndex: 0),
         );
       },

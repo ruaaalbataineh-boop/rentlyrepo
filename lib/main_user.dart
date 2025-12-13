@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'Item.dart';
-import 'sub_category_page.dart';
-
 import 'Categories_Page.dart';
 import 'Rently_Logo.dart';
 import 'Setting.dart';
@@ -19,17 +17,7 @@ import 'Favourite.dart';
 import 'firebase_options.dart';
 import 'MapPage.dart';
 import 'AddItemPage .dart';
-
 import 'package:firebase_core/firebase_core.dart';
-
-class UserHomePage extends StatelessWidget {
-  const UserHomePage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const MainPage();
-  }
-}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -123,14 +111,5 @@ class MyApp extends StatelessWidget {
         );
       },
     );
-  }
-}
-
-class MainPage extends StatelessWidget {
-  const MainPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const CategoryPage();
   }
 }
