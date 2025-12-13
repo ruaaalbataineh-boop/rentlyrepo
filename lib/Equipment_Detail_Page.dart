@@ -3,6 +3,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:p2/services/firestore_service.dart';
+import 'package:p2/services/rental_logic.dart';
 import 'package:p2/user_manager.dart';
 import 'Item.dart';
 import 'FavouriteManager.dart';
@@ -20,22 +21,22 @@ class EquipmentDetailPage extends StatefulWidget {
 }
 
 class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
-  /// IMAGE SLIDER INDEX
+  // IMAGE SLIDER INDEX
   int currentPage = 0;
 
-  /// OWNER NAME
+  // OWNER NAME
   String ownerName = "Loading...";
 
-  /// RENTAL SELECTION
+  // RENTAL SELECTION
   String? selectedPeriod;
   DateTime? startDate;
-  DateTime? endDate; // <-- now automatically calculated
+  DateTime? endDate;
   TimeOfDay? startTime;
   TimeOfDay? endTime;
   int count = 1;
   String? pickupTime;
 
-  /// REVIEWS PREVIEW
+  // REVIEWS PREVIEW
   List<Map<String, dynamic>> topReviews = [];
   double userRating = 0;
 
@@ -44,7 +45,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     super.initState();
   }
 
-  /// LOAD OWNER NAME FROM REALTIME DATABASE
+  // LOAD OWNER NAME FROM REALTIME DATABASE
   Future<void> loadOwnerName(String uid) async {
     final snap = await FirebaseDatabase.instance.ref("users/$uid/name").get();
     setState(() {
@@ -52,7 +53,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     });
   }
 
-  /// FETCH TOP 3 REVIEWS
+  // FETCH TOP 3 REVIEWS
   Future<void> loadTopReviews(String itemId) async {
     final snap = await FirebaseDatabase.instance
         .ref("reviews/$itemId")
@@ -75,9 +76,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     }
   }
 
-  /// ---------------------------------------------------------
-  /// AUTO CALCULATE END DATE (Daily/Weekly/Monthly/Yearly)
-  /// ---------------------------------------------------------
+  // AUTO CALCULATE END DATE (Daily/Weekly/Monthly/Yearly)
   void calculateEndDate() {
     if (startDate == null || selectedPeriod == null) {
       endDate = null;
@@ -95,10 +94,9 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     endDate = startDate!.add(Duration(days: daysToAdd));
   }
 
-  /// ---------------------------------------------------------
-  /// PRICE CALCULATOR
-  /// ---------------------------------------------------------
+  // PRICE CALCULATOR
   double computeTotalPrice(Item item) {
+
     if (selectedPeriod == null) return 0;
 
     double base = double.tryParse("${item.rentalPeriods[selectedPeriod]}") ?? 0;
@@ -167,13 +165,11 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
       ),
       child: Row(
         children: [
-          /// BACK BUTTON
           IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.white),
             onPressed: () => Navigator.pop(context),
           ),
 
-          /// CENTERED TITLE
           Expanded(
             child: Text(
               title,
@@ -186,14 +182,13 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
             ),
           ),
 
-          /// EMPTY BOX TO BALANCE THE ROW (same width as back button)
           const SizedBox(width: 40),
         ],
       ),
     );
   }
 
-  // IMAGE SLIDER ----------------------------------------------------
+  // IMAGE SLIDER
   Widget buildImageSlider(List<String> images) {
     return Container(
       height: 260,
@@ -217,7 +212,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  // HEADER -----------------------------------------------------------
+  // HEADER
   Widget buildHeader(Item item) {
     final isFav = FavouriteManager.isFavourite(item.id);
 
@@ -231,7 +226,6 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                 const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
           ),
 
-          /// FAVOURITE
           IconButton(
             icon: Icon(Icons.favorite,
                 color: isFav ? Colors.red : Colors.grey, size: 30),
@@ -244,7 +238,6 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
             },
           ),
 
-          /// CHAT WITH OWNER
           if (item.ownerId != UserManager.uid!)
             IconButton(
               icon:
@@ -264,7 +257,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  // OWNER ------------------------------------------------------------
+  // OWNER
   Widget buildOwnerSection() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -278,7 +271,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  // DESCRIPTION ------------------------------------------------------
+  // DESCRIPTION
   Widget buildDescription(Item item) {
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -287,7 +280,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  // RATING -----------------------------------------------------------
+  // RATING
   Widget buildRatingSection(Item item) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
@@ -301,7 +294,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  // RENTAL CHIPS -----------------------------------------------------
+  // RENTAL CHIPS
   Widget buildRentalChips(List<String> periods, Item item) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -329,7 +322,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  // RENTAL SELECTOR --------------------------------------------------
+  // RENTAL SELECTOR
   Widget buildRentalSelector(Item item) {
     if (selectedPeriod == null) return const SizedBox.shrink();
 
@@ -342,7 +335,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     return buildDaySelector();
   }
 
-  // HOURLY SELECTOR --------------------------------------------------
+  // HOURLY SELECTOR
   Widget buildHourlySelector() {
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -360,7 +353,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  // DAY SELECTOR -----------------------------------------------------
+  // DAY SELECTOR
   Widget buildDaySelector() {
     // Determine the label for quantity based on rental period
     String unitLabel = "Days";
@@ -385,7 +378,6 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
 
           const SizedBox(height: 22),
 
-          // LABEL
           const Text(
             "Number of Units",
             style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
@@ -402,7 +394,6 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // MINUS BUTTON
                 GestureDetector(
                   onTap: () {
                     if (count > 1) {
@@ -425,7 +416,6 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                   ),
                 ),
 
-                // PLUS BUTTON
                 GestureDetector(
                   onTap: () {
                     setState(() {
@@ -443,7 +433,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  // DATE PICKER ------------------------------------------------------
+  // DATE PICKER
   Widget buildDatePicker(
       String title, DateTime? value, Function(DateTime) onSelect) {
     return Column(
@@ -498,7 +488,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  // TIME PICKER ------------------------------------------------------
+  // TIME PICKER
   Widget buildTimePicker(
       String title, TimeOfDay? value, Function(TimeOfDay) onSelect) {
     return Column(
@@ -519,7 +509,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  // END DATE DISPLAY -------------------------------------------------
+  // END DATE DISPLAY
   Widget buildEndDateDisplay() {
     if (endDate == null || selectedPeriod?.toLowerCase() == "hourly") {
       return const SizedBox.shrink();
@@ -538,7 +528,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  // TOTAL PRICE ------------------------------------------------------
+  // TOTAL PRICE
   Widget buildTotalPrice(Item item) {
     if (selectedPeriod == null) return const SizedBox.shrink();
     return Padding(
@@ -552,7 +542,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
       ),
     );
   }
-// PICKUP TIME ------------------------------------------------------
+// PICKUP TIME
   Widget buildPickupSelector() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -597,7 +587,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  // RENT BUTTON ------------------------------------------------------
+  // RENT BUTTON
   Widget buildRentButton(Item item) {
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -661,7 +651,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
       ),
     );
   }
-// REVIEWS ----------------------------------------------------------
+// REVIEWS
   Widget buildReviewsSection(Item item) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -669,7 +659,6 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
         crossAxisAlignment: CrossAxisAlignment.start, // TITLE + NO REVIEWS + LINK LEFT
         children: [
 
-          // Title
           const Text(
             "Reviews",
             style: TextStyle(
@@ -729,7 +718,6 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
 
           const SizedBox(height: 6),
 
-          // "Show All Reviews" → LEFT aligned
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton(
@@ -752,7 +740,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  // MAP --------------------------------------------------------------
+  // MAP
   Widget buildMapSection(Item item) {
     if (item.latitude == null || item.longitude == null) {
       return Container(
