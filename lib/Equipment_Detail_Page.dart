@@ -1,3 +1,4 @@
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
@@ -26,11 +27,12 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
   DateTime? startDate;
   DateTime? endDate;
   TimeOfDay? startTime;
-  TimeOfDay? endTime;
   int count = 1;
   String? pickupTime;
 
   List<Map<String, dynamic>> topReviews = [];
+  List<DateTimeRange> unavailableRanges = [];
+  bool loadingAvailability = false;
 
   Item? _item;
   bool _loaded = false;
@@ -47,6 +49,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
         _item = args;
         loadOwnerName(_item!.ownerId);
         loadTopReviews(_item!.id);
+        loadUnavailableRanges(_item!.id);
       }
       _loaded = true;
     }
@@ -82,15 +85,57 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     }
   }
 
+  Future<void> loadUnavailableRanges(String itemId) async {
+    setState(() => loadingAvailability = true);
+
+    final rentals =
+    await FirestoreService.getAcceptedRequestsForItem(itemId);
+
+    unavailableRanges = rentals.map((r) {
+      return DateTimeRange(
+        start: DateTime.parse(r["startDate"]),
+        end: DateTime.parse(r["endDate"]),
+      );
+    }).toList();
+
+    if (!mounted) return;
+    setState(() => loadingAvailability = false);
+  }
+
   void calculateEndDate() {
-    if (startDate == null || selectedPeriod == null) {
+    if (selectedPeriod == null) {
       endDate = null;
       return;
     }
 
     final p = selectedPeriod!.toLowerCase();
-    int days = 0;
 
+    if (p == "hourly") {
+      if (startDate == null || startTime == null) {
+        endDate = null;
+        return;
+      }
+
+      final startDateTime = DateTime(
+        startDate!.year,
+        startDate!.month,
+        startDate!.day,
+        startTime!.hour,
+        startTime!.minute,
+      );
+
+      // Add hours based on quantity
+      endDate = startDateTime.add(Duration(hours: count));
+      return;
+    }
+
+    // non-hourly
+    if (startDate == null) {
+      endDate = null;
+      return;
+    }
+
+    int days = 0;
     if (p == "daily") days = count;
     if (p == "weekly") days = count * 7;
     if (p == "monthly") days = count * 30;
@@ -105,13 +150,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     final base = double.tryParse("${item.rentalPeriods[selectedPeriod]}") ?? 0;
 
     if (selectedPeriod!.toLowerCase() == "hourly") {
-      if (startTime != null && endTime != null) {
-        final minutes =
-            (endTime!.hour * 60 + endTime!.minute) -
-                (startTime!.hour * 60 + startTime!.minute);
-        if (minutes > 0) return base * (minutes / 60).ceil();
-      }
-      return base;
+      return base * count;
     }
 
     return base * count;
@@ -119,7 +158,6 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ FIX: don't do _item! before it's ready
     if (_item == null) {
       return const Scaffold(
         backgroundColor: Colors.white,
@@ -145,10 +183,10 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
               buildDescription(item),
               buildRatingSection(item),
 
-              // ✅ FIX: else must also be ...[ ]
               if (!isOwner) ...[
                 buildRentalChips(periods, item),
                 buildRentalSelector(item),
+                buildAvailabilityHint(),
                 buildEndDateDisplay(),
                 buildTotalPrice(item),
                 buildPickupSelector(),
@@ -186,7 +224,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  // ---------------- TOP HEADER ----------------
+  // TOP HEADER
   Widget buildTopHeader(BuildContext context) {
     return Container(
       width: double.infinity,
@@ -221,7 +259,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  // ---------------- IMAGE SLIDER ----------------
+  // IMAGE SLIDER
   Widget buildImageSlider(List<String> images) {
     return Container(
       height: 260,
@@ -245,7 +283,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  // ---------------- HEADER ----------------
+  // HEADER
   Widget buildHeader(Item item) {
     final isFav = FavouriteManager.isFavourite(item.id);
 
@@ -330,7 +368,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  // ---------------- RENTAL CHIPS ----------------
+  // RENTAL CHIPS
   Widget buildRentalChips(List<String> periods, Item item) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -346,7 +384,6 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                 startDate = null;
                 endDate = null;
                 startTime = null;
-                endTime = null;
                 count = 1;
                 pickupTime = null;
               });
@@ -361,7 +398,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  // ---------------- RENTAL SELECTOR ----------------
+  // RENTAL SELECTOR
   Widget buildRentalSelector(Item item) {
     if (selectedPeriod == null) return const SizedBox.shrink();
     final p = selectedPeriod!.toLowerCase();
@@ -375,14 +412,78 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+
+          buildDatePicker("Start Date", startDate, (d) {
+            setState(() {
+              startDate = d;
+              calculateEndDate();
+            });
+          }),
+
+          const SizedBox(height: 16),
+
           buildTimePicker("Start Time", startTime, (t) {
-            setState(() => startTime = t);
+            setState(() {
+              startTime = t;
+              calculateEndDate();
+            });
           }),
-          const SizedBox(height: 12),
-          buildTimePicker("End Time", endTime, (t) {
-            setState(() => endTime = t);
-          }),
+
+          const SizedBox(height: 22),
+
+          const Text(
+            "Number of Hours",
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+          ),
+
+          const SizedBox(height: 10),
+
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                GestureDetector(
+                  onTap: () {
+                    if (count > 1) {
+                      setState(() {
+                        count--;
+                        calculateEndDate();
+                      });
+                    }
+                  },
+                  child: const Icon(Icons.remove,
+                      color: Color(0xFF8A005D), size: 26),
+                ),
+
+                Text(
+                  "$count Hours",
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF8A005D),
+                  ),
+                ),
+
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      count++;
+                      calculateEndDate();
+                    });
+                  },
+                  child: const Icon(Icons.add,
+                      color: Color(0xFF8A005D), size: 26),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -454,6 +555,44 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildAvailabilityHint() {
+    if (loadingAvailability) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    if (unavailableRanges.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Text(
+          "✅ Fully available",
+          style: TextStyle(color: Colors.green),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "Unavailable Periods",
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          ...unavailableRanges.map((r) => Text(
+            "❌ ${DateFormat('MMM d, HH:mm').format(r.start)}"
+                " → ${DateFormat('MMM d, HH:mm').format(r.end)}",
+            style: const TextStyle(color: Colors.red),
+          )),
         ],
       ),
     );
@@ -537,14 +676,16 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
   }
 
   Widget buildEndDateDisplay() {
-    if (endDate == null || selectedPeriod?.toLowerCase() == "hourly") {
-      return const SizedBox.shrink();
-    }
+    if (endDate == null) return const SizedBox.shrink();
+
+    final isHourly = selectedPeriod?.toLowerCase() == "hourly";
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
       child: Text(
-        "End Date: ${DateFormat('yyyy-MM-dd').format(endDate!)}",
+        isHourly
+            ? "End Date & Time: ${DateFormat('yyyy-MM-dd HH:mm').format(endDate!)}"
+            : "End Date: ${DateFormat('yyyy-MM-dd').format(endDate!)}",
         style: const TextStyle(
           fontSize: 18,
           fontWeight: FontWeight.bold,
@@ -618,40 +759,23 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
           minimumSize: const Size(double.infinity, 55),
         ),
         onPressed: () async {
-          if (isOwner) return;
-
           calculateEndDate();
 
-          if (selectedPeriod == null) {
+          if (selectedPeriod == null ||
+              startDate == null ||
+              endDate == null ||
+              pickupTime == null ||
+              (selectedPeriod!.toLowerCase() == "hourly" &&
+                  startTime == null)) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Please select a rental period")),
+              const SnackBar(
+                  content: Text("Please complete all fields")),
             );
             return;
           }
 
-          final p = selectedPeriod!.toLowerCase();
-          if (p == "hourly") {
-            if (startTime == null || endTime == null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Please select start & end time")),
-              );
-              return;
-            }
-          } else {
-            if (startDate == null || endDate == null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Please select start date")),
-              );
-              return;
-            }
-          }
-
-          if (pickupTime == null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Please select pickup time")),
-            );
-            return;
-          }
+          final isHourly =
+              selectedPeriod!.toLowerCase() == "hourly";
 
           final data = {
             "itemId": item.id,
@@ -661,26 +785,49 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
             "status": "pending",
             "rentalType": selectedPeriod,
             "rentalQuantity": count,
-            "startDate": startDate?.toIso8601String(),
-            "endDate": endDate?.toIso8601String(),
+            "startDate": startDate!.toIso8601String(),
+            "endDate": endDate!.toIso8601String(),
+            "startTime":
+            isHourly ? startTime!.format(context) : null,
+            "endTime": isHourly
+                ? TimeOfDay.fromDateTime(endDate!)
+                .format(context)
+                : null,
             "pickupTime": pickupTime,
             "totalPrice": computeTotalPrice(item),
-            "startTime": selectedPeriod == "Hourly" ? startTime?.format(context) : null,
-            "endTime": selectedPeriod == "Hourly" ? endTime?.format(context) : null,
           };
 
           try {
             await FirestoreService.createRentalRequest(data);
+
             if (!mounted) return;
+
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Rental request submitted!")),
+              const SnackBar(
+                content: Text("Rental request submitted"),
+                backgroundColor: Colors.green,
+              ),
             );
+
             Navigator.pushNamed(context, "/orders");
+
+          } on FirebaseFunctionsException catch (e) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(e.message ?? "Something went wrong"),
+                backgroundColor: Colors.red,
+              ),
+            );
+
           } catch (e) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text("Error: $e")),
+              const SnackBar(
+                content: Text("Unexpected error. Please try again."),
+                backgroundColor: Colors.red,
+              ),
             );
           }
+
         },
         child: const Text(
           "Rent Now",
@@ -690,7 +837,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  // ---------------- REVIEWS ----------------
+  // REVIEWS
   Widget buildReviewsSection(Item item) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -761,7 +908,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  // ---------------- MAP ----------------
+  // MAP
   Widget buildMapSection(Item item) {
     if (item.latitude == null || item.longitude == null) {
       return Container(

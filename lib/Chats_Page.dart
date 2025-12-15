@@ -5,6 +5,7 @@ import 'Categories_Page.dart';
 import 'Orders.dart';
 import 'Setting.dart';
 import 'bottom_nav.dart';
+//import 'user_manager.dart';
 import 'fake_uid.dart';
 
 class ChatsPage extends StatefulWidget {

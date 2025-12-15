@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'Categories_Page.dart';
 import 'app_locale.dart';
 import 'package:flutter_custom_clippers/flutter_custom_clippers.dart';
+import 'user_manager.dart';
 import 'fake_uid.dart';
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 

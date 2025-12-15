@@ -61,4 +61,17 @@ class FirestoreService {
         .toList());
   }
 
+  static Future<List<Map<String, dynamic>>> getAcceptedRequestsForItem(
+      String itemId) async {
+
+    final snap = await FirebaseFirestore.instance
+        .collection("rentalRequests")
+        .where("itemId", isEqualTo: itemId)
+        .where("status", whereIn: ["accepted", "active"])
+        .get();
+
+    return snap.docs.map((d) => d.data()).toList();
+  }
+
+
 }

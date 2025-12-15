@@ -46,7 +46,7 @@ class _OwnerItemsPageState extends State<OwnerItemsPage> {
     );
   }
 
-  // HEADER --------------------------------------------------------
+  // HEADER
   Widget _buildHeader(Size size, bool isSmall) {
     return ClipPath(
       clipper: SideCurveClipper(),
@@ -93,7 +93,7 @@ class _OwnerItemsPageState extends State<OwnerItemsPage> {
     );
   }
 
-  // TABS ------------------------------
+  // TABS
   Widget _buildTab(String text, int index, double screenWidth) {
     bool active = selectedTab == index;
     bool isSmall = screenWidth < 380;
@@ -132,7 +132,7 @@ class _OwnerItemsPageState extends State<OwnerItemsPage> {
     }
   }
 
-  // MY ITEMS TAB ---------------------------------------------------
+  // MY ITEMS TAB
   Widget _buildMyItems() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
@@ -163,7 +163,7 @@ class _OwnerItemsPageState extends State<OwnerItemsPage> {
     );
   }
 
-  // REQUESTS TAB ---------------------------------------------------
+  // REQUESTS TAB
   Widget _buildIncomingRequests() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
@@ -194,7 +194,7 @@ class _OwnerItemsPageState extends State<OwnerItemsPage> {
     );
   }
 
-  // REQUEST CARD ---------------------------------------------------
+  // REQUEST CARD
   Widget _buildRequestCard(String requestId, Map<String, dynamic> data) {
     final status = data["status"] ?? "pending";
     final itemTitle = data["itemTitle"] ?? "Unknown Item";
@@ -205,10 +205,9 @@ class _OwnerItemsPageState extends State<OwnerItemsPage> {
       elevation: 3,
       child: Column(
         children: [
-          // ---------------- TOP ROW WITH ACTION ICONS ----------------
+          // TOP ROW WITH ACTION ICONS
           Row(
             children: [
-              // Expanded ListTile takes most of the row
               Expanded(
                 child: ListTile(
                   title: Text(
@@ -248,7 +247,7 @@ class _OwnerItemsPageState extends State<OwnerItemsPage> {
             ],
           ),
 
-          // ------------------- EXPANSION SECTION ---------------------
+          // EXPANSION SECTION
           ExpansionTile(
             title: const Text("View Details"),
             children: [
@@ -275,7 +274,7 @@ class _OwnerItemsPageState extends State<OwnerItemsPage> {
     );
   }
 
-  // ACCEPT / REJECT BUTTONS -----------------------------------------
+  // ACCEPT / REJECT BUTTONS
   Widget _buildAcceptRejectButtons(String requestId) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -306,7 +305,7 @@ class _OwnerItemsPageState extends State<OwnerItemsPage> {
     );
   }
 
-  // ITEM CARD -------------------------------------------------------
+  // ITEM CARD
   Widget _buildItemCard(Map<String, dynamic> data) {
     final images = List<String>.from(data["images"] ?? []);
     final rental = Map<String, dynamic>.from(data["rentalPeriods"] ?? {});
@@ -401,7 +400,7 @@ class _OwnerItemsPageState extends State<OwnerItemsPage> {
   }
 }
 
-// CLIPPER ---------------------------------------------------------
+// CLIPPER
 class SideCurveClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {

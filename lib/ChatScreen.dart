@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'fake_uid.dart';
+import 'user_manager.dart';
 
 class ChatScreen extends StatefulWidget {
   final String personName;
