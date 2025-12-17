@@ -19,16 +19,32 @@ class _CreditCardPaymentPageState extends State<CreditCardPaymentPage> {
   final TextEditingController cvvController = TextEditingController();
   bool isProcessing = false;
   String? cardType;
+  bool _showErrors = false;
+
+  
+  String? _cardNumberError;
+  String? _cardHolderError;
+  String? _expiryDateError;
+  String? _cvvError;
 
   @override
   void initState() {
     super.initState();
     cardNumberController.addListener(_detectCardType);
+    
+    cardNumberController.addListener(() => _updateCardNumberError());
+    cardHolderController.addListener(() => _updateCardHolderError());
+    expiryController.addListener(() => _updateExpiryDateError());
+    cvvController.addListener(() => _updateCVVError());
   }
 
   @override
   void dispose() {
     cardNumberController.removeListener(_detectCardType);
+    cardNumberController.removeListener(() => _updateCardNumberError());
+    cardHolderController.removeListener(() => _updateCardHolderError());
+    expiryController.removeListener(() => _updateExpiryDateError());
+    cvvController.removeListener(() => _updateCVVError());
     super.dispose();
   }
 
@@ -42,7 +58,6 @@ class _CreditCardPaymentPageState extends State<CreditCardPaymentPage> {
       return;
     }
 
-    
     if (cardNumber.startsWith('4')) {
       setState(() {
         cardType = 'Visa';
@@ -54,10 +69,33 @@ class _CreditCardPaymentPageState extends State<CreditCardPaymentPage> {
     }
   }
 
+  void _updateCardNumberError() {
+    setState(() {
+      _cardNumberError = _validateCardNumberInput(cardNumberController.text);
+    });
+  }
+
+  void _updateCardHolderError() {
+    setState(() {
+      _cardHolderError = _validateCardHolder(cardHolderController.text);
+    });
+  }
+
+  void _updateExpiryDateError() {
+    setState(() {
+      _expiryDateError = _validateExpiryDateInput(expiryController.text);
+    });
+  }
+
+  void _updateCVVError() {
+    setState(() {
+      _cvvError = _validateCVV(cvvController.text);
+    });
+  }
+
   bool _validateCardNumber(String cardNumber) {
     final cleanedCardNumber = cardNumber.replaceAll(' ', '');
     
-  
     if (cleanedCardNumber.length != 16) return false;
     if (!cleanedCardNumber.startsWith('4')) return false;
     
@@ -189,6 +227,47 @@ class _CreditCardPaymentPageState extends State<CreditCardPaymentPage> {
     return null;
   }
 
+  void _validateAndShowErrors() {
+    setState(() {
+      _showErrors = true;
+
+      _cardNumberError = _validateCardNumberInput(cardNumberController.text);
+      _cardHolderError = _validateCardHolder(cardHolderController.text);
+      _expiryDateError = _validateExpiryDateInput(expiryController.text);
+      _cvvError = _validateCVV(cvvController.text);
+    });
+    
+    final hasErrors = _cardNumberError != null || 
+                     _cardHolderError != null || 
+                     _expiryDateError != null || 
+                     _cvvError != null;
+    
+    if (hasErrors) {
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            'Please fill in all required fields correctly',
+            style: TextStyle(color: Colors.white),
+          ),
+          backgroundColor: Colors.red[800],
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          duration: const Duration(seconds: 3),
+          action: SnackBarAction(
+            label: 'OK',
+            textColor: Colors.white,
+            onPressed: () {
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            },
+          ),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -201,551 +280,608 @@ class _CreditCardPaymentPageState extends State<CreditCardPaymentPage> {
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(25),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF1F0F46), Color(0xFF8A005D)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF8A005D).withOpacity(0.4),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(25),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF1F0F46), Color(0xFF8A005D)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Visa Card',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF8A005D).withOpacity(0.4),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Visa Card',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(20),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 60,
+                              height: 20,
+                              decoration: BoxDecoration(
+                                color: Colors.blue,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Center(
+                                child: Text(
+                                  'VISA',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 10),
+                  
+                  if (cardType != null) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.verified,
+                            color: Colors.white,
+                            size: 12,
                           ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Valid Visa Card',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                  
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextField(
+                        controller: cardNumberController,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 2,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: '4XXX XXXX XXXX XXXX',
+                          hintStyle: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 22,
+                            letterSpacing: 2,
+                          ),
+                          border: InputBorder.none,
+                          counterText: '',
+                          suffixIcon: cardType != null
+                              ? const Icon(
+                                  Icons.check_circle,
+                                  color: Colors.green,
+                                  size: 24,
+                                )
+                              : null,
+                        ),
+                        keyboardType: TextInputType.number,
+                        maxLength: 19,
+                        onChanged: (value) {
+                          final cleanedValue = value.replaceAll(' ', '');
+                          var formattedValue = '';
+                          
+                          for (int i = 0; i < cleanedValue.length; i++) {
+                            if (i > 0 && i % 4 == 0) {
+                              formattedValue += ' ';
+                            }
+                            formattedValue += cleanedValue[i];
+                          }
+                          
+                          if (formattedValue != value) {
+                            cardNumberController.value = TextEditingValue(
+                              text: formattedValue,
+                              selection: TextSelection.collapsed(offset: formattedValue.length),
+                            );
+                          }
+                        },
+                      ),
+  
+                      if (_showErrors && _cardNumberError != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8.0, left: 4.0),
                           child: Row(
                             children: [
-                              Container(
-                                width: 60,
-                                height: 20,
-                                decoration: BoxDecoration(
-                                  color: Colors.blue,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: const Center(
-                                  child: Text(
-                                    'VISA',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
-                                    ),
+                              Icon(
+                                Icons.error_outline,
+                                color: Colors.yellow[300],
+                                size: 16,
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  _cardNumberError!,
+                                  style: TextStyle(
+                                    color: Colors.yellow[300],
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      ],
-                    ),
-                    
-                    const SizedBox(height: 10),
-                    
-                    if (cardType != null) ...[
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 30),
+                  
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(
-                              Icons.verified,
-                              color: Colors.white,
-                              size: 12,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Valid Visa Card',
-                              style: const TextStyle(
-                                color: Colors.white,
+                            const Text(
+                              'CARD HOLDER',
+                              style: TextStyle(
+                                color: Colors.white70,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                    ],
-                    
-                    TextFormField(
-                      controller: cardNumberController,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: 2,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: '4XXX XXXX XXXX XXXX',
-                        hintStyle: const TextStyle(
-                          color: Colors.white54,
-                          fontSize: 22,
-                          letterSpacing: 2,
-                        ),
-                        border: InputBorder.none,
-                        counterText: '',
-                        errorStyle: const TextStyle(color: Colors.yellow),
-                        suffixIcon: cardType != null
-                            ? const Icon(
-                                Icons.check_circle,
-                                color: Colors.green,
-                                size: 24,
-                              )
-                            : null,
-                      ),
-                      keyboardType: TextInputType.number,
-                      maxLength: 19,
-                      validator: _validateCardNumberInput,
-                      onChanged: (value) {
-                        final cleanedValue = value.replaceAll(' ', '');
-                        var formattedValue = '';
-                        
-                        for (int i = 0; i < cleanedValue.length; i++) {
-                          if (i > 0 && i % 4 == 0) {
-                            formattedValue += ' ';
-                          }
-                          formattedValue += cleanedValue[i];
-                        }
-                        
-                        if (formattedValue != value) {
-                          cardNumberController.value = TextEditingValue(
-                            text: formattedValue,
-                            selection: TextSelection.collapsed(offset: formattedValue.length),
-                          );
-                        }
-                      },
-                    ),
-                    
-                    const SizedBox(height: 30),
-                    
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'CARD HOLDER',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              TextFormField(
-                                controller: cardHolderController,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                decoration: const InputDecoration(
-                                  hintText: 'FULL NAME',
-                                  hintStyle: TextStyle(
-                                    color: Colors.white54,
-                                    fontSize: 16,
-                                  ),
-                                  border: InputBorder.none,
-                                  errorStyle: TextStyle(color: Colors.yellow),
-                                ),
-                                validator: _validateCardHolder,
-                                textCapitalization: TextCapitalization.words,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 40),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'EXPIRY DATE',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              TextFormField(
-                                controller: expiryController,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                decoration: const InputDecoration(
-                                  hintText: 'MM/YY',
-                                  hintStyle: TextStyle(
-                                    color: Colors.white54,
-                                    fontSize: 16,
-                                  ),
-                                  border: InputBorder.none,
-                                  errorStyle: TextStyle(color: Colors.yellow),
-                                ),
-                                keyboardType: TextInputType.number,
-                                maxLength: 5,
-                                validator: _validateExpiryDateInput,
-                                onChanged: (value) {
-                                  final cleanedValue = value.replaceAll('/', '');
-                                  
-                                  if (cleanedValue.length == 2 && value.length == 2) {
-                                    expiryController.text = '$value/';
-                                    expiryController.selection = TextSelection.collapsed(offset: 3);
-                                  } else if (cleanedValue.length > 4) {
-                                    expiryController.text = '${cleanedValue.substring(0, 2)}/${cleanedValue.substring(2, 4)}';
-                                    expiryController.selection = TextSelection.collapsed(offset: 5);
-                                  }
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 30),
-
-              Card(
-                elevation: 4,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF1F0F46), Color(0xFF8A005D)],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    ),
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              'Amount:',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            Text(
-                              '\$${widget.amount.toStringAsFixed(2)}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 28,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 15),
-                        const Divider(color: Colors.white30, height: 1),
-                        const SizedBox(height: 15),
-                        const Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Transaction Fee:',
-                              style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: 16,
-                              ),
-                            ),
-                            Text(
-                              'FREE',
-                              style: TextStyle(
-                                color: Colors.green,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        const Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Total:',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            Text(
-                              'FREE',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 25),
-
-              Card(
-                elevation: 4,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Row(
-                        children: [
-                          Icon(Icons.lock, color: Color(0xFF8A005D)),
-                          SizedBox(width: 10),
-                          Text(
-                            'Security Code (CVV)',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF1F0F46),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 15),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: cvvController,
-                              obscureText: true,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              decoration: InputDecoration(
-                                hintText: '123',
-                                hintStyle: const TextStyle(color: Colors.grey),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide.none,
-                                ),
-                                filled: true,
-                                fillColor: Colors.grey[50],
-                                prefixIcon: const Icon(Icons.security, color: Color(0xFF8A005D)),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 18,
-                                ),
-                                counterText: '',
-                              ),
-                              keyboardType: TextInputType.number,
-                              maxLength: 3,
-                              validator: _validateCVV,
-                            ),
-                          ),
-                          const SizedBox(width: 15),
-                          Container(
-                            padding: const EdgeInsets.all(15),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFF1F0F46), Color(0xFF8A005D)],
-                                begin: Alignment.centerLeft,
-                                end: Alignment.centerRight,
-                              ),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Column(
+                            const SizedBox(height: 8),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Icon(Icons.help_outline, color: Colors.white, size: 24),
-                                const SizedBox(height: 8),
-                                Text(
-                                  '3 digits\nback side',
-                                  style: TextStyle(
+                                TextField(
+                                  controller: cardHolderController,
+                                  style: const TextStyle(
                                     color: Colors.white,
-                                    fontSize: 12,
+                                    fontSize: 16,
                                     fontWeight: FontWeight.w500,
                                   ),
-                                  textAlign: TextAlign.center,
+                                  decoration: const InputDecoration(
+                                    hintText: 'FULL NAME',
+                                    hintStyle: TextStyle(
+                                      color: Colors.white54,
+                                      fontSize: 16,
+                                    ),
+                                    border: InputBorder.none,
+                                  ),
+                                  textCapitalization: TextCapitalization.words,
                                 ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        'Visa cards have 3-digit CVV on the back',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 25),
-
-              Container(
-                padding: const EdgeInsets.all(15),
-                decoration: BoxDecoration(
-                  color: Colors.blue[50],
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.blue[100]!),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.info, color: Color(0xFF8A005D), size: 20),
-                        SizedBox(width: 8),
-                        Text(
-                          'Visa Card Requirements',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF1F0F46),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    _buildRequirement('Card number must start with 4'),
-                    _buildRequirement('Card number must be 16 digits'),
-                    _buildRequirement('Card holder name must be full name'),
-                    _buildRequirement('Expiry date must be in MM/YY format'),
-                    _buildRequirement('CVV must be 3 digits on the back'),
-                    _buildRequirement('Only Visa cards are accepted'),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 25),
-
-              SizedBox(
-                width: double.infinity,
-                height: 60,
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF1F0F46), Color(0xFF8A005D)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF8A005D).withOpacity(0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Material(
-                    color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(12),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(12),
-                      onTap: isProcessing ? null : _processPayment,
-                      child: Center(
-                        child: isProcessing
-                            ? const CircularProgressIndicator(color: Colors.white)
-                            : const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.lock, color: Colors.white, size: 24),
-                                  SizedBox(width: 12),
-                                  Text(
-                                    'Confirm Payment',
-                                    style: TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.white,
+                                
+                                if (_showErrors && _cardHolderError != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 8.0, left: 4.0),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.error_outline,
+                                          color: Colors.yellow[300],
+                                          size: 16,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: Text(
+                                            _cardHolderError!,
+                                            style: TextStyle(
+                                              color: Colors.yellow[300],
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  SizedBox(width: 12),
-                                  Icon(Icons.arrow_forward, color: Colors.white, size: 20),
-                                ],
-                              ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 40),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'EXPIRY DATE',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                TextField(
+                                  controller: expiryController,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  decoration: const InputDecoration(
+                                    hintText: 'MM/YY',
+                                    hintStyle: TextStyle(
+                                      color: Colors.white54,
+                                      fontSize: 16,
+                                    ),
+                                    border: InputBorder.none,
+                                  ),
+                                  keyboardType: TextInputType.number,
+                                  maxLength: 5,
+                                  onChanged: (value) {
+                                    final cleanedValue = value.replaceAll('/', '');
+                                    
+                                    if (cleanedValue.length == 2 && value.length == 2) {
+                                      expiryController.text = '$value/';
+                                      expiryController.selection = TextSelection.collapsed(offset: 3);
+                                    } else if (cleanedValue.length > 4) {
+                                      expiryController.text = '${cleanedValue.substring(0, 2)}/${cleanedValue.substring(2, 4)}';
+                                      expiryController.selection = TextSelection.collapsed(offset: 5);
+                                    }
+                                  },
+                                ),
+                                
+                                if (_showErrors && _expiryDateError != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 8.0, left: 4.0),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.error_outline,
+                                          color: Colors.yellow[300],
+                                          size: 16,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: Text(
+                                            _expiryDateError!,
+                                            style: TextStyle(
+                                              color: Colors.yellow[300],
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ),
+                ],
               ),
+            ),
 
-              const SizedBox(height: 20),
+            const SizedBox(height: 30),
 
-              Container(
-                padding: const EdgeInsets.all(16),
+            Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Container(
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [Color(0xFF1F0F46), Color(0xFF8A005D)],
                     begin: Alignment.centerLeft,
                     end: Alignment.centerRight,
                   ),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(15),
                 ),
-                child: const Row(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Amount:',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          Text(
+                            '\$${widget.amount.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 28,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 15),
+                      const Divider(color: Colors.white30, height: 1),
+                      const SizedBox(height: 15),
+                      const Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Transaction Fee:',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 16,
+                            ),
+                          ),
+                          Text(
+                            'FREE',
+                            style: TextStyle(
+                              color: Colors.green,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      const Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Total:',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Text(
+                            'FREE',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 25),
+
+            Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.verified_user, color: Colors.white, size: 24),
-                    SizedBox(width: 12),
+                    const Row(
+                      children: [
+                        Icon(Icons.lock, color: Color(0xFF8A005D)),
+                        SizedBox(width: 10),
+                        Text(
+                          'Security Code (CVV)',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1F0F46),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 15),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: cvvController,
+                                obscureText: true,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                decoration: InputDecoration(
+                                  hintText: '123',
+                                  hintStyle: const TextStyle(color: Colors.grey),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  filled: true,
+                                  fillColor: Colors.grey[50],
+                                  prefixIcon: const Icon(Icons.security, color: Color(0xFF8A005D)),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                    vertical: 18,
+                                  ),
+                                  counterText: '',
+                                ),
+                                keyboardType: TextInputType.number,
+                                maxLength: 3,
+                              ),
+                            ),
+                            const SizedBox(width: 15),
+                            Container(
+                              padding: const EdgeInsets.all(15),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFF1F0F46), Color(0xFF8A005D)],
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Column(
+                                children: [
+                                  Icon(Icons.help_outline, color: Colors.white, size: 24),
+                                  SizedBox(height: 8),
+                                  Text(
+                                    '3 digits\nback side',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        
+                        if (_showErrors && _cvvError != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8.0, left: 4.0),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.error_outline,
+                                  color: Colors.red[800],
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    _cvvError!,
+                                    style: TextStyle(
+                                      color: Colors.red[800],
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Visa cards have 3-digit CVV on the back',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 25),
+
+            Container(
+              padding: const EdgeInsets.all(15),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blue[100]!),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.info, color: Color(0xFF8A005D), size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        'Visa Card Requirements',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1F0F46),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  _buildRequirement('Card number must start with 4'),
+                  _buildRequirement('Card number must be 16 digits'),
+                  _buildRequirement('Card holder name must be full name'),
+                  _buildRequirement('Expiry date must be in MM/YY format'),
+                  _buildRequirement('CVV must be 3 digits on the back'),
+                  _buildRequirement('Only Visa cards are accepted'),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 25),
+
+           
+            if (_showErrors && (_cardNumberError != null || _cardHolderError != null || _expiryDateError != null || _cvvError != null))
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red[50],
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.red[200]!),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.error_outline, color: Colors.red[800], size: 20),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Your payment is 100% secure. We use 256-bit SSL encryption to protect your financial information.',
+                        'Please fill in all required fields correctly',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: Colors.red[800],
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
                         ),
@@ -755,9 +891,91 @@ class _CreditCardPaymentPageState extends State<CreditCardPaymentPage> {
                 ),
               ),
 
-              const SizedBox(height: 30),
-            ],
-          ),
+            const SizedBox(height: 15),
+
+            SizedBox(
+              width: double.infinity,
+              height: 60,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF1F0F46), Color(0xFF8A005D)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF8A005D).withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: isProcessing ? null : _processPayment,
+                    child: Center(
+                      child: isProcessing
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.lock, color: Colors.white, size: 24),
+                                SizedBox(width: 12),
+                                Text(
+                                  'Confirm Payment',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                SizedBox(width: 12),
+                                Icon(Icons.arrow_forward, color: Colors.white, size: 20),
+                              ],
+                            ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF1F0F46), Color(0xFF8A005D)],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.verified_user, color: Colors.white, size: 24),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Your payment is 100% secure. We use 256-bit SSL encryption to protect your financial information.',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 30),
+          ],
         ),
       ),
     );
@@ -785,12 +1003,21 @@ class _CreditCardPaymentPageState extends State<CreditCardPaymentPage> {
             ),
           ),
         ],
-      ),
+      )
     );
   }
 
   void _processPayment() async {
-    if (!_formKey.currentState!.validate()) {
+
+    _validateAndShowErrors();
+
+
+    final hasErrors = _cardNumberError != null || 
+                     _cardHolderError != null || 
+                     _expiryDateError != null || 
+                     _cvvError != null;
+    
+    if (hasErrors) {
       return;
     }
 
