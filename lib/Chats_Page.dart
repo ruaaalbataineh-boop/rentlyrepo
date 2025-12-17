@@ -5,7 +5,6 @@ import 'Categories_Page.dart';
 import 'Orders.dart';
 import 'Setting.dart';
 import 'bottom_nav.dart';
-//import 'user_manager.dart';
 import 'fake_uid.dart';
 
 class ChatsPage extends StatefulWidget {
@@ -16,6 +15,7 @@ class ChatsPage extends StatefulWidget {
 }
 
 class _ChatsPageState extends State<ChatsPage> {
+  int selectedBottom = 3;
 
   String formatTime(int timestamp) {
     final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
@@ -87,12 +87,12 @@ class _ChatsPageState extends State<ChatsPage> {
     );
   }
 
-  // CHAT LIST
+  
+  /// CHAT LIST
+
   Widget _chatList() {
     return StreamBuilder(
-      stream: FirebaseDatabase.instance
-          .ref("chats")
-          .onValue,
+      stream: FirebaseDatabase.instance.ref("chats").onValue,
       builder: (context, snapshot) {
         if (!snapshot.hasData ||
             snapshot.data!.snapshot.value == null) {
@@ -107,7 +107,7 @@ class _ChatsPageState extends State<ChatsPage> {
           data["chatId"] = e.key;
           return data;
         }).where((chat) =>
-        chat["user1"] == LoginUID.uid ||
+            chat["user1"] == LoginUID.uid ||
             chat["user2"] == LoginUID.uid).toList();
 
         if (myChats.isEmpty) {
@@ -121,8 +121,14 @@ class _ChatsPageState extends State<ChatsPage> {
           itemCount: myChats.length,
           itemBuilder: (context, index) {
             var chat = myChats[index];
+
+            ///  
+            bool isUnread =
+                chat["unread"] != null &&
+                chat["unread"][LoginUID.uid] == true;
+
             String otherUid =
-            chat["user1"] == LoginUID.uid ? chat["user2"] : chat["user1"];
+                chat["user1"] == LoginUID.uid ? chat["user2"] : chat["user1"];
 
             return FutureBuilder(
               future: FirebaseDatabase.instance.ref("users/$otherUid").get(),
@@ -139,11 +145,10 @@ class _ChatsPageState extends State<ChatsPage> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) =>
-                            ChatScreen(
-                              personName: user["name"],
-                              personUid: otherUid,
-                            ),
+                        builder: (_) => ChatScreen(
+                          personName: user["name"],
+                          personUid: otherUid,
+                        ),
                       ),
                     );
                   },
@@ -183,15 +188,33 @@ class _ChatsPageState extends State<ChatsPage> {
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
-                                          fontSize: 13,
-                                          color: Colors.grey.shade700),
+                                        fontSize: 13,
+                                        color: Colors.grey.shade700,
+                                        fontWeight: isUnread
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                      ),
                                     ),
                                   ),
+
+                                  ///  RED DOT 
+                                  if (isUnread)
+                                    Container(
+                                      margin: const EdgeInsets.only(right: 6),
+                                      width: 10,
+                                      height: 10,
+                                      decoration: const BoxDecoration(
+                                        color: Colors.red,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+
                                   Text(
                                     formatTime(chat["timestamp"]),
                                     style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey.shade600),
+                                      fontSize: 12,
+                                      color: Colors.grey.shade600,
+                                    ),
                                   ),
                                 ],
                               ),
