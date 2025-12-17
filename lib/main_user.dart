@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'Item.dart';
+import 'sub_category_page.dart';
 import 'Categories_Page.dart';
 import 'Rently_Logo.dart';
 import 'Setting.dart';
@@ -18,12 +19,46 @@ import 'firebase_options.dart';
 import 'MapPage.dart';
 import 'AddItemPage .dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+class UserHomePage extends StatelessWidget {
+  const UserHomePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const MainPage();
+  }
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  //  Firebase Cloud Messaging
+  FirebaseMessaging messaging = FirebaseMessaging.instance;
+
+  
+  await messaging.requestPermission(
+    alert: true,
+    badge: true,
+    sound: true,
+  );
+/*
+  // جلب الـ Token
+  String? token = await messaging.getToken();
+  debugPrint(" FCM TOKEN: $token");
+
+  // تخزين الـ Token في Realtime Database
+  final user = FirebaseAuth.instance.currentUser;
+  if (user != null && token != null) {
+    await FirebaseDatabase.instance
+        .ref("users/${user.uid}/fcmToken")
+        .set(token);
+  }*/
 
   runApp(const MyApp());
 }
@@ -48,9 +83,7 @@ class MyApp extends StatelessWidget {
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
-
           home: const RentlyApp(),
-
           routes: {
             '/login': (context) => const LoginPage(),
             '/create': (context) => const CreateAccountPage(),
@@ -58,15 +91,10 @@ class MyApp extends StatelessWidget {
             '/Code': (context) => const EnterTheCode(),
             '/orders': (context) => const OrdersPage(),
             '/setting': (context) => const SettingPage(),
-            //'/payment': (context) => const PaymentPage(),
             '/category': (context) => const CategoryPage(),
             '/favorites': (context) => const FavouritePage(),
-            //'/cardPayment': (context) => const CardPaymentPage(),
-            //'/wallet': (context) => const WalletPage(),
           },
-
           onGenerateRoute: (settings) {
-            // Product Listing
             if (settings.name == ProductListPage.routeName) {
               return MaterialPageRoute(
                 builder: (context) => const ProductListPage(),
@@ -74,20 +102,16 @@ class MyApp extends StatelessWidget {
               );
             }
 
-            // Equipment Detail Page
             if (settings.name == EquipmentDetailPage.routeName) {
               final item = settings.arguments as Item;
-
               return MaterialPageRoute(
                 builder: (context) => const EquipmentDetailPage(),
                 settings: settings,
               );
             }
 
-            // Add Item Page
             if (settings.name == '/add-item') {
               final data = settings.arguments as Map<String, dynamic>?;
-
               return MaterialPageRoute(
                 builder: (context) => AddItemPage(
                   existingItem: data?["item"],
@@ -96,7 +120,6 @@ class MyApp extends StatelessWidget {
               );
             }
 
-            // Map Page
             if (settings.name == '/map') {
               final position = settings.arguments as LatLng?;
               return MaterialPageRoute(
@@ -111,5 +134,14 @@ class MyApp extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+class MainPage extends StatelessWidget {
+  const MainPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const CategoryPage();
   }
 }
