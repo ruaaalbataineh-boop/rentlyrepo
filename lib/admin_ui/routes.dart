@@ -9,26 +9,23 @@ import 'package:p2/admin_ui/Pages/NotificationsPage.dart';
 import 'package:p2/admin_ui/Pages/ReportsPage.dart';
 import 'package:p2/admin_ui/Pages/TransactionsPage.dart';
 import 'package:p2/admin_ui/Pages/UserManagement.dart';
+import 'package:p2/admin_ui/Pages/item_notification.dart'; // ✅ ADD ONLY
 
 import 'layout/admin_layout.dart';
 
 final GoRouter adminRouter = GoRouter(
   initialLocation: '/adminLogin',
 
- 
   redirect: (context, state) {
-  
     return null;
   },
 
   routes: [
-    
     GoRoute(
       path: '/adminLogin',
       builder: (context, state) => const AdminLoginPage(),
     ),
 
-    
     ShellRoute(
       builder: (context, state, child) => AdminLayout(child: child),
       routes: [
@@ -60,6 +57,13 @@ final GoRouter adminRouter = GoRouter(
           path: '/notifications',
           builder: (context, state) => const NotificationsPage(),
         ),
+
+        // NEW ROUTE 
+        GoRoute(
+          path: '/item-notifications',
+          builder: (context, state) => const ItemNotificationPage(),
+        ),
+
         GoRoute(
           path: '/chats',
           builder: (context, state) => const ChatsPage(),
