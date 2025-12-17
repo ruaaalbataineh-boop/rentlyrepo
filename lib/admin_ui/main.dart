@@ -3,14 +3,18 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:p2/admin_ui/routes.dart';
 import '../firebase_options.dart';
-
+import 'services/admin_fcm_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   if (kIsWeb) {
     await Firebase.initializeApp(
+      
       options: DefaultFirebaseOptions.currentPlatform,
     );
+
+    await AdminFcmService.init();
+    
     runApp(const AdminApp());
   } else {
   
