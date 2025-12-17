@@ -3,6 +3,11 @@ import 'package:p2/AddItemPage .dart';
 import 'package:p2/sub_category_page.dart';
 import 'bottom_nav.dart';
 
+
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+
 class EquipmentCategory {
   final String id;
   final String title;
@@ -18,41 +23,13 @@ class EquipmentCategory {
 }
 
 final CATEGORY_LIST = [
-  EquipmentCategory(
-    id: 'c1',
-    title: 'Electronics',
-    icon: Icons.headphones,
-  ),
-  EquipmentCategory(
-    id: 'c2',
-    title: 'Computers & Mobiles',
-    icon: Icons.devices_other,
-  ),
-  EquipmentCategory(
-    id: 'c3',
-    title: 'Video Games',
-    icon: Icons.sports_esports,
-  ),
-  EquipmentCategory(
-    id: 'c4',
-    title: 'Sports and hobbies',
-    icon: Icons.directions_bike,
-  ),
-  EquipmentCategory(
-    id: 'c5',
-    title: 'Tools & Devices',
-    icon: Icons.handyman,
-  ),
-  EquipmentCategory(
-    id: 'c6',
-    title: 'Home & Garden',
-    icon: Icons.grass,
-  ),
-  EquipmentCategory(
-    id: 'c7',
-    title: 'Fashion & Clothing',
-    icon: Icons.checkroom,
-  ),
+  EquipmentCategory(id: 'c1', title: 'Electronics', icon: Icons.headphones),
+  EquipmentCategory(id: 'c2', title: 'Computers & Mobiles', icon: Icons.devices_other),
+  EquipmentCategory(id: 'c3', title: 'Video Games', icon: Icons.sports_esports),
+  EquipmentCategory(id: 'c4', title: 'Sports and hobbies', icon: Icons.directions_bike),
+  EquipmentCategory(id: 'c5', title: 'Tools & Devices', icon: Icons.handyman),
+  EquipmentCategory(id: 'c6', title: 'Home & Garden', icon: Icons.grass),
+  EquipmentCategory(id: 'c7', title: 'Fashion & Clothing', icon: Icons.checkroom),
 ];
 
 class CategoryPage extends StatefulWidget {
@@ -66,6 +43,25 @@ class CategoryPage extends StatefulWidget {
 
 class _CategoryPageState extends State<CategoryPage> {
   String searchQuery = "";
+
+  @override
+  void initState() {
+    super.initState();
+    saveFcmToken(); 
+  }
+
+  //  FCM Token
+  Future<void> saveFcmToken() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final token = await FirebaseMessaging.instance.getToken();
+    if (token == null) return;
+
+    await FirebaseDatabase.instance
+        .ref("users/${user.uid}/fcmToken")
+        .set(token);
+  }
 
   @override
   Widget build(BuildContext context) {
