@@ -16,35 +16,13 @@ void main() {
       (home: const LoginPage()),
     );
 
-    expect(find.text('login'), findsOneWidget);
+    expect(find.text('Login'), findsOneWidget);
     expect(find.byType(TextFormField), findsNWidgets(2)); 
     expect(find.byIcon(Icons.arrow_forward), findsOneWidget);
-    expect(find.text("don't have an account? "), findsOneWidget);
+    expect(find.text("Don't have an account? "), findsOneWidget);
   });
 // 2 login done navigater to category 
-  // testWidgets('Successful login navigates to Category page ',
-  //   (WidgetTester tester) async {
-  // await tester.pumpWidget(
-  //   MaterialApp(
-  //     home: const LoginPage(),
-  //     routes: {
-  //       '/category': (_) => const Scaffold(
-  //         body: Text('Category Page'),
-  //       ),
-  //     },
-  //   ),
-  // );
-
-//   await tester.enterText(
-//       find.byType(TextFormField).first, "test@mail.com");
-//   await tester.enterText(
-//       find.byType(TextFormField).last, "123456");
-
-//   await tester.tap(find.byIcon(Icons.arrow_forward));
-//   await tester.pumpAndSettle();
-
-//   expect(find.text('Category Page'), findsOneWidget);
-// });
+  
 
 // 3 chek if empty form
   testWidgets("Validation shows for empty fields", (WidgetTester tester) async {
@@ -112,7 +90,7 @@ void main() {
       ),
     );
 
-    await tester.tap(find.text('sign_up'));
+    await tester.tap(find.text('sign up'));
     await tester.pumpAndSettle();
     expect(find.text('Create Account Page'), findsOneWidget);
   });
