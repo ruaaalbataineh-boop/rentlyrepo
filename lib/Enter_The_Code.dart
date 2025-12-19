@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'app_locale.dart';
+import '../logic/code_logic.dart';
 
 class EnterTheCode extends StatefulWidget {
   const EnterTheCode({super.key});
@@ -9,70 +10,60 @@ class EnterTheCode extends StatefulWidget {
 }
 
 class _EnterTheCodeState extends State<EnterTheCode> {
-  List<String> code = ["", "", "", ""];
-  String mockServerCode = "1234"; 
- 
-  Future<bool> mockVerifyCode(String input) async {
-    await Future.delayed(const Duration(seconds: 1)); 
-
-    return input == mockServerCode;
+  late CodeLogic codeLogic; 
+  
+  @override
+  void initState() {
+    super.initState();
+    codeLogic = CodeLogic(); 
   }
 
+  
+void _addDigit(String digit) {
  
+  final success = codeLogic.addDigit(digit);
+  if (success) {
+    setState(() {});
+  }
+}
+
+  void _removeDigit() {
+    setState(() {
+      codeLogic.removeDigit(); 
+    });
+  }
+
   void _resendCode() {
     setState(() {
-      mockServerCode = "4321";
+      codeLogic.resendCode(); 
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("A new code has been sent: $mockServerCode")),
+      SnackBar(content: Text("A new code has been sent: ${codeLogic.serverCode}")),
     );
   }
 
-  void _addDigit(String digit) {
-    for (int i = 0; i < code.length; i++) {
-      if (code[i].isEmpty) {
-        setState(() {
-          code[i] = digit;
-        });
-        break;
-      }
-    }
-  }
-
-  void _removeDigit() {
-    for (int i = code.length - 1; i >= 0; i--) {
-      if (code[i].isNotEmpty) {
-        setState(() {
-          code[i] = "";
-        });
-        break;
-      }
-    }
-  }
-
- 
   void _verifyCode() async {
-    final enteredCode = code.join();
-
-    if (enteredCode.length != 4) {
+    final validationError = codeLogic.validateCode();
+    if (validationError != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocale.t('enter_4_digits'))),
+        SnackBar(content: Text(validationError)),
       );
       return;
     }
 
-    bool ok = await mockVerifyCode(enteredCode);
+    final enteredCode = codeLogic.getEnteredCode();
+    bool ok = await codeLogic.verifyCode(enteredCode);
 
     if (ok) {
       Navigator.pushReplacementNamed(context, '/category');
     } else {
       // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(" Wrong code! Try again.")),
+        const SnackBar(content: Text("Wrong code! Try again.")),
       );
       setState(() {
-        code = ["", "", "", ""];
+        codeLogic.clearCode(); 
       });
     }
   }
@@ -127,7 +118,7 @@ class _EnterTheCodeState extends State<EnterTheCode> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
-                              code[index].isEmpty ? "-" : code[index],
+                              codeLogic.code[index].isEmpty ? "-" : codeLogic.code[index], 
                               style: const TextStyle(
                                 fontSize: 26,
                                 fontWeight: FontWeight.bold,
