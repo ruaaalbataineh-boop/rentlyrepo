@@ -1,6 +1,9 @@
+
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
+import 'package:p2/logic/profile_logic_page.dart';
+
 
 class ProfilePage extends StatefulWidget {
   final String name;
@@ -24,24 +27,18 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   final _formKey = GlobalKey<FormState>();
-
-  late String fullName;
-  late String email;
-  late String phone;
-  late String location;
-  late String bank;
-
-  File? profileImage;
+  late ProfileLogic _logic;
 
   @override
   void initState() {
     super.initState();
-   
-    fullName = widget.name;
-    email = widget.email;
-    phone = widget.phone;
-    location = widget.location;
-    bank = widget.bank;
+    _logic = ProfileLogic(
+      fullName: widget.name,
+      email: widget.email,
+      phone: widget.phone,
+      location: widget.location,
+      bank: widget.bank,
+    );
   }
 
   Future<void> pickImage() async {
@@ -50,7 +47,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
     if (picked != null) {
       setState(() {
-        profileImage = File(picked.path);
+        _logic.profileImage = File(picked.path);
       });
     }
   }
@@ -58,10 +55,10 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> fakeUpdate() async {
     await Future.delayed(const Duration(seconds: 1));
     print("====== User Updated ======");
-    print("Name: $fullName");
-    print("Email: $email");
-    print("Phone: $phone");
-    print("Image: ${profileImage != null ? "Uploaded" : "Not changed"}");
+    print("Name: ${_logic.fullName}");
+    print("Email: ${_logic.email}");
+    print("Phone: ${_logic.phone}");
+    print("Image: ${_logic.hasImage() ? "Uploaded" : "Not changed"}");
     print("==========================");
   }
 
@@ -111,9 +108,10 @@ class _ProfilePageState extends State<ProfilePage> {
                             child: CircleAvatar(
                               radius: 45,
                               backgroundColor: Colors.blue,
-                              backgroundImage:
-                                  profileImage != null ? FileImage(profileImage!) : null,
-                              child: profileImage == null
+                              backgroundImage: _logic.hasImage()
+                                  ? FileImage(_logic.profileImage!)
+                                  : null,
+                              child: !_logic.hasImage()
                                   ? const Icon(Icons.person,
                                       size: 50, color: Colors.white)
                                   : null,
@@ -127,27 +125,27 @@ class _ProfilePageState extends State<ProfilePage> {
                           buildRow(
                             icon: Icons.person,
                             child: TextFormField(
-                              initialValue: fullName,
+                              initialValue: _logic.fullName,
                               decoration: const InputDecoration(labelText: "Full Name"),
-                              onSaved: (v) => fullName = v ?? fullName,
+                              onSaved: (v) => _logic.fullName = v ?? _logic.fullName,
                             ),
                           ),
 
                           buildRow(
                             icon: Icons.email,
                             child: TextFormField(
-                              initialValue: email,
+                              initialValue: _logic.email,
                               decoration: const InputDecoration(labelText: "Email"),
-                              onSaved: (v) => email = v ?? email,
+                              onSaved: (v) => _logic.email = v ?? _logic.email,
                             ),
                           ),
 
                           buildRow(
                             icon: Icons.phone,
                             child: TextFormField(
-                              initialValue: phone,
+                              initialValue: _logic.phone,
                               decoration: const InputDecoration(labelText: "Phone Number"),
-                              onSaved: (v) => phone = v ?? phone,
+                              onSaved: (v) => _logic.phone = v ?? _logic.phone,
                             ),
                           ),
 
@@ -155,13 +153,13 @@ class _ProfilePageState extends State<ProfilePage> {
                             leading:
                                 const Icon(Icons.location_on, color: Colors.black87),
                             title: const Text("My Location"),
-                            subtitle: Text(location),
+                            subtitle: Text(_logic.location),
                           ),
                           ListTile(
                             leading:
                                 const Icon(Icons.account_balance, color: Colors.black87),
                             title: const Text("Bank Information"),
-                            subtitle: Text(bank),
+                            subtitle: Text(_logic.bank),
                           ),
                           const ListTile(
                             leading:
@@ -181,14 +179,26 @@ class _ProfilePageState extends State<ProfilePage> {
                               ),
                             ),
                             onPressed: () async {
-                              _formKey.currentState!.save();
-                              await fakeUpdate();
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text("Profile Updated Successfully!"),
-                                  backgroundColor: Colors.green,
-                                ),
-                              );
+                              if (_formKey.currentState!.validate()) {
+                                _formKey.currentState!.save();
+                                
+                                if (_logic.validateForm(_logic.fullName, _logic.email, _logic.phone)) {
+                                  await fakeUpdate();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(_logic.getUpdateSuccessMessage()),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(_logic.getUpdateErrorMessage()),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              }
                             },
                             child: const Text(
                               "Save Changes",
@@ -208,4 +218,3 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 }
-
