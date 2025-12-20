@@ -1,6 +1,9 @@
+
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:p2/logic/qr_scanner_logic.dart';
 import 'package:p2/services/firestore_service.dart';
+
 
 class QrScannerPage extends StatelessWidget {
   final String requestId;
@@ -14,25 +17,44 @@ class QrScannerPage extends StatelessWidget {
       body: MobileScanner(
         onDetect: (capture) async {
           final qr = capture.barcodes.first.rawValue;
-          if (qr == null) return;
+          
+          if (!QrScannerLogic.shouldProcessQr(qr)) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(QrScannerLogic.getNullErrorMessage())),
+              );
+            }
+            return;
+          }
+
+          if (!QrScannerLogic.validateQrCode(qr)) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(QrScannerLogic.getErrorMessage())),
+              );
+            }
+            return;
+          }
 
           try {
             await FirestoreService.updateRentalRequestStatus(
               requestId,
               "active",
-              qrToken: qr,
+              qrToken: qr!,
             );
 
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Pickup confirmed")),
+                SnackBar(content: Text(QrScannerLogic.getSuccessMessage())),
               );
               Navigator.pop(context);
             }
           } catch (e) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Invalid QR code")),
-            );
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(QrScannerLogic.getErrorMessage())),
+              );
+            }
           }
         },
       ),
