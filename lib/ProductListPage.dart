@@ -1,7 +1,9 @@
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'Equipment_Detail_Page.dart';
 import 'Item.dart';
+import '../logic/product_logic.dart';
 
 class ProductListPage extends StatefulWidget {
   const ProductListPage({super.key});
@@ -17,7 +19,7 @@ class _ProductListPageState extends State<ProductListPage> {
   @override
   Widget build(BuildContext context) {
     final args =
-    ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
 
     final String categoryTitle = args["category"];
     final String subCategoryTitle = args["subCategory"];
@@ -44,7 +46,7 @@ class _ProductListPageState extends State<ProductListPage> {
                   ),
                   Expanded(
                     child: Text(
-                      "$categoryTitle - $subCategoryTitle",
+                      ProductLogic.formatCategoryTitle(categoryTitle, subCategoryTitle),
                       style: const TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
@@ -88,14 +90,9 @@ class _ProductListPageState extends State<ProductListPage> {
                   }
 
                   final docs = snapshot.data!.docs;
+                  final filtered = ProductLogic.filterProducts(docs, searchQuery);
 
-                  final filtered = docs.where((doc) {
-                    final data = doc.data() as Map<String, dynamic>;
-                    final title = (data["name"] ?? "").toString().toLowerCase();
-                    return title.contains(searchQuery.toLowerCase());
-                  }).toList();
-
-                  if (filtered.isEmpty) {
+                  if (!ProductLogic.hasProducts(filtered)) {
                     return const Center(
                       child: Text(
                         'No products found!',
@@ -110,7 +107,7 @@ class _ProductListPageState extends State<ProductListPage> {
                       crossAxisCount: 2,
                       crossAxisSpacing: 12,
                       mainAxisSpacing: 12,
-                      childAspectRatio: 0.70, // Adjust tile height
+                      childAspectRatio: 0.70,
                     ),
                     itemCount: filtered.length,
                     itemBuilder: (context, index) {
@@ -148,26 +145,8 @@ class ProductTile extends StatelessWidget {
 
     return GestureDetector(
       onTap: () {
-        final item = Item(
-          id: itemId,
-          name: itemData["name"] ?? "",
-          description: itemData["description"] ?? "",
-          category: itemData["category"] ?? "",
-          subCategory: itemData["subCategory"] ?? "",
-          ownerId: itemData["ownerId"] ?? "",
-          images: List<String>.from(itemData["images"] ?? []),
-          rentalPeriods: Map<String, dynamic>.from(itemData["rentalPeriods"] ?? {}),
-
-          latitude: (itemData["latitude"] as num?)?.toDouble(),
-          longitude: (itemData["longitude"] as num?)?.toDouble(),
-
-          averageRating: (itemData["averageRating"] ?? 0).toDouble(),
-          ratingCount: itemData["ratingCount"] ?? 0,
-
-          status: itemData["status"] ?? "approved",
-          submittedAt: null,
-        );
-
+        final item = ProductLogic.convertToItem(itemId, itemData);
+        
         Navigator.pushNamed(
           context,
           EquipmentDetailPage.routeName,
@@ -190,9 +169,9 @@ class ProductTile extends StatelessWidget {
                 color: Colors.grey.shade200,
                 child: images.isNotEmpty
                     ? Image.network(
-                  images.first,
-                  fit: BoxFit.cover,
-                )
+                        images.first,
+                        fit: BoxFit.cover,
+                      )
                     : const Icon(Icons.image_not_supported, size: 40),
               ),
             ),
@@ -226,28 +205,28 @@ class ProductTile extends StatelessWidget {
 
                   const SizedBox(height: 6),
 
-              const Text(
-                "Pricing:",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                  color: Color(0xFF8A005D),
-                ),
-              ),
-              const SizedBox(height: 4),
-
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: rental.entries.map((entry) {
-                  return Text(
-                    "${entry.key}: ${entry.value} JOD",
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
+                  const Text(
+                    "Pricing:",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      color: Color(0xFF8A005D),
                     ),
-                  );
-                }).toList(),
-              )
+                  ),
+                  const SizedBox(height: 4),
+
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: ProductLogic.formatRentalPeriods(rental).map((priceText) {
+                      return Text(
+                        priceText,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      );
+                    }).toList(),
+                  )
                 ],
               ),
             ),
@@ -273,13 +252,7 @@ class ProductCard extends StatelessWidget {
     final images = List<String>.from(itemData["images"] ?? []);
     final rental = Map<String, dynamic>.from(itemData["rentalPeriods"] ?? {});
 
-    // Extract first rental period
-    String priceText = "No rental price";
-    if (rental.isNotEmpty) {
-      final firstKey = rental.keys.first;
-      final firstPrice = rental[firstKey];
-      priceText = "From JOD $firstPrice / $firstKey";
-    }
+    final priceText = ProductLogic.getPriceText(rental);
 
     return GestureDetector(
       onTap: () => Navigator.pushNamed(
@@ -315,14 +288,13 @@ class ProductCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                   image: images.isNotEmpty
                       ? DecorationImage(
-                    image: NetworkImage(images.first),
-                    fit: BoxFit.cover,
-                  )
+                          image: NetworkImage(images.first),
+                          fit: BoxFit.cover,
+                        )
                       : null,
                 ),
                 child: images.isEmpty
-                    ? const Icon(Icons.image_not_supported,
-                    color: Colors.grey)
+                    ? const Icon(Icons.image_not_supported, color: Colors.grey)
                     : null,
               ),
 
