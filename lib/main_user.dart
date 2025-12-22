@@ -22,6 +22,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'fake_uid.dart'; // ✅ مهم
 
 class UserHomePage extends StatelessWidget {
   const UserHomePage({super.key});
@@ -38,27 +39,13 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  //  Firebase Cloud Messaging
   FirebaseMessaging messaging = FirebaseMessaging.instance;
 
-  
   await messaging.requestPermission(
     alert: true,
     badge: true,
     sound: true,
   );
-/*
-  // جلب الـ Token
-  String? token = await messaging.getToken();
-  debugPrint(" FCM TOKEN: $token");
-
-  // تخزين الـ Token في Realtime Database
-  final user = FirebaseAuth.instance.currentUser;
-  if (user != null && token != null) {
-    await FirebaseDatabase.instance
-        .ref("users/${user.uid}/fcmToken")
-        .set(token);
-  }*/
 
   runApp(const MyApp());
 }
@@ -105,13 +92,15 @@ class MyApp extends StatelessWidget {
             if (settings.name == EquipmentDetailPage.routeName) {
               final item = settings.arguments as Item;
               return MaterialPageRoute(
-                builder: (context) => const EquipmentDetailPage(),
+                builder: (context) =>
+                    const EquipmentDetailPage(),
                 settings: settings,
               );
             }
 
             if (settings.name == '/add-item') {
-              final data = settings.arguments as Map<String, dynamic>?;
+              final data =
+                  settings.arguments as Map<String, dynamic>?;
               return MaterialPageRoute(
                 builder: (context) => AddItemPage(
                   existingItem: data?["item"],
@@ -137,11 +126,21 @@ class MyApp extends StatelessWidget {
   }
 }
 
+// الصفحة الحاسمة
 class MainPage extends StatelessWidget {
   const MainPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const CategoryPage();
+    final user = FirebaseAuth.instance.currentUser;
+
+  
+    if (user != null) {
+      LoginUID.uid = user.uid;
+      return const CategoryPage();
+    }
+
+    
+    return const LoginPage();
   }
 }
