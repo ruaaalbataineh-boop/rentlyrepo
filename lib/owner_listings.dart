@@ -19,6 +19,61 @@ class _OwnerItemsPageState extends State<OwnerItemsPage> {
 
   String get ownerUid => FirebaseAuth.instance.currentUser!.uid;
 
+  // ===== COUNTERS =====
+
+Widget myItemsCounter() {
+  return StreamBuilder<QuerySnapshot>(
+    stream: FirebaseFirestore.instance
+        .collection("items")
+        .where("ownerId", isEqualTo: ownerUid)
+        .snapshots(),
+    builder: (context, snapshot) {
+      if (!snapshot.hasData) return const SizedBox();
+      final count = snapshot.data!.docs.length;
+      if (count == 0) return const SizedBox();
+
+      return _counterBadge(count);
+    },
+  );
+}
+
+Widget requestsCounter() {
+  return StreamBuilder<QuerySnapshot>(
+    stream: FirebaseFirestore.instance
+        .collection("rentalRequests")
+        .where("itemOwnerUid", isEqualTo: ownerUid)
+        .where("status", isEqualTo: "pending")
+        .snapshots(),
+    builder: (context, snapshot) {
+      if (!snapshot.hasData) return const SizedBox();
+      final count = snapshot.data!.docs.length;
+      if (count == 0) return const SizedBox();
+
+      return _counterBadge(count);
+    },
+  );
+}
+
+Widget _counterBadge(int count) {
+  return Container(
+    margin: const EdgeInsets.only(left: 6),
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+    decoration: BoxDecoration(
+      color: const Color.fromARGB(255, 154, 22, 81),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Text(
+      count.toString(),
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 12,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+  );
+}
+
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
@@ -30,15 +85,20 @@ class _OwnerItemsPageState extends State<OwnerItemsPage> {
         children: [
           _buildHeader(size, isSmall),
           SizedBox(height: size.height * 0.02),
-
+          
+          
+          ///counter 
           Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildTab("My Items", 0, size.width),
-              SizedBox(width: isSmall ? 20 : 40),
-              _buildTab("Requests", 1, size.width),
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildTab("My Items", 0, size.width),
+                   const SizedBox(width: 30),
+                  _buildTab("Requests", 1, size.width),
+                  
+              
             ],
           ),
+
 
           SizedBox(height: size.height * 0.03),
 
@@ -114,15 +174,24 @@ class _OwnerItemsPageState extends State<OwnerItemsPage> {
           borderRadius: BorderRadius.circular(25),
           color: active ? Colors.white : Colors.transparent,
         ),
-        child: Text(
-          text,
-          maxLines: 1,
-          style: TextStyle(
-            fontSize: isSmall ? 12 : 14,
-            color: active ? const Color(0xFF8A005D) : Colors.black,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+                //change
+                child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  text,
+                  style: TextStyle(
+                    fontSize: isSmall ? 12 : 14,
+                    color: active ? const Color(0xFF8A005D) : Colors.black,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+
+                if (text == "My Items") myItemsCounter(),
+                if (text == "Requests") requestsCounter(),
+              ],
+            ),
+
       ),
     );
   }
