@@ -10,11 +10,25 @@ import 'fake_uid.dart';
 class SharedBottomNav extends StatelessWidget {
   final int currentIndex;
 
-  const SharedBottomNav({super.key, required this.currentIndex});
+  
+  final Function(int)? onTabChanged;
+
+  const SharedBottomNav({
+    super.key,
+    required this.currentIndex,
+    this.onTabChanged,
+  });
 
   void _navigate(BuildContext context, int index) {
     if (index == currentIndex) return;
 
+    /// 
+    if (onTabChanged != null) {
+      onTabChanged!(index);
+      return;
+    }
+
+   
     switch (index) {
       case 0:
         Navigator.pushReplacement(
@@ -104,7 +118,7 @@ class SharedBottomNav extends StatelessWidget {
     );
   }
 
-  ///  BADGE NUMBER
+  /// BADGE NUMBER
   Widget _buildChatIcon(BuildContext context) {
     bool active = currentIndex == 3;
 
@@ -153,14 +167,13 @@ class SharedBottomNav extends StatelessWidget {
                   color: active ? Colors.black : Colors.white70,
                 ),
               ),
-
               if (unreadCount > 0)
                 Positioned(
                   right: 4,
                   top: 4,
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: Colors.red,
                       borderRadius: BorderRadius.circular(12),
