@@ -1,12 +1,18 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:p2/AddItemPage .dart';
 import 'package:p2/sub_category_page.dart';
 import 'bottom_nav.dart';
 
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+
+// 🔔 مهم للإشعار
+import 'package:overlay_support/overlay_support.dart';
+
+
 
 class EquipmentCategory {
   final String id;
@@ -42,15 +48,138 @@ class CategoryPage extends StatefulWidget {
 }
 
 class _CategoryPageState extends State<CategoryPage> {
+  
+@override
+void dispose() {
+  chatSubscription?.cancel();
+  chatSubscription = null;
+  super.dispose();
+}
+
+
+  StreamSubscription<DatabaseEvent>? chatSubscription;
+
   String searchQuery = "";
+  String? myUid;
+
+  int? _lastNotifiedTimestamp;
+
 
   @override
   void initState() {
     super.initState();
-    saveFcmToken(); 
+
+    myUid = FirebaseAuth.instance.currentUser?.uid;
+
+    saveFcmToken();
+    listenForChatNotifications();
   }
 
-  //  FCM Token
+  // ===============================
+  //  LISTEN FOR CHAT NOTIFICATIONS
+  // ===============================
+  void listenForChatNotifications() {
+  if (myUid == null) return;
+
+  chatSubscription = FirebaseDatabase.instance
+      .ref('chats')
+      .onChildChanged
+      .listen((event) async {
+    final data = event.snapshot.value;
+    if (data == null) return;
+
+    final chat = Map<String, dynamic>.from(data as Map);
+
+    final user1 = chat['user1'];
+      final user2 = chat['user2'];
+
+      if (user1 != myUid && user2 != myUid) return;
+
+
+    final lastMessage = chat['lastMessage'];
+    final lastSender = chat['lastSender'];
+
+          
+
+
+
+    if (lastSender == myUid) return;
+    if (lastMessage == null) return;
+
+     
+
+
+
+    String senderName = 'رسالة جديدة';
+    if (lastSender != null) {
+      final nameSnap = await FirebaseDatabase.instance
+          .ref('users/$lastSender/name')
+          .get();
+
+      if (nameSnap.exists) {
+        senderName = nameSnap.value.toString();
+      }
+    }
+
+   showSimpleNotification(
+  Container(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    decoration: BoxDecoration(
+      color: const Color.fromARGB(255, 42, 18, 98), // نفس لون التطبيق
+      borderRadius: BorderRadius.circular(8), // مستطيل ناعم مثل انستغرام
+    ),
+    child: Row(
+      children: [
+        Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color:  const Color.fromARGB(255, 100, 97, 99), // لون ثانوي من التطبيق
+            borderRadius: BorderRadius.circular(100),
+          ),
+          child: const Icon(Icons.chat, color: Colors.white, size: 22),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                senderName,
+                 style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold, // أقوى
+                fontSize: 20,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                lastMessage.toString(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color.fromARGB(207, 254, 254, 254),
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  ),
+  background: Colors.transparent, // مهم
+  elevation: 0,
+  duration: const Duration(seconds: 4),
+);
+
+  });
+}
+
+
+ // ===============================
+  // 🔹 FCM TOKEN
+  // ===============================
   Future<void> saveFcmToken() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
