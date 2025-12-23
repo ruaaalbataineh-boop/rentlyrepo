@@ -134,11 +134,13 @@ class _ChatScreenState extends State<ChatScreen> {
         "user1": user1,
         "user2": user2,
         "lastMessage": msg,
+        "lastSender": LoginUID.uid,
         "timestamp": now,
       });
     } else {
       await chatRef.update({
         "lastMessage": msg,
+        "lastSender": LoginUID.uid,
         "timestamp": now,
       });
     }
