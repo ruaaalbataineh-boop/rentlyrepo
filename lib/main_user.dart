@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:overlay_support/overlay_support.dart';
 import 'Item.dart';
 import 'sub_category_page.dart';
 import 'Categories_Page.dart';
@@ -22,7 +23,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'fake_uid.dart'; // ✅ مهم
+import 'fake_uid.dart';
 
 class UserHomePage extends StatelessWidget {
   const UserHomePage({super.key});
@@ -47,9 +48,12 @@ void main() async {
     sound: true,
   );
 
-  runApp(const MyApp());
+  runApp(
+    OverlaySupport.global( 
+      child: const MyApp(),
+    ),
+  );
 }
-
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
