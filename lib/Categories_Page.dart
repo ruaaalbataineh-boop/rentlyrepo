@@ -8,12 +8,14 @@ import 'bottom_nav.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-// 🔔 مهم للإشعار
 import 'package:overlay_support/overlay_support.dart';
 
 
-
+// ===============================
+// CATEGORY MODEL
+// ===============================
 class EquipmentCategory {
   final String id;
   final String title;
@@ -38,33 +40,37 @@ final CATEGORY_LIST = [
   EquipmentCategory(id: 'c7', title: 'Fashion & Clothing', icon: Icons.checkroom),
 ];
 
+
+// ===============================
+// CATEGORY PAGE
+// ===============================
 class CategoryPage extends StatefulWidget {
   const CategoryPage({super.key});
-
-  static Object? get routeName => null;
 
   @override
   State<CategoryPage> createState() => _CategoryPageState();
 }
 
 class _CategoryPageState extends State<CategoryPage> {
-  
-@override
-void dispose() {
-  chatSubscription?.cancel();
-  chatSubscription = null;
-  super.dispose();
-}
 
 
+    final Map<String, String> _lastItemStatus = {};
+
+
+  //  CHAT NOTIFICATIONS
   StreamSubscription<DatabaseEvent>? chatSubscription;
 
-  String searchQuery = "";
+  //  ADMIN → USER ITEM STATUS
+  StreamSubscription<QuerySnapshot>? itemStatusSubscription;
+  
+
+
   String? myUid;
+  String searchQuery = "";
 
-  int? _lastNotifiedTimestamp;
-
-
+  // ===============================
+  // INIT
+  // ===============================
   @override
   void initState() {
     super.initState();
@@ -72,113 +78,196 @@ void dispose() {
     myUid = FirebaseAuth.instance.currentUser?.uid;
 
     saveFcmToken();
-    listenForChatNotifications();
+
+    listenForChatNotifications();        //  chat banner
+    listenForItemStatusUpdates();        //  admin → user banner
   }
 
   // ===============================
-  //  LISTEN FOR CHAT NOTIFICATIONS
+  // DISPOSE
+  // ===============================
+  @override
+  void dispose() {
+    chatSubscription?.cancel();
+    itemStatusSubscription?.cancel();
+    super.dispose();
+  }
+
+  // ===============================
+  // CHAT BANNER (Realtime DB)
   // ===============================
   void listenForChatNotifications() {
-  if (myUid == null) return;
+    if (myUid == null) return;
 
-  chatSubscription = FirebaseDatabase.instance
-      .ref('chats')
-      .onChildChanged
-      .listen((event) async {
-    final data = event.snapshot.value;
-    if (data == null) return;
+    chatSubscription = FirebaseDatabase.instance
+        .ref('chats')
+        .onChildChanged
+        .listen((event) async {
 
-    final chat = Map<String, dynamic>.from(data as Map);
+      final data = event.snapshot.value;
+      if (data == null || data is! Map) return;
 
-    final user1 = chat['user1'];
+      final chat = Map<String, dynamic>.from(data);
+
+      final user1 = chat['user1'];
       final user2 = chat['user2'];
 
       if (user1 != myUid && user2 != myUid) return;
 
+      final lastMessage = chat['lastMessage'];
+      final lastSender = chat['lastSender'];
 
-    final lastMessage = chat['lastMessage'];
-    final lastSender = chat['lastSender'];
+      if (lastSender == myUid) return;
+      if (lastMessage == null) return;
 
-          
+      String senderName = 'New message';
 
+      if (lastSender != null) {
+        final snap = await FirebaseDatabase.instance
+            .ref('users/$lastSender/name')
+            .get();
 
+        if (snap.exists) senderName = snap.value.toString();
+      }
 
-    if (lastSender == myUid) return;
-    if (lastMessage == null) return;
+      showSimpleNotification(
+        _chatBanner(senderName, lastMessage.toString()),
+        background: Colors.transparent,
+        elevation: 0,
+        duration: const Duration(seconds: 4),
+      );
+    });
+  }
 
-     
+  Widget _chatBanner(String sender, String message) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color.fromARGB(255, 42, 18, 98),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          const CircleAvatar(
+            backgroundColor: Color.fromARGB(255, 100, 97, 99),
+            child: Icon(Icons.chat, color: Colors.white),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(sender,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text(message,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 15)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
+  // ===============================
+  // ADMIN → USER ITEM STATUS BANNER
+  // ===============================
+  void listenForItemStatusUpdates() {
+  if (myUid == null) return;
 
+  itemStatusSubscription = FirebaseFirestore.instance
+      .collection("pending_items") 
+      .where("ownerId", isEqualTo: myUid)
+      .snapshots()
+      .listen((snapshot) {
+    for (final doc in snapshot.docs) {
 
-    String senderName = 'رسالة جديدة';
-    if (lastSender != null) {
-      final nameSnap = await FirebaseDatabase.instance
-          .ref('users/$lastSender/name')
-          .get();
+      final data = doc.data() as Map<String, dynamic>;
+      final itemId = doc.id;
 
-      if (nameSnap.exists) {
-        senderName = nameSnap.value.toString();
+      final currentStatus = data["status"];
+      final itemName = data["name"] ?? "Your item";
+
+        
+      if (!_lastItemStatus.containsKey(itemId)) {
+        _lastItemStatus[itemId] = currentStatus;
+        continue;
+      }
+
+      final previousStatus = _lastItemStatus[itemId];
+
+      
+      if (previousStatus == currentStatus) continue;
+
+      
+      _lastItemStatus[itemId] = currentStatus;
+
+      // approved / rejected
+      if (previousStatus == "pending" && currentStatus == "approved") {
+        _showItemBanner(
+          title: "Item Approved",
+          message: "$itemName has been approved. Check My Items.",
+          success: true,
+        );
+      }
+
+      if (previousStatus == "pending" && currentStatus == "rejected") {
+        _showItemBanner(
+          title: "Item Rejected",
+          message: "$itemName has been rejected.",
+          success: false,
+        );
       }
     }
-
-   showSimpleNotification(
-  Container(
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-    decoration: BoxDecoration(
-      color: const Color.fromARGB(255, 42, 18, 98), // نفس لون التطبيق
-      borderRadius: BorderRadius.circular(8), // مستطيل ناعم مثل انستغرام
-    ),
-    child: Row(
-      children: [
-        Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            color:  const Color.fromARGB(255, 100, 97, 99), // لون ثانوي من التطبيق
-            borderRadius: BorderRadius.circular(100),
-          ),
-          child: const Icon(Icons.chat, color: Colors.white, size: 22),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                senderName,
-                 style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold, // أقوى
-                fontSize: 20,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                lastMessage.toString(),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Color.fromARGB(207, 254, 254, 254),
-                  fontSize: 16,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    ),
-  ),
-  background: Colors.transparent, // مهم
-  elevation: 0,
-  duration: const Duration(seconds: 4),
-);
-
   });
 }
 
+  void _showItemBanner({
+    required String title,
+    required String message,
+    required bool success,
+  }) {
+    showSimpleNotification(
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: success
+              ? const Color.fromARGB(255, 24, 151, 79)
+              : const Color.fromARGB(229, 211, 47, 47),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text(message,
+                style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 15)),
+          ],
+        ),
+      ),
+      background: Colors.transparent,
+      elevation: 0,
+      duration: const Duration(seconds: 4),
+    );
+  }
 
- // ===============================
-  // 🔹 FCM TOKEN
+  // ===============================
+  // SAVE FCM TOKEN (OPTIONAL)
   // ===============================
   Future<void> saveFcmToken() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -192,6 +281,9 @@ void dispose() {
         .set(token);
   }
 
+  // ===============================
+  // UI
+  // ===============================
   @override
   Widget build(BuildContext context) {
     final filteredCategories = CATEGORY_LIST.where((cat) {
@@ -208,41 +300,34 @@ void dispose() {
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   colors: [Color(0xFF1F0F46), Color(0xFF8A005D)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
                 ),
               ),
               child: const Center(
                 child: Text(
                   "Categories",
                   style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                  ),
+                      color: Colors.white,
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold),
                 ),
               ),
             ),
           ),
 
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding: const EdgeInsets.all(16),
             child: TextField(
               decoration: InputDecoration(
                 hintText: "Search categories...",
+                prefixIcon: const Icon(Icons.search),
                 filled: true,
                 fillColor: Colors.grey[200],
-                prefixIcon: const Icon(Icons.search, color: Color(0xFF8A005D)),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(30),
                   borderSide: BorderSide.none,
                 ),
               ),
-              onChanged: (value) {
-                setState(() {
-                  searchQuery = value;
-                });
-              },
+              onChanged: (v) => setState(() => searchQuery = v),
             ),
           ),
 
@@ -255,15 +340,14 @@ void dispose() {
                 mainAxisSpacing: 12,
               ),
               itemCount: filteredCategories.length,
-              itemBuilder: (ctx, index) {
-                final category = filteredCategories[index];
-
+              itemBuilder: (ctx, i) {
+                final category = filteredCategories[i];
                 return InkWell(
                   onTap: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => SubCategoryPage(
+                        builder: (_) => SubCategoryPage(
                           categoryId: category.id,
                           categoryTitle: category.title,
                         ),
@@ -272,23 +356,18 @@ void dispose() {
                   },
                   child: Card(
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    elevation: 4,
+                        borderRadius: BorderRadius.circular(20)),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(category.icon,
-                            size: 60, color: const Color(0xFF8A005D)),
+                            size: 60,
+                            color: const Color(0xFF8A005D)),
                         const SizedBox(height: 10),
-                        Text(
-                          category.title,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
+                        Text(category.title,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold)),
                       ],
                     ),
                   ),
@@ -303,6 +382,10 @@ void dispose() {
   }
 }
 
+
+// ===============================
+// CLIPPER
+// ===============================
 class SideCurveClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {
@@ -313,13 +396,11 @@ class SideCurveClipper extends CustomClipper<Path> {
     path.arcToPoint(
       Offset(radius, size.height - radius),
       radius: Radius.circular(radius),
-      clockwise: true,
     );
     path.lineTo(size.width - radius, size.height - radius);
     path.arcToPoint(
       Offset(size.width, size.height),
       radius: Radius.circular(radius),
-      clockwise: true,
     );
     path.lineTo(size.width, 0);
     path.close();
