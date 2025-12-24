@@ -246,7 +246,7 @@ class _SharedBottomNavState extends State<SharedBottomNav> {
     );
   }
 
-  /// 🟢 MY ITEMS ICON WITH GREEN DOT
+  ///  GREEN DOT
   Widget _buildMyItemsIcon(BuildContext context) {
     bool active = widget.currentIndex == 4;
 
