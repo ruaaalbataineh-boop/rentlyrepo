@@ -1,4 +1,4 @@
-import 'models/Item.dart';
+import 'Item.dart';
 
 /// Maps Firestore rentalPeriod keys to RentalType enum
 enum RentalType {
