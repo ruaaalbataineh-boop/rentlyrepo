@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:p2/services/firestore_service.dart';
 import 'package:p2/user_manager.dart';
-import 'models/Item.dart';
+import 'Item.dart';
 import 'FavouriteManager.dart';
 import 'ChatScreen.dart';
 import 'AllReviewsPage.dart';
@@ -43,6 +43,13 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
   bool loadingAvailability = false;
   Item? _item;
   bool _loaded = false;
+
+  double dailyPenaltyRate = 0.15;
+  double hourlyPenaltyRate = 0.05;
+  double maxPenaltyDays = 5;
+  double maxPenaltyHours = 24;
+  String penaltyMessage = "";
+  bool showPenaltyInfo = false;
 
   bool get isOwner => _item != null && _item!.ownerId == UserManager.uid;
 
@@ -234,7 +241,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     if (p == "yearly") days = count * 365;
 
     endDate = startDate!.add(Duration(days: days));
-      calculateInsurance();
+    calculateInsurance();
   }
 
   double computeTotalPrice(Item item) {
@@ -246,12 +253,48 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     return base * count;
   }
 
+  void calculatePenalties() {
+    if (_item == null || selectedPeriod == null || itemInsuranceInfo == null) {
+      setState(() {
+        penaltyMessage = "";
+        showPenaltyInfo = false;
+      });
+      return;
+    }
+
+    final isHourly = selectedPeriod!.toLowerCase() == "hourly";
+    final itemOriginalPrice = itemInsuranceInfo!['itemOriginalPrice'];
+    
+    String message = "";
+    
+    if (isHourly) {
+      final penaltyPerHour = itemOriginalPrice * hourlyPenaltyRate;
+      message = "⏰ Hourly rental: If late more than 24 hours:\n"
+          "• 5% penalty per late hour (JD ${penaltyPerHour.toStringAsFixed(2)}/hour)\n"
+          "• Deducted from insurance\n";
+         
+    } else {
+      final penaltyPerDay = itemOriginalPrice * dailyPenaltyRate;
+      message = "📅 Daily/Weekly/Monthly: If late more than 5 days:\n"
+          "• 15% penalty per late day (JD ${penaltyPerDay.toStringAsFixed(2)}/day)\n"
+          "• Deducted from insurance\n";
+        
+    }
+    
+    setState(() {
+      penaltyMessage = message;
+      showPenaltyInfo = true;
+    });
+  }
+
   void calculateInsurance() {
     if (_item == null || selectedPeriod == null || itemInsuranceInfo == null) return;
     
     rentalPrice = computeTotalPrice(_item!);
     totalPrice = rentalPrice + insuranceAmount; 
     totalRequired = totalPrice; 
+    
+    calculatePenalties();
     
     checkWalletBalance();
     
@@ -304,6 +347,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                 buildEndDateDisplay(),
                 buildTotalPrice(item),
                 buildInsuranceAndBalanceSection(),
+                buildPenaltyInfoSection(),
                 buildInsuranceTermsCheckbox(),
                 buildPickupSelector(),
                 buildRentButton(item),
@@ -890,6 +934,45 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
+  Widget buildPenaltyInfoSection() {
+    if (!showPenaltyInfo || penaltyMessage.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: Colors.orange.shade300, width: 1),
+        ),
+        color: Colors.orange[50],
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.warning_amber_rounded, 
+                  color: Colors.orange[800], size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  penaltyMessage,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[800],
+                    height: 1.3,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildDetailRow(String label, String value, {bool isBold = false, Color? color}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
@@ -1398,7 +1481,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                 "itemTitle": item.name,
                 "itemOwnerUid": item.ownerId,
                 "customerUid": UserManager.uid,
-               // "customerName": UserManager.name,
+                "customerName": UserManager.name,
                 "status": "pending",
                 "rentalType": selectedPeriod,
                 "rentalQuantity": count,
@@ -1418,6 +1501,13 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                 "createdAt": DateTime.now().toIso8601String(),
                 "insuranceAccepted": insuranceAccepted,
                 "renterWalletBefore": renterWallet,
+                "penaltyInfo": {
+                  "dailyPenaltyRate": dailyPenaltyRate,
+                  "hourlyPenaltyRate": hourlyPenaltyRate,
+                  "maxPenaltyDays": maxPenaltyDays,
+                  "maxPenaltyHours": maxPenaltyHours,
+                  "penaltyMessage": penaltyMessage,
+                },
               };
               
               final confirmed = await showConfirmationDialog(context, data, item);
@@ -1586,7 +1676,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                     Text(
+                    Text(
                       "Insurance Details:",
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
@@ -1608,13 +1698,47 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
+                  color: Colors.orange[50],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.warning, color: Colors.orange[800], size: 18),
+                        const SizedBox(width: 8),
+                        Text(
+                          "Late Return Penalty:",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.orange[900],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    
+                    Text(
+                      penaltyMessage,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(height: 12),
+              
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
                   color: Colors.green[50],
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                     Text(
+                    Text(
                       "Price Summary:",
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
@@ -1626,7 +1750,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                     _buildDialogRow("Rental Payment to Owner:", rentalPrice),
                     _buildDialogRow("Insurance Payment to System:", insuranceAmount),
                     const Divider(),
-                    _buildDialogRow("Total Price:", totalPrice, isBold: true), // ⬅️ عرض totalPrice هنا
+                    _buildDialogRow("Total Price:", totalPrice, isBold: true),
                     const SizedBox(height: 4),
                     Text(
                       "Current Wallet Balance: JD ${renterWallet.toStringAsFixed(2)}",
@@ -1645,6 +1769,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                 "By confirming, you agree to:\n"
                 "• Rental terms and conditions\n"
                 "• Insurance coverage selected by owner\n"
+                "• Late return penalty policy\n"
                 "• Report any damages immediately\n"
                 "• Return and refund policy",
                 style: TextStyle(fontSize: 12, color: Colors.grey),
