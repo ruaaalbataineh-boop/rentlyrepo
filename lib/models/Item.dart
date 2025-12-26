@@ -7,8 +7,11 @@ class Item {
   final String category;
   final String subCategory;
   final String ownerId;
+  final String ownerName;
   final List<String> images;
   final Map<String, dynamic> rentalPeriods;
+
+  final Map<String, dynamic>? insurance;
 
   final double? latitude;
   final double? longitude;
@@ -18,6 +21,7 @@ class Item {
 
   final String status; // pending, approved, rejected
   final DateTime? submittedAt;
+  final DateTime? updatedAt;
 
   Item({
     required this.id,
@@ -26,14 +30,17 @@ class Item {
     required this.category,
     required this.subCategory,
     required this.ownerId,
+    required this.ownerName,
     required this.images,
     required this.rentalPeriods,
     required this.status,
+    this.insurance,
     required this.latitude,
     required this.longitude,
     required this.averageRating,
     required this.ratingCount,
     this.submittedAt,
+    this.updatedAt,
   });
 
   /// Create object from Firestore
@@ -47,8 +54,11 @@ class Item {
       category: data["category"] ?? "",
       subCategory: data["subCategory"] ?? "",
       ownerId: data["ownerId"] ?? "",
+      ownerName: data["ownerName"] ?? "",
       images: List<String>.from(data["images"] ?? []),
       rentalPeriods: Map<String, dynamic>.from(data["rentalPeriods"] ?? {}),
+
+      insurance: data["insurance"],
 
       latitude: (data["latitude"] as num?)?.toDouble(),
       longitude: (data["longitude"] as num?)?.toDouble(),
@@ -60,6 +70,7 @@ class Item {
       submittedAt: data["submittedAt"] != null
           ? (data["submittedAt"] as Timestamp).toDate()
           : null,
+      updatedAt: (data["updatedAt"] as Timestamp?)?.toDate(),
     );
   }
 
@@ -71,8 +82,11 @@ class Item {
       "category": category,
       "subCategory": subCategory,
       "ownerId": ownerId,
+      "ownerName": ownerName,
       "images": images,
       "rentalPeriods": rentalPeriods,
+
+      "insurance": insurance,
 
       "latitude": latitude,
       "longitude": longitude,
@@ -82,6 +96,7 @@ class Item {
 
       "status": status,
       "submittedAt": submittedAt != null ? Timestamp.fromDate(submittedAt!) : null,
+      "updatedAt": updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
     };
   }
 

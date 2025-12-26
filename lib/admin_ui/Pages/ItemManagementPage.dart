@@ -46,7 +46,6 @@ class ItemManagementPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
 
-                  /// ✅ الإضافة الوحيدة (Counter)
                   TabBar(
                     indicator: BoxDecoration(
                       color: Colors.white.withOpacity(0.2),
@@ -89,10 +88,7 @@ class ItemManagementPage extends StatelessWidget {
   }
 }
 
-/// ---------------------------------------------------------------------------
-/// COUNTER (جديد فقط)
-/// ---------------------------------------------------------------------------
-
+/// COUNTER
 class PendingItemsCounter extends StatelessWidget {
   const PendingItemsCounter({super.key});
 
@@ -129,9 +125,7 @@ class PendingItemsCounter extends StatelessWidget {
   }
 }
 
-/// ---------------------------------------------------------------------------
 /// SHARED EXPANSION CARD FOR ALL ITEM TYPES
-/// ---------------------------------------------------------------------------
 
 class ItemExpansionCard extends StatelessWidget {
   final Map<String, dynamic> data;
@@ -276,10 +270,7 @@ class ItemExpansionCard extends StatelessWidget {
   }
 }
 
-/// ---------------------------------------------------------------------------
 /// TABS
-/// ---------------------------------------------------------------------------
-
 class PendingItemsTab extends StatelessWidget {
   const PendingItemsTab({super.key});
 

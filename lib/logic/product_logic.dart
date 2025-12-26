@@ -38,7 +38,7 @@ class ProductLogic {
       averageRating: (data["averageRating"] ?? 0).toDouble(),
       ratingCount: data["ratingCount"] ?? 0,
       status: data["status"] ?? "approved",
-      submittedAt: null,
+      submittedAt: null, ownerName: '',
     );
   }
 

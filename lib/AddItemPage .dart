@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:p2/pick_location_page.dart';
+import 'package:p2/services/firestore_service.dart';
 import 'package:p2/services/storage_service.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
@@ -176,59 +177,50 @@ class _AddItemPageState extends State<AddItemPage> {
       });
     }
   }
-  
   Future<void> saveItem() async {
     if (nameController.text.isEmpty) return showError("Enter item name");
     if (selectedCategory == null) return showError("Select category");
     if (selectedSubCategory == null) return showError("Select sub category");
     if (rentalPeriods.isEmpty) return showError("Add rental periods");
     if (OriginalPriceController.text.isEmpty) return showError("Enter item original price");
-    
+
     final originalPrice = double.tryParse(OriginalPriceController.text);
-    
+
     if (originalPrice == null || originalPrice <= 0) {
       return showError("Enter valid item original price");
     }
-    
+
     try {
-      final ownerId = FirebaseAuth.instance.currentUser!.uid;
-      
-      final isEditing = widget.existingItem != null;
-      
-      final docRef = isEditing
-          ? FirebaseFirestore.instance
-          .collection("pending_items")
-          .doc(widget.existingItem!["itemId"])
-          : FirebaseFirestore.instance.collection("pending_items").doc();
-      
-      final itemId = docRef.id;
-      
+      final user = FirebaseAuth.instance.currentUser!;
+      final ownerId = user.uid;
+
+      //  upload images
       List<String> uploadedUrls = [];
       for (int i = 0; i < pickedImages.length; i++) {
         final url = await StorageService.uploadItemImage(
           ownerId,
-          itemId,
+          "temp", // backend assigns final itemId
           pickedImages[i],
           "photo_$i.jpg",
         );
         uploadedUrls.add(url);
       }
-      
+
       final allImages = [...existingImageUrls, ...uploadedUrls];
-      
+
+      //  insurance
       final insuranceRate = getInsuranceRate(originalPrice);
       final insuranceAmount = calculateInsuranceAmount();
-      
+
       final insuranceData = {
         "itemOriginalPrice": originalPrice,
         "ratePercentage": insuranceRate,
         "insuranceAmount": insuranceAmount,
       };
-      
-      await docRef.set({
-        "itemId": itemId,
+
+      //  build payload
+      final payload = {
         "ownerId": ownerId,
-        //owner name
         "name": nameController.text.trim(),
         "description": descController.text.trim(),
         "category": selectedCategory,
@@ -236,22 +228,21 @@ class _AddItemPageState extends State<AddItemPage> {
         "images": allImages,
         "rentalPeriods": rentalPeriods,
         "insurance": insuranceData,
-        "status": "pending",
         "latitude": latitude,
         "longitude": longitude,
-        "createdAt": FieldValue.serverTimestamp(),
-        "updatedAt": FieldValue.serverTimestamp(),
-      });
-      
-      showSuccess(isEditing ? "Item updated" : "Item submitted for approval");
-      
+      };
+
+      //  CALL CLOUD FUNCTION
+      await FirestoreService.submitItemForApproval(payload);
+
+      showSuccess("Item submitted for approval");
       Navigator.pop(context);
-      
+
     } catch (e) {
       showError("Error: $e");
     }
   }
-  
+
   void showError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(backgroundColor: Colors.red, content: Text(msg)),
