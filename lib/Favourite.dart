@@ -1,6 +1,6 @@
+
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'FavouriteManager.dart';
+import 'package:p2/logic/favourite_logic.dart';
 
 class FavouritePage extends StatefulWidget {
   static const routeName = '/favorites';
@@ -12,122 +12,146 @@ class FavouritePage extends StatefulWidget {
 }
 
 class _FavouritePageState extends State<FavouritePage> {
+  final FavouriteLogic _logic = FavouriteLogic();
+
   @override
   Widget build(BuildContext context) {
-    final favIds = FavouriteManager.favouriteIds;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text("Favourite"),
       ),
-      body: favIds.isEmpty
-          ? const Center(
+      body: _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
+    if (!_logic.hasFavourites) {
+      return Center(
         child: Text(
-          "Your favourite items will appear here.",
-          style: TextStyle(fontSize: 16),
+          _logic.emptyMessage,
+          style: const TextStyle(fontSize: 16),
         ),
-      )
-          : FutureBuilder<QuerySnapshot>(
-        future: FirebaseFirestore.instance
-            .collection("approved_items")
-            .where("itemId", whereIn: favIds)
-            .get(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      );
+    }
 
-          final docs = snapshot.data!.docs;
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _logic.getFavouriteItems(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-          if (docs.isEmpty) {
-            return const Center(child: Text("No favourite items found."));
-          }
-
-          return GridView.builder(
-            padding: const EdgeInsets.all(20),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisSpacing: 20,
-              crossAxisSpacing: 20,
-              childAspectRatio: 3 / 4,
+        if (snapshot.hasError || !snapshot.hasData) {
+          return Center(
+            child: Text(
+              _logic.noItemsMessage,
+              style: const TextStyle(fontSize: 16),
             ),
-            itemCount: docs.length,
-            itemBuilder: (context, index) {
-              final data = docs[index].data() as Map<String, dynamic>;
-
-              final image = data["images"]?.isNotEmpty == true
-                  ? data["images"][0]
-                  : null;
-
-              final name = data["name"] ?? "Item";
-
-              final rental = Map<String, dynamic>.from(
-                data["rentalPeriods"] ?? {},
-              );
-
-              final hourlyPrice =
-              rental.containsKey("Hourly") ? rental["Hourly"] : null;
-
-              return GestureDetector(
-                onTap: () {
-                  setState(() {
-                    FavouriteManager.remove(data["itemId"]);
-                  });
-                },
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.deepPurple.shade50,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      image != null
-                          ? ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.network(
-                          image,
-                          height: 80,
-                          width: 80,
-                          fit: BoxFit.cover,
-                        ),
-                      )
-                          : const Icon(Icons.image, size: 60),
-
-                      const SizedBox(height: 10),
-
-                      Text(
-                        name,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-
-                      const SizedBox(height: 5),
-
-                      Text(
-                        hourlyPrice != null
-                            ? "JOD $hourlyPrice / hour"
-                            : "No hourly price",
-                        style: const TextStyle(color: Colors.grey),
-                      ),
-
-                      const SizedBox(height: 10),
-
-                      const Text(
-                        "Tap to remove",
-                        style: TextStyle(color: Colors.red),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
           );
-        },
+        }
+
+        final items = snapshot.data!;
+
+        if (items.isEmpty) {
+          return Center(
+            child: Text(
+              _logic.noItemsMessage,
+              style: const TextStyle(fontSize: 16),
+            ),
+          );
+        }
+
+        return GridView.builder(
+          padding: const EdgeInsets.all(20),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            mainAxisSpacing: 20,
+            crossAxisSpacing: 20,
+            childAspectRatio: 3 / 4,
+          ),
+          itemCount: items.length,
+          itemBuilder: (context, index) {
+            final item = items[index];
+            return _buildItemCard(item);
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildItemCard(Map<String, dynamic> itemData) {
+    final itemId = _logic.getItemId(itemData);
+    final itemName = _logic.getItemName(itemData);
+    final imageUrl = _logic.getItemImage(itemData);
+    final priceText = _logic.getItemPriceText(itemData);
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _logic.removeFavourite(itemId);
+        });
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.deepPurple.shade50,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _buildItemImage(imageUrl),
+            const SizedBox(height: 10),
+            _buildItemName(itemName),
+            const SizedBox(height: 5),
+            _buildItemPrice(priceText),
+            const SizedBox(height: 10),
+            _buildRemoveText(),
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildItemImage(String? imageUrl) {
+    if (imageUrl != null && imageUrl.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.network(
+          imageUrl,
+          height: 80,
+          width: 80,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return const Icon(Icons.broken_image, size: 60);
+          },
+        ),
+      );
+    }
+    return const Icon(Icons.image, size: 60);
+  }
+
+  Widget _buildItemName(String name) {
+    return Text(
+      name,
+      textAlign: TextAlign.center,
+      style: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.bold,
+      ),
+    );
+  }
+
+  Widget _buildItemPrice(String priceText) {
+    return Text(
+      priceText,
+      style: const TextStyle(color: Colors.grey),
+    );
+  }
+
+  Widget _buildRemoveText() {
+    return const Text(
+      "Tap to remove",
+      style: TextStyle(color: Colors.red),
     );
   }
 }
