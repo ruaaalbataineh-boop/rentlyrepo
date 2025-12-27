@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:p2/logic/logout_confirmation_logic.dart';
+
 
 class LogoutConfirmationPage extends StatefulWidget {
   const LogoutConfirmationPage({super.key});
@@ -8,7 +10,13 @@ class LogoutConfirmationPage extends StatefulWidget {
 }
 
 class _LogoutConfirmationPageState extends State<LogoutConfirmationPage> {
-  String selected = ""; 
+  late LogoutConfirmationLogic _logic;
+
+  @override
+  void initState() {
+    super.initState();
+    _logic = LogoutConfirmationLogic();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,54 +34,43 @@ class _LogoutConfirmationPageState extends State<LogoutConfirmationPage> {
             children: [
               const Icon(Icons.logout, size: 60, color: Colors.black),
               const SizedBox(height: 10),
-              const Text(
-                "Oh No!\nAre you sure you want to logout?",
+              Text(
+                _logic.getDialogTitle(),
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 20),
 
-            
               OutlinedButton(
                 style: OutlinedButton.styleFrom(
-                  backgroundColor: selected == "cancel"
-                      ? Colors.red
-                      : Colors.grey[200],
-                  foregroundColor: selected == "cancel"
-                      ? Colors.white
-                      : Colors.red,
+                  backgroundColor: _logic.getButtonBackgroundColor("cancel", _logic.getSelectedOption()),
+                  foregroundColor: _logic.getButtonTextColor("cancel", _logic.getSelectedOption()),
                   side: const BorderSide(color: Colors.red),
                 ),
                 onPressed: () {
                   setState(() {
-                    selected = "cancel";
+                    _logic.selectOption("cancel");
                   });
-                  Navigator.pop(context); 
+                  Navigator.pop(context);
                 },
-                child: const Text("Cancel"),
+                child: Text(_logic.getCancelButtonText()),
               ),
 
               const SizedBox(height: 10),
 
-              
               OutlinedButton(
                 style: OutlinedButton.styleFrom(
-                  backgroundColor: selected == "logout"
-                      ? Colors.red
-                      : Colors.grey[200],
-                  foregroundColor: selected == "logout"
-                      ? Colors.white
-                      : Colors.red,
+                  backgroundColor: _logic.getButtonBackgroundColor("logout", _logic.getSelectedOption()),
+                  foregroundColor: _logic.getButtonTextColor("logout", _logic.getSelectedOption()),
                   side: const BorderSide(color: Colors.red),
                 ),
                 onPressed: () {
                   setState(() {
-                    selected = "logout";
+                    _logic.selectOption("logout");
                   });
-                  
                   Navigator.pushReplacementNamed(context, "/login");
                 },
-                child: const Text("Yes, Logout"),
+                child: Text(_logic.getLogoutButtonText()),
               ),
             ],
           ),
@@ -82,4 +79,3 @@ class _LogoutConfirmationPageState extends State<LogoutConfirmationPage> {
     );
   }
 }
-
