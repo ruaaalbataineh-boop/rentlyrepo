@@ -1,9 +1,8 @@
+
 import 'package:flutter/material.dart';
-import 'dart:io';
-import 'package:image_picker/image_picker.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:p2/logic/personal_info_provider.dart';
 import 'rate_product_page.dart';
-import 'user_rate.dart'; // 
+import 'user_rate.dart';
 
 class PersonalInfoPage extends StatefulWidget {
   const PersonalInfoPage({super.key});
@@ -14,44 +13,30 @@ class PersonalInfoPage extends StatefulWidget {
 
 class _PersonalInfoPageState extends State<PersonalInfoPage> {
   final _formKey = GlobalKey<FormState>();
-  String name = '';
-  String email = '';
-  String password = '';
-  String phone = '';
-  File? imageFile;
-  final ImagePicker _picker = ImagePicker();
+  late PersonalInfoProvider _provider;
 
   @override
   void initState() {
     super.initState();
-    loadUserData();
+    _provider = PersonalInfoProvider();
+    _loadData();
   }
 
-  Future<void> loadUserData() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      name = prefs.getString('name') ?? '';
-      email = prefs.getString('email') ?? '';
-      password = prefs.getString('password') ?? '';
-      phone = prefs.getString('phone') ?? '';
-    });
+  Future<void> _loadData() async {
+    await _provider.loadUserData();
+    setState(() {});
   }
 
-  Future<void> pickImage() async {
-    final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      setState(() {
-        imageFile = File(pickedFile.path);
-      });
-    }
+  Future<void> _pickImage() async {
+    await _provider.pickImage();
+    setState(() {});
   }
 
-  Future<void> saveUserData() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('name', name);
-    await prefs.setString('email', email);
-    await prefs.setString('password', password);
-    await prefs.setString('phone', phone);
+  Future<void> _saveInfo() async {
+    await _provider.saveUserData();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Information saved!')),
+    );
   }
 
   @override
@@ -74,13 +59,14 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                 children: [
                   const SizedBox(height: 20),
                   GestureDetector(
-                    onTap: pickImage,
+                    onTap: _pickImage,
                     child: CircleAvatar(
                       radius: 60,
                       backgroundColor: Colors.white54,
-                      backgroundImage:
-                          imageFile != null ? FileImage(imageFile!) : null,
-                      child: imageFile == null
+                      backgroundImage: _provider.imageFile != null
+                          ? FileImage(_provider.imageFile!)
+                          : null,
+                      child: _provider.imageFile == null
                           ? const Icon(Icons.camera_alt,
                               size: 40, color: Colors.white)
                           : null,
@@ -91,49 +77,43 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                   _buildField(
                     label: 'Name',
                     icon: Icons.person,
-                    initialValue: name,
-                    onChanged: (v) => name = v,
+                    initialValue: _provider.name,
+                    onChanged: (v) => _provider.name = v,
                   ),
                   const SizedBox(height: 15),
                   _buildField(
                     label: 'Email',
                     icon: Icons.email,
-                    initialValue: email,
-                    onChanged: (v) => email = v,
+                    initialValue: _provider.email,
+                    onChanged: (v) => _provider.email = v,
                   ),
                   const SizedBox(height: 15),
                   _buildField(
                     label: 'Password',
                     icon: Icons.lock,
-                    initialValue: password,
+                    initialValue: _provider.password,
                     obscure: true,
-                    onChanged: (v) => password = v,
+                    onChanged: (v) => _provider.password = v,
                   ),
                   const SizedBox(height: 15),
                   _buildField(
                     label: 'Phone Number',
                     icon: Icons.phone,
-                    initialValue: phone,
+                    initialValue: _provider.phone,
                     keyboard: TextInputType.phone,
-                    onChanged: (v) => phone = v,
+                    onChanged: (v) => _provider.phone = v,
                   ),
 
                   const SizedBox(height: 30),
 
-                  // Save Information
+                 
                   _gradientButton(
                     text: 'Save Information',
-                    onPressed: () async {
-                      await saveUserData();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text('Information saved!')),
-                      );
-                    },
+                    onPressed: _saveInfo,
                   ),
 
                   const SizedBox(height: 15),
-                  // Rate Product
+                  
                   _simpleButton(
                     text: 'Rate Product',
                     color: Colors.orange,
@@ -149,7 +129,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
 
                   const SizedBox(height: 12),
 
-                  // User Rate (NEW)
+                  
                   _simpleButton(
                     text: 'User Rate',
                     color: Colors.green,
@@ -175,8 +155,6 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
       ),
     );
   }
-
-  // ===== Helper Widgets =====
 
   Widget _buildField({
     required String label,

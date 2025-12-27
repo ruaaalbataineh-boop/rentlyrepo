@@ -1,26 +1,38 @@
+
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:p2/Categories_Page.dart';
 import 'package:p2/WalletPage.dart';
+import 'package:p2/logic/payment_success_logic.dart';
 
-
-
-class PaymentSuccessPage extends StatelessWidget {
+class PaymentSuccessPage extends StatefulWidget {
   final double amount;
   final String? returnTo;
 
   const PaymentSuccessPage({
-    super.key, 
+    super.key,
     required this.amount,
     this.returnTo = 'wallet',
   });
 
   @override
+  State<PaymentSuccessPage> createState() => _PaymentSuccessPageState();
+}
+
+class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
+  late PaymentSuccessLogic _logic;
+
+  @override
+  void initState() {
+    super.initState();
+    _logic = PaymentSuccessLogic(
+      amount: widget.amount,
+      returnTo: widget.returnTo,
+    );
+    _logic.setImmersiveMode();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final transactionId = 'TXN${DateTime.now().millisecondsSinceEpoch.toString().substring(6)}';
-    
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    
     return Scaffold(
       backgroundColor: Colors.white,
       extendBodyBehindAppBar: false,
@@ -68,7 +80,7 @@ class PaymentSuccessPage extends StatelessWidget {
             ),
             const SizedBox(height: 30),
             Text(
-              '\$${amount.toStringAsFixed(2)}',
+              '\$${_logic.amount.toStringAsFixed(2)}',
               style: const TextStyle(
                 fontSize: 48,
                 fontWeight: FontWeight.w700,
@@ -106,9 +118,9 @@ class PaymentSuccessPage extends StatelessWidget {
                   ),
                   child: Column(
                     children: [
-                      _buildSuccessDetail('Transaction ID', transactionId),
-                      _buildSuccessDetail('Date', _formatDate()),
-                      _buildSuccessDetail('Time', _formatTime()),
+                      _buildSuccessDetail('Transaction ID', _logic.transactionId),
+                      _buildSuccessDetail('Date', _logic.getFormattedDate()),
+                      _buildSuccessDetail('Time', _logic.getFormattedTime()),
                       _buildSuccessDetail('Status', 'Completed', isSuccess: true),
                     ],
                   ),
@@ -118,7 +130,6 @@ class PaymentSuccessPage extends StatelessWidget {
             
             const SizedBox(height: 30),
             
-          
             SizedBox(
               width: double.infinity,
               height: 60,
@@ -151,7 +162,6 @@ class PaymentSuccessPage extends StatelessWidget {
             
             const SizedBox(height: 15),
             
-            
             SizedBox(
               width: double.infinity,
               height: 55,
@@ -176,9 +186,8 @@ class PaymentSuccessPage extends StatelessWidget {
             
             const SizedBox(height: 15),
             
-            
             TextButton(
-              onPressed: () => _showReceiptOptions(context, transactionId),
+              onPressed: () => _showReceiptOptions(context),
               child: const Text(
                 'View Receipt',
                 style: TextStyle(
@@ -224,54 +233,25 @@ class PaymentSuccessPage extends StatelessWidget {
     );
   }
 
-  String _formatDate() {
-    final now = DateTime.now();
-    return '${now.day}/${now.month}/${now.year}';
-  }
-
-  String _formatTime() {
-    final now = DateTime.now();
-    final hour = now.hour.toString().padLeft(2, '0');
-    final minute = now.minute.toString().padLeft(2, '0');
-    return '$hour:$minute';
-  }
-
   void _handleBackToWallet(BuildContext context) {
-    SystemChrome.setEnabledSystemUIMode(
-      SystemUiMode.manual,
-      overlays: SystemUiOverlay.values,
-    );
-    
-
-  
-    
-   
+    _logic.enableFullSystemUI();
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (context) => const WalletHomePage()),
       (route) => false,
     );
-    
   }
 
   void _handleContinueShopping(BuildContext context) {
-    SystemChrome.setEnabledSystemUIMode(
-      SystemUiMode.manual,
-      overlays: SystemUiOverlay.values,
-    );
-    
-  
-   
-    
+    _logic.enableFullSystemUI();
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (context) => const CategoryPage()),
       (route) => false,
     );
-  
   }
 
-  void _showReceiptOptions(BuildContext context, String transactionId) {
+  void _showReceiptOptions(BuildContext context) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(

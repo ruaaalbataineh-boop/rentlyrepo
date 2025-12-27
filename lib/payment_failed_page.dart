@@ -1,9 +1,11 @@
+
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:p2/Categories_Page.dart';
 import 'package:p2/CreditCardPaymentPage.dart';
+import 'package:p2/logic/payment_failed_logic.dart';
 
-class PaymentFailedPage extends StatelessWidget {
+
+class PaymentFailedPage extends StatefulWidget {
   final String returnTo;
 
   const PaymentFailedPage({
@@ -12,18 +14,30 @@ class PaymentFailedPage extends StatelessWidget {
   });
 
   @override
+  State<PaymentFailedPage> createState() => _PaymentFailedPageState();
+}
+
+class _PaymentFailedPageState extends State<PaymentFailedPage> {
+  late PaymentFailedLogic _logic;
+
+  @override
+  void initState() {
+    super.initState();
+    _logic = PaymentFailedLogic(returnTo: widget.returnTo);
+    _logic.setImmersiveMode();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    
     return Scaffold(
       backgroundColor: Colors.white,
       extendBodyBehindAppBar: false,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
-          'Payment Failed',
-          style: TextStyle(
+        title: Text(
+          _logic.getPageTitle(),
+          style: const TextStyle(
             color: Color(0xFF1F0F46),
             fontWeight: FontWeight.w600,
           ),
@@ -70,9 +84,9 @@ class PaymentFailedPage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            const Text(
-              'We couldn\'t process your payment',
-              style: TextStyle(
+            Text(
+              _logic.getErrorMessage(),
+              style: const TextStyle(
                 fontSize: 18,
                 color: Colors.grey,
               ),
@@ -102,18 +116,13 @@ class PaymentFailedPage extends StatelessWidget {
                       ),
                       const SizedBox(height: 10),
                       
-                      _buildReason('Insufficient funds in your account'),
-                      _buildReason('Incorrect card details'),
-                      _buildReason('Network connection issues'),
-                      _buildReason('Card expired or blocked'),
-                      _buildReason('Daily transaction limit exceeded'),
+                      ..._logic.getPossibleReasons().map(_buildReason).toList(),
+                      
                       const SizedBox(height: 10),
                       const Divider(color: Colors.grey, height: 1),
                       const SizedBox(height: 10),
-                      _buildTip('Check your card balance'),
-                      _buildTip('Verify card details are correct'),
-                      _buildTip('Try a different payment method'),
-                      _buildTip('Contact your bank if issues persist'),
+                      
+                      ..._logic.getHelpfulTips().map(_buildTip).toList(),
                     ],
                   ),
                 ),
@@ -121,7 +130,6 @@ class PaymentFailedPage extends StatelessWidget {
             ),
             
             const SizedBox(height: 30),
-            
             
             SizedBox(
               width: double.infinity,
@@ -155,7 +163,6 @@ class PaymentFailedPage extends StatelessWidget {
             
             const SizedBox(height: 15),
             
-          
             SizedBox(
               width: double.infinity,
               height: 55,
@@ -179,7 +186,6 @@ class PaymentFailedPage extends StatelessWidget {
             ),
             
             const SizedBox(height: 15),
-            
             
             TextButton(
               onPressed: () => _contactSupport(context),
@@ -256,42 +262,32 @@ class PaymentFailedPage extends StatelessWidget {
   }
 
   void _handleTryAgain(BuildContext context) {
-    SystemChrome.setEnabledSystemUIMode(
-      SystemUiMode.manual,
-      overlays: SystemUiOverlay.values,
-    );
+    _logic.enableFullSystemUI();
     
-    if (returnTo == 'payment') {
-  
-      
+    if (_logic.returnTo == 'payment') {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (context) => const CreditCardPaymentPage(amount: 0.0),
         ),
       );
-    
     } else {
       Navigator.pop(context);
     }
   }
 
   void _handleContinueShopping(BuildContext context) {
-    SystemChrome.setEnabledSystemUIMode(
-      SystemUiMode.manual,
-      overlays: SystemUiOverlay.values,
-    );
-    
-  
+    _logic.enableFullSystemUI();
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (context) => const CategoryPage()),
       (route) => false,
     );
-   
   }
 
   void _contactSupport(BuildContext context) {
+    final contactInfo = _logic.getContactSupportInfo();
+    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -306,10 +302,10 @@ class PaymentFailedPage extends StatelessWidget {
                 style: TextStyle(fontSize: 16),
               ),
               const SizedBox(height: 10),
-              _buildContactInfo(Icons.phone, 'Phone:', '1-800-123-4567'),
-              _buildContactInfo(Icons.email, 'Email:', 'support@rently.com'),
-              _buildContactInfo(Icons.chat, 'Live Chat:', 'Available in app'),
-              _buildContactInfo(Icons.access_time, 'Hours:', '24/7'),
+              _buildContactInfo(Icons.phone, 'Phone:', contactInfo['phone']!),
+              _buildContactInfo(Icons.email, 'Email:', contactInfo['email']!),
+              _buildContactInfo(Icons.chat, 'Live Chat:', contactInfo['liveChat']!),
+              _buildContactInfo(Icons.access_time, 'Hours:', contactInfo['hours']!),
               const SizedBox(height: 20),
               const Text(
                 'We\'re here to help you!',
