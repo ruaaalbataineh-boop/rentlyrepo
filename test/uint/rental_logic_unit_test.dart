@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:p2/services/rental_logic.dart';
+import 'package:p2/logic/rental_logic.dart';
 
 void main() {
   group('RentalCalculator', () {

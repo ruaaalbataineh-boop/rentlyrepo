@@ -188,6 +188,15 @@ class _OrdersPageState extends State<OrdersPage> {
     return StreamBuilder<List<RentalRequest>>(
       stream: FirestoreService.getRenterRequestsByStatuses(renterUid, statuses),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(
+            child: Text(
+              "Failed to load orders",
+              style: const TextStyle(color: Colors.red),
+            ),
+          );
+        }
+
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
@@ -289,6 +298,7 @@ class _OrdersPageState extends State<OrdersPage> {
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Text("Owner name: ${req.ownerName}"),
                         Text("Rental Type: ${req.rentalType}"),
                         Text("Quantity: ${req.rentalQuantity}"),
                         Text("Start Date: ${req.startDate}"),

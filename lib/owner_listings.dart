@@ -338,7 +338,7 @@ Widget _counterBadge(int count) {
                       MaterialPageRoute(
                         builder: (_) => QrPage(
                           qrToken: data["qrToken"],
-                          requestId: requestId, // 🔑 REQUIRED
+                          requestId: requestId,
                         ),
                       ),
                     );
@@ -353,11 +353,16 @@ Widget _counterBadge(int count) {
             title: const Text("View Details"),
             children: [
               Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: ListTile(
+                  title: const Text(
+                    "Request Details",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("Renter: $renterId"),
+                    Text("Renter name: ${data["renterName"]}"),
                     Text("Rental Type: ${data["rentalType"]}"),
                     Text("Quantity: ${data["rentalQuantity"]}"),
                     Text("Start: ${data["startDate"]}"),
@@ -368,7 +373,7 @@ Widget _counterBadge(int count) {
                   ],
                 ),
               ),
-            ],
+              )],
           ),
         ],
       ),

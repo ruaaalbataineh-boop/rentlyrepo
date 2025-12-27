@@ -46,7 +46,7 @@ class FirestoreService {
       String renterUid, List<String> statuses) {
     return FirebaseFirestore.instance
         .collection("rentalRequests")
-        .where("customerUid", isEqualTo: renterUid)
+        .where("renterUid", isEqualTo: renterUid)
         .where("status", whereIn: statuses)
         .orderBy("createdAt", descending: true)
         .snapshots()
