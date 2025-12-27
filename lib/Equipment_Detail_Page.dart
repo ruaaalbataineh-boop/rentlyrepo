@@ -20,7 +20,7 @@ class EquipmentDetailPage extends StatefulWidget {
 
 class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
   int currentPage = 0;
-  String ownerName = "Loading...";
+  String ownerName = "";
   String? selectedPeriod;
   DateTime? startDate;
   DateTime? endDate;
@@ -56,12 +56,11 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-
     if (!_loaded) {
       final args = ModalRoute.of(context)?.settings.arguments;
       if (args is Item) {
         _item = args;
-        loadOwnerName(_item!.ownerId);
+        ownerName = _item!.ownerName;
         loadTopReviews(_item!.id);
         loadUnavailableRanges(_item!.id);
         loadItemInsuranceInfo(_item!.id);
@@ -71,55 +70,60 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     }
   }
 
-  Future<void> loadOwnerName(String uid) async {
-    final snap = await FirebaseDatabase.instance.ref("users/$uid/name").get();
-    if (!mounted) return;
-    setState(() {
-      ownerName = snap.exists ? snap.value.toString() : "Owner";
-    });
-  }
-
   Future<void> loadItemInsuranceInfo(String itemId) async {
     try {
-      final snap = await FirebaseDatabase.instance
-          .ref("items/$itemId/insurance")
-          .get();
-      
-      if (snap.exists) {
-        final data = snap.value as Map<dynamic, dynamic>;
+      final insurance = await FirestoreService.getItemInsurance(itemId);
+
+      if (!mounted) return;
+
+      if (insurance != null) {
+        final rawOriginal = insurance["itemOriginalPrice"];
+        final rawRate     = insurance["ratePercentage"];
+        final rawAmount   = insurance["insuranceAmount"];
+
+        final itemOriginalPrice =
+        (rawOriginal is num) ? rawOriginal.toDouble() : 0.0;
+        final ratePercentage =
+        (rawRate is num) ? rawRate.toDouble() : 0.0;
+        double amount =
+        (rawAmount is num) ? rawAmount.toDouble() : 0.0;
+
+        // calculate amount if firestore doesn't have it
+        if (amount <= 0 && itemOriginalPrice > 0 && ratePercentage > 0) {
+          amount = itemOriginalPrice * ratePercentage;
+        }
+
         setState(() {
           itemInsuranceInfo = {
-            'itemOriginalPrice': (data['itemOriginalPrice'] ?? 0.0).toDouble(),
-            'ratePercentage': (data['ratePercentage'] ?? 0.15).toDouble(),
+            "itemOriginalPrice": itemOriginalPrice,
+            "ratePercentage": ratePercentage,
           };
-          
-          final itemPrice = itemInsuranceInfo!['itemOriginalPrice'];
-          final rate = itemInsuranceInfo!['ratePercentage'];
-          insuranceAmount = itemPrice * rate;
-          
-          insuranceAmount = (insuranceAmount / 5).ceil() * 5.0;
-          if (insuranceAmount < 5) insuranceAmount = 5.0;
-          
+
+          insuranceAmount = amount;
           calculateInsurance();
         });
       } else {
+        // fallback defaults
         setState(() {
           itemInsuranceInfo = {
-            'itemOriginalPrice': 1000.0,
-            'ratePercentage': 0.15,
+            "itemOriginalPrice": 0.0,
+            "ratePercentage": 0.0,
           };
-          insuranceAmount = 150.0;
+          insuranceAmount = 0.0;
           calculateInsurance();
         });
       }
     } catch (e) {
-      debugPrint("Error loading insurance info: $e");
+      debugPrint("Error loading insurance info from Firestore: $e");
+      if (!mounted) return;
+
+      // if something goes wrong
       setState(() {
         itemInsuranceInfo = {
-          'itemOriginalPrice': 1000.0,
-          'ratePercentage': 0.15,
+          "itemOriginalPrice": 0.0,
+          "ratePercentage": 0.0,
         };
-        insuranceAmount = 150.0;
+        insuranceAmount = 0.0;
         calculateInsurance();
       });
     }
@@ -346,10 +350,9 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                 buildAvailabilityHint(),
                 buildEndDateDisplay(),
                 buildTotalPrice(item),
-                buildInsuranceAndBalanceSection(),
-                buildPenaltyInfoSection(),
-                buildInsuranceTermsCheckbox(),
+                buildInsuranceSection(),
                 buildPickupSelector(),
+                buildPenaltyInfoSection(),
                 buildRentButton(item),
               ] else ...[
                 Padding(
@@ -495,7 +498,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
         children: [
           const Icon(Icons.person, color: Color(0xFF8A005D)),
           const SizedBox(width: 8),
-          Text("Owner: $ownerName"),
+          Text("Owner: ${ownerName ?? 'Unknown'}"),
         ],
       ),
     );
@@ -703,233 +706,111 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  Widget buildInsuranceAndBalanceSection() {
+  Widget buildInsuranceSection() {
     if (selectedPeriod == null || startDate == null || endDate == null) {
       return const SizedBox.shrink();
     }
 
     return Padding(
       padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1F0F46),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Row(
-              children: [
-                Icon(Icons.security, color: Colors.white),
-                SizedBox(width: 10),
-                Text(
-                  "Insurance & Wallet",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          const SizedBox(height: 16),
-          
-          Card(
-            elevation: 3,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      child: Card(
+        elevation: 3,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+
+              Row(
                 children: [
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.shield,
-                        color: Colors.blue[700],
-                        size: 24,
-                      ),
-                      const SizedBox(width: 10),
-                      const Text(
-                        "Insurance Required",
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  
-                  const SizedBox(height: 12),
-                  
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.blue[50],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(
-                      children: [
-                        _buildDetailRow(
-                          "Item Original Price:",
-                          "JD ${(itemInsuranceInfo?['itemOriginalPrice'] ?? 0).toStringAsFixed(2)}",
-                        ),
-                        _buildDetailRow(
-                          "Insurance Rate:",
-                          "${((itemInsuranceInfo?['ratePercentage'] ?? 0) * 100).toInt()}%",
-                        ),
-                        const Divider(),
-                        _buildDetailRow(
-                          "Insurance Amount:",
-                          "JD ${insuranceAmount.toStringAsFixed(2)}",
-                          isBold: true,
-                          color: Colors.blue[900],
-                        ),
-                      ],
+                  Icon(Icons.shield, color: Colors.blue[700], size: 24),
+                  const SizedBox(width: 10),
+                  const Text(
+                    "Insurance Details",
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ],
               ),
-            ),
-          ),
-          
-          const SizedBox(height: 16),
-          
-          Card(
-            elevation: 3,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            color: hasSufficientBalance ? Colors.green[50] : Colors.orange[50],
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        hasSufficientBalance ? Icons.account_balance_wallet : Icons.warning,
-                        color: hasSufficientBalance ? Colors.green : Colors.orange,
-                        size: 24,
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        hasSufficientBalance ? "Sufficient Balance" : "Check Your Balance",
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: hasSufficientBalance ? Colors.green : Colors.orange,
-                        ),
-                      ),
-                    ],
-                  ),
-                  
-                  const SizedBox(height: 16),
-                  
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey[300]!),
+
+              const SizedBox(height: 12),
+
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  children: [
+                    _buildDetailRow(
+                      "Original Market Price:",
+                      "JD ${(itemInsuranceInfo?['itemOriginalPrice'] ?? 0).toStringAsFixed(2)}",
                     ),
-                    child: Column(
-                      children: [
-                        _buildBalanceRow(
-                          "Rental Price:",
-                          rentalPrice,
-                        ),
-                        _buildBalanceRow(
-                          "Insurance Amount:",
-                          insuranceAmount,
-                        ),
-                        const Divider(),
-                        _buildBalanceRow(
-                          "Total Price:", 
-                          totalPrice, 
-                          isTotal: true,
-                          color: hasSufficientBalance ? Colors.green : Colors.red,
-                        ),
-                      ],
+                    _buildDetailRow(
+                      "Insurance Rate:",
+                      "${((itemInsuranceInfo?['ratePercentage'] ?? 0) * 100).toInt()}%",
                     ),
-                  ),
-                  
-                  const SizedBox(height: 12),
-                  
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[50],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          "Your Wallet Balance:",
-                          style: TextStyle(fontSize: 14),
-                        ),
-                        Text(
-                          "JD ${renterWallet.toStringAsFixed(2)}",
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: renterWallet > 0 ? Colors.blue : Colors.grey,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  
-                  if (!hasSufficientBalance) ...[
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.orange[100],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.error_outline, color: Colors.orange[800], size: 20),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "Insufficient Balance",
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.orange[800],
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  "You need JD ${(totalRequired - renterWallet).toStringAsFixed(2)} more",
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: Colors.orange[800],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+                    const Divider(),
+                    _buildDetailRow(
+                      "Total Insurance:",
+                      "JD ${insuranceAmount.toStringAsFixed(2)}",
+                      isBold: true,
+                      color: Colors.blue[900],
                     ),
                   ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // CHECKBOX
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Checkbox(
+                    value: insuranceAccepted,
+                    onChanged: (value) {
+                      setState(() => insuranceAccepted = value ?? false);
+                    },
+                    activeColor: const Color(0xFF8A005D),
+                  ),
+
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "Accept Insurance Terms",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          "By checking this box, I agree to:\n"
+                              "• Accept the insurance coverage required\n"
+                              "• Pay insurance amount of JD ${insuranceAmount.toStringAsFixed(2)}\n"
+                              "• Report any damages immediately\n"
+                              "• Insurance will be refunded if item returned safely",
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -1203,61 +1084,6 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                     ),
                   ),
                 ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget buildInsuranceTermsCheckbox() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      child: Card(
-        elevation: 2,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Checkbox(
-                value: insuranceAccepted,
-                onChanged: (value) {
-                  setState(() {
-                    insuranceAccepted = value ?? false;
-                  });
-                },
-                activeColor: const Color(0xFF8A005D),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      "Accept Owner's Insurance Terms",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      "By checking this box, I agree to:\n"
-                      "• Accept the insurance coverage required by owner\n"
-                      "• Pay insurance amount of JD ${insuranceAmount.toStringAsFixed(2)}\n"
-                      "• Report any damages immediately\n"
-                      "• Understand insurance will be refunded if item returned safely",
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[700],
-                      ),
-                    ),
-                  ],
-                ),
               ),
             ],
           ),
@@ -1626,12 +1452,12 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
   }
 
   String _getRentButtonText() {
-    if (!hasSufficientBalance) return "Insufficient Wallet Balance";
-    if (!insuranceAccepted) return "Accept Insurance Terms First";
-    if (pickupTime == null) return "Select Pickup Time";
-    if (startDate == null || endDate == null) return "Select Dates First";
     if (selectedPeriod == null) return "Select Rental Period";
-    return "Confirm & Rent Now";
+    if (startDate == null || endDate == null) return "Select Dates";
+    if (!insuranceAccepted) return "Accept Insurance Terms";
+    if (!hasSufficientBalance) return "Insufficient Wallet Balance";
+    if (pickupTime == null) return "Select Pickup Time";
+    return "Confirm & Proceed to payment";
   }
   
   Future<bool> showConfirmationDialog(BuildContext context, Map<String, dynamic> data, Item item) async {
@@ -1645,7 +1471,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text("Please review your order details:"),
+              const Text("Review your order details:"),
               const SizedBox(height: 16),
               
               Container(
@@ -1695,10 +1521,9 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                     ),
                     const SizedBox(height: 8),
                     
-                    Text("Item Price: JD ${itemInsuranceInfo!['itemOriginalPrice']!.toStringAsFixed(2)}"),
+                    Text("Market Price: JD ${itemInsuranceInfo!['itemOriginalPrice']!.toStringAsFixed(2)}"),
                     Text("Insurance Rate: ${(itemInsuranceInfo!['ratePercentage']! * 100).toInt()}%"),
                     Text("Insurance: JD ${insuranceAmount.toStringAsFixed(2)}"),
-                    const Text("Insurance will be refunded when item returned safely"),
                   ],
                 ),
               ),
@@ -1757,8 +1582,8 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                     ),
                     const SizedBox(height: 8),
                     
-                    _buildDialogRow("Rental Payment to Owner:", rentalPrice),
-                    _buildDialogRow("Insurance Payment to System:", insuranceAmount),
+                    _buildDialogRow("Rental Price:", rentalPrice),
+                    _buildDialogRow("Insurance:", insuranceAmount),
                     const Divider(),
                     _buildDialogRow("Total Price:", totalPrice, isBold: true),
                     const SizedBox(height: 4),
@@ -1778,10 +1603,9 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
               const Text(
                 "By confirming, you agree to:\n"
                 "• Rental terms and conditions\n"
-                "• Insurance coverage selected by owner\n"
+                "• Insurance terms and conditions\n"
                 "• Late return penalty policy\n"
-                "• Report any damages immediately\n"
-                "• Return and refund policy",
+                "• Report any damages immediately\n",
                 style: TextStyle(fontSize: 12, color: Colors.grey),
               ),
             ],
@@ -1797,7 +1621,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
               backgroundColor: const Color(0xFF8A005D),
             ),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text("Confirm & Proceed"),
+            child: const Text("Confirm & Pay Now"),
           ),
         ],
       ),

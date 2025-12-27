@@ -78,5 +78,28 @@ class FirestoreService {
     return snap.docs.map((d) => d.data()).toList();
   }
 
+  static Future<Map<String, dynamic>?> getItemInsurance(String itemId) async {
+    final doc = await FirebaseFirestore.instance
+        .collection("items")
+        .doc(itemId)
+        .get();
+
+    if (!doc.exists) return null;
+
+    final data = doc.data();
+    if (data == null) return null;
+
+    final insurance = data["insurance"];
+    if (insurance is Map<String, dynamic>) {
+      return insurance;
+    } else if (insurance is Map) {
+      // convert Map<dynamic, dynamic> to Map<String, dynamic>
+      return insurance.map((key, value) =>
+          MapEntry(key.toString(), value));
+    }
+
+    return null;
+  }
+
 
 }

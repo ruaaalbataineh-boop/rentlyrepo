@@ -1,6 +1,6 @@
 
 import 'package:flutter/material.dart';
-import 'package:p2/logic/personal_info_provider.dart';
+import 'package:p2/logic/personal_info_logic.dart';
 import 'rate_product_page.dart';
 import 'user_rate.dart';
 

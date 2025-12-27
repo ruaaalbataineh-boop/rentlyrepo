@@ -31,14 +31,17 @@ class ProductLogic {
       category: data["category"] ?? "",
       subCategory: data["subCategory"] ?? "",
       ownerId: data["ownerId"] ?? "",
+      ownerName: data["ownerName"] ?? "",
       images: List<String>.from(data["images"] ?? []),
       rentalPeriods: Map<String, dynamic>.from(data["rentalPeriods"] ?? {}),
+      insurance: data["insurance"],
       latitude: (data["latitude"] as num?)?.toDouble(),
       longitude: (data["longitude"] as num?)?.toDouble(),
       averageRating: (data["averageRating"] ?? 0).toDouble(),
       ratingCount: data["ratingCount"] ?? 0,
       status: data["status"] ?? "approved",
-      submittedAt: null, ownerName: '',
+      submittedAt: null,
+      updatedAt: null,
     );
   }
 
