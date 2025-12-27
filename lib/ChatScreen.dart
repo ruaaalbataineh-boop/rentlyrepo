@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_database/firebase_database.dart';
-import 'fake_uid.dart';
+import 'package:p2/fake_uid.dart';
+import 'package:p2/logic/chat_logic.dart';
+
 
 class ChatScreen extends StatefulWidget {
   final String personName;
@@ -19,43 +20,26 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  final db = FirebaseDatabase.instance;
-
-  late String chatId;
-  Map<String, dynamic>? personData;
-  Map<String, dynamic>? replyMessage;
-
-  String? selectedMessageKey;
-
-  static const Color senderColor = Color(0xFF5E2B97);
+  
+  late ChatLogic logic;
 
   @override
   void initState() {
     super.initState();
-
-    chatId = LoginUID.uid.compareTo(widget.personUid) > 0
-        ? "${LoginUID.uid}-${widget.personUid}"
-        : "${widget.personUid}-${LoginUID.uid}";
-
-    db.ref("users/${widget.personUid}").onValue.listen((event) {
-      if (event.snapshot.value != null) {
-        setState(() {
-          personData =
-              Map<String, dynamic>.from(event.snapshot.value as Map);
-        });
-      }
-    });
-
-    db.ref("chats/$chatId/unread/${LoginUID.uid}").remove();
+    logic = ChatLogic(
+      personName: widget.personName,
+      personUid: widget.personUid,
+    );
+    logic.initialize();
   }
 
-  bool canEditOrDelete(Map<String, dynamic> msg) {
-    if (msg["sender"] != LoginUID.uid) return false;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    return now - msg["timestamp"] <= 10 * 60 * 1000;
+  void _sendMessage() {
+    logic.sendMessage(messageController.text);
+    messageController.clear();
+    setState(() {});
   }
 
-  void editMessage(String key, String oldText) {
+  void _editMessage(String key, String oldText) {
     final controller = TextEditingController(text: oldText);
 
     showDialog(
@@ -70,13 +54,9 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
           TextButton(
             onPressed: () {
-              if (controller.text.trim().isEmpty) return;
-              db.ref("messages/$chatId/$key").update({
-                "text": controller.text.trim(),
-                "edited": true,
-              });
+              logic.editMessage(key, controller.text);
               Navigator.pop(context);
-              setState(() => selectedMessageKey = null);
+              setState(() {});
             },
             child: const Text("Save"),
           ),
@@ -85,88 +65,28 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  void deleteMessage(String key) {
-    db.ref("messages/$chatId/$key").remove();
-    setState(() => selectedMessageKey = null);
-  }
-
-  String formatTime(int timestamp) {
-    final t = DateTime.fromMillisecondsSinceEpoch(timestamp);
-    int h = t.hour;
-    int m = t.minute;
-    String ampm = h >= 12 ? "PM" : "AM";
-    h = h % 12;
-    if (h == 0) h = 12;
-    return "$h:${m.toString().padLeft(2, '0')} $ampm";
-  }
-
-  String messageDateLabel(int timestamp) {
-    final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
-    final now = DateTime.now();
-    final yesterday = now.subtract(const Duration(days: 1));
-
-    if (date.year == now.year &&
-        date.month == now.month &&
-        date.day == now.day) return "Today";
-
-    if (date.year == yesterday.year &&
-        date.month == yesterday.month &&
-        date.day == yesterday.day) return "Yesterday";
-
-    return "${date.year}/${date.month}/${date.day}";
-  }
-
-  Future<void> createChatIfNotExists(String msg) async {
-    final chatRef = db.ref("chats/$chatId");
-    final snapshot = await chatRef.get();
-    int now = DateTime.now().millisecondsSinceEpoch;
-
-    String user1 = LoginUID.uid.compareTo(widget.personUid) > 0
-        ? LoginUID.uid
-        : widget.personUid;
-
-    String user2 = LoginUID.uid.compareTo(widget.personUid) > 0
-        ? widget.personUid
-        : LoginUID.uid;
-
-    if (!snapshot.exists) {
-      await chatRef.set({
-        "user1": user1,
-        "user2": user2,
-        "lastMessage": msg,
-        "lastSender": LoginUID.uid,
-        "timestamp": now,
-      });
-    } else {
-      await chatRef.update({
-        "lastMessage": msg,
-        "lastSender": LoginUID.uid,
-        "timestamp": now,
-      });
-    }
-  }
-
-  void sendMessage() async {
-    if (messageController.text.trim().isEmpty) return;
-
-    final text = messageController.text.trim();
-    final now = DateTime.now().millisecondsSinceEpoch;
-
-    await db.ref("messages/$chatId").push().set({
-      "sender": LoginUID.uid,
-      "text": text,
-      "timestamp": now,
-      "replyTo": replyMessage,
-    });
-
-    replyMessage = null;
-
-    await createChatIfNotExists(text);
-    await db.ref("chats/$chatId/unread/${widget.personUid}").set(true);
-    await db.ref("chats/$chatId/unread/${LoginUID.uid}").remove();
-
-    messageController.clear();
-    setState(() {});
+  void _deleteMessage(String key) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Delete Message"),
+        content: const Text("Are you sure you want to delete this message?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () {
+              logic.deleteMessage(key);
+              Navigator.pop(context);
+              setState(() {});
+            },
+            child: const Text("Delete", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -187,10 +107,10 @@ class _ChatScreenState extends State<ChatScreen> {
           children: [
             CircleAvatar(
               radius: 20,
-              backgroundImage: personData?["photoUrl"] != null
-                  ? NetworkImage(personData!["photoUrl"])
+              backgroundImage: logic.personData?["photoUrl"] != null
+                  ? NetworkImage(logic.personData!["photoUrl"])
                   : null,
-              child: personData?["photoUrl"] == null
+              child: logic.personData?["photoUrl"] == null
                   ? const Icon(Icons.person)
                   : null,
             ),
@@ -198,12 +118,12 @@ class _ChatScreenState extends State<ChatScreen> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(personData?["name"] ?? "User",
+                Text(logic.personData?["name"] ?? "User",
                     style: const TextStyle(color: Colors.white)),
                 Text(
-                  personData?["status"] == "online"
+                  logic.personData?["status"] == "online"
                       ? "Online"
-                      : "Last seen ${formatTime(personData?["lastSeen"] ?? 0)}",
+                      : "Last seen ${logic.formatTime(logic.personData?["lastSeen"] ?? 0)}",
                   style: const TextStyle(
                       color: Colors.white70, fontSize: 12),
                 ),
@@ -215,9 +135,9 @@ class _ChatScreenState extends State<ChatScreen> {
       body: GestureDetector(
         behavior: HitTestBehavior.translucent,
         onTap: () {
-          if (selectedMessageKey != null) {
+          if (logic.selectedMessageKey != null) {
             setState(() {
-              selectedMessageKey = null;
+              logic.setSelectedMessageKey(null);
             });
           }
         },
@@ -225,10 +145,7 @@ class _ChatScreenState extends State<ChatScreen> {
           children: [
             Expanded(
               child: StreamBuilder(
-                stream: db
-                    .ref("messages/$chatId")
-                    .orderByChild("timestamp")
-                    .onValue,
+                stream: logic.getMessagesStream(),
                 builder: (context, snapshot) {
                   if (!snapshot.hasData ||
                       snapshot.data!.snapshot.value == null) {
@@ -261,11 +178,11 @@ class _ChatScreenState extends State<ChatScreen> {
                       final msg = messages[index];
                       final isMe = msg["sender"] == LoginUID.uid;
                       final showOptions =
-                          selectedMessageKey == msg["key"];
-                      final canModify = canEditOrDelete(msg);
+                          logic.selectedMessageKey == msg["key"];
+                      final canModify = logic.canEditOrDelete(msg);
 
                       final dateLabel =
-                          messageDateLabel(msg["timestamp"]);
+                          logic.messageDateLabel(msg["timestamp"]);
                       final showDate = lastDate != dateLabel;
                       lastDate = dateLabel;
 
@@ -297,7 +214,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           GestureDetector(
                             onLongPress: () {
                               setState(() {
-                                selectedMessageKey = msg["key"];
+                                logic.setSelectedMessageKey(msg["key"]);
                               });
                             },
                             child: Container(
@@ -363,7 +280,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                       ),
                                       const SizedBox(width: 6),
                                       Text(
-                                        formatTime(
+                                        logic.formatTime(
                                             msg["timestamp"]),
                                         style: const TextStyle(
                                             color:
@@ -401,9 +318,9 @@ class _ChatScreenState extends State<ChatScreen> {
                                           const Text("Reply"),
                                       onTap: () {
                                         setState(() {
-                                          replyMessage = msg;
-                                          selectedMessageKey =
-                                              null;
+                                          logic.setReplyMessage(msg);
+                                          logic.setSelectedMessageKey(
+                                              null);
                                         });
                                       },
                                     ),
@@ -415,7 +332,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                         title:
                                             const Text("Edit"),
                                         onTap: () =>
-                                            editMessage(
+                                            _editMessage(
                                                 msg["key"],
                                                 msg["text"]),
                                       ),
@@ -431,21 +348,21 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ),
 
-            if (replyMessage != null)
+            if (logic.replyMessage != null)
               Container(
                 padding: const EdgeInsets.all(8),
                 color: Colors.grey.shade200,
                 child: Row(
                   children: [
                     Expanded(
-                      child: Text(replyMessage!["text"],
+                      child: Text(logic.replyMessage!["text"],
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis),
                     ),
                     IconButton(
                       icon: const Icon(Icons.close),
                       onPressed: () => setState(
-                          () => replyMessage = null),
+                          () => logic.clearReplyMessage()),
                     )
                   ],
                 ),
@@ -471,7 +388,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     suffixIcon: IconButton(
                       icon: const Icon(Icons.send,
                           color: Colors.purple),
-                      onPressed: sendMessage,
+                      onPressed: _sendMessage,
                     ),
                   ),
                 ),
