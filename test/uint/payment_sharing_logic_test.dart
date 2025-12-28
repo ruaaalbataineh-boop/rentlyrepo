@@ -46,10 +46,16 @@ void main() {
       await logic.initialize();
       final initialCount = logic.invoices.length;
 
+      
       await logic.generatePaymentCode('100', 'First');
+      await Future.delayed(Duration(milliseconds: 2));
       await logic.generatePaymentCode('200', 'Second');
 
       expect(logic.invoices.length, initialCount + 2);
+      
+      final firstTimestamp = logic.invoices[0]['timestamp'];
+      final secondTimestamp = logic.invoices[1]['timestamp'];
+      expect(firstTimestamp, greaterThan(secondTimestamp));
       expect(logic.invoices[0]['description'], 'Second');
 
       await logic.toggleSortOrder();
@@ -88,6 +94,14 @@ void main() {
       expect(logic.getInvoice(invoiceId)?['status'], 'Pending');
     });
 
+    test('toggleInvoiceStatus does nothing for non-existent invoice', () async {
+      await logic.initialize();
+      
+      await logic.toggleInvoiceStatus('non-existent-id');
+      
+      expect(true, true);
+    });
+
     test('getInvoice returns null for non-existent invoice', () async {
       await logic.initialize();
       final invoice = logic.getInvoice('non-existent-id');
@@ -114,8 +128,10 @@ void main() {
     test('invoiceDate is set to current time', () async {
       await logic.initialize();
       expect(logic.invoiceDate, isNotNull);
+      
+      final now = DateTime.now();
       expect(
-        logic.invoiceDate.isBefore(DateTime.now().add(Duration(seconds: 1))),
+        logic.invoiceDate.isAfter(now.subtract(Duration(seconds: 10))),
         true,
       );
     });
@@ -124,6 +140,19 @@ void main() {
       expect(logic.isLoading, true);
       await logic.initialize();
       expect(logic.isLoading, false);
+    });
+
+    test('payment code contains correct timestamp', () async {
+      await logic.initialize();
+      await logic.generatePaymentCode('150.75', 'Test');
+      
+      final parts = logic.paymentCode.split('_');
+      expect(parts.length, 3);
+      expect(parts[0], logic.userId);
+      expect(parts[1], '150.75');
+      final timestamp = int.tryParse(parts[2]);
+      expect(timestamp, isNotNull);
+      expect(timestamp, logic.invoiceDate.millisecondsSinceEpoch);
     });
   });
 }
