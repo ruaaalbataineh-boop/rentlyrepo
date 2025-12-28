@@ -6,7 +6,7 @@ class PaymentSharingLogic {
   String paymentCode = '';
   String invoiceId = '';
   DateTime invoiceDate = DateTime.now();
-  
+
   List<Map<String, dynamic>> invoices = [];
   bool newestFirst = true;
   bool showCode = false;
@@ -37,14 +37,16 @@ class PaymentSharingLogic {
 
   Future<void> _loadInvoices() async {
     final stored = prefs.getStringList('invoices') ?? [];
-    invoices = stored.map((e) => jsonDecode(e)).cast<Map<String, dynamic>>().toList();
+    invoices = stored
+        .map((e) => jsonDecode(e) as Map<String, dynamic>)
+        .toList();
     _sortInvoices();
   }
 
   void _generateInvoiceId() {
-    final t = DateTime.now().millisecondsSinceEpoch.toString();
-    invoiceId = 'INV-${t.substring(t.length - 8)}';
     invoiceDate = DateTime.now();
+    final t = invoiceDate.millisecondsSinceEpoch.toString();
+    invoiceId = 'INV-${t.substring(t.length - 8)}';
   }
 
   void _sortInvoices() {
@@ -62,7 +64,7 @@ class PaymentSharingLogic {
   }
 
   Future<void> _saveInvoices() async {
-    prefs.setStringList(
+    await prefs.setStringList(
       'invoices',
       invoices.map((e) => jsonEncode(e)).toList(),
     );
@@ -74,7 +76,10 @@ class PaymentSharingLogic {
       return 'Please enter a valid amount';
     }
 
-    paymentCode = '${userId}_${amount.toStringAsFixed(2)}_${DateTime.now().millisecondsSinceEpoch}';
+    _generateInvoiceId(); 
+
+    paymentCode =
+        '${userId}_${amount.toStringAsFixed(2)}_${invoiceDate.millisecondsSinceEpoch}';
 
     final invoice = {
       'id': invoiceId,
@@ -84,6 +89,7 @@ class PaymentSharingLogic {
       'status': 'Pending',
       'payment_code': paymentCode,
       'user_id': userId,
+      'timestamp': invoiceDate.millisecondsSinceEpoch, 
     };
 
     invoices.add(invoice);
@@ -91,15 +97,14 @@ class PaymentSharingLogic {
     showCode = true;
 
     await _saveInvoices();
-    _generateInvoiceId();
-    
+
     return null;
   }
 
   Future<bool> deleteInvoice(String invoiceId) async {
     final initialLength = invoices.length;
     invoices.removeWhere((invoice) => invoice['id'] == invoiceId);
-    
+
     if (invoices.length < initialLength) {
       await _saveInvoices();
       return true;
@@ -108,23 +113,18 @@ class PaymentSharingLogic {
   }
 
   Future<void> toggleInvoiceStatus(String invoiceId) async {
-    final invoice = invoices.firstWhere(
-      (inv) => inv['id'] == invoiceId,
-      orElse: () => {},
-    );
+    final invoiceIndex = invoices.indexWhere((inv) => inv['id'] == invoiceId);
     
-    if (invoice.isNotEmpty) {
+    if (invoiceIndex != -1) {
+      final invoice = invoices[invoiceIndex];
       invoice['status'] = invoice['status'] == 'Pending' ? 'Paid' : 'Pending';
       await _saveInvoices();
     }
   }
 
   Map<String, dynamic>? getInvoice(String invoiceId) {
-    try {
-      return invoices.firstWhere((inv) => inv['id'] == invoiceId);
-    } catch (e) {
-      return null;
-    }
+    final index = invoices.indexWhere((inv) => inv['id'] == invoiceId);
+    return index != -1 ? invoices[index] : null;
   }
 
   int get totalInvoices => invoices.length;
