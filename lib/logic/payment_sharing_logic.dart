@@ -38,16 +38,15 @@ class PaymentSharingLogic {
   Future<void> _loadInvoices() async {
     final stored = prefs.getStringList('invoices') ?? [];
     invoices = stored
-        .map((e) => jsonDecode(e))
-        .cast<Map<String, dynamic>>()
+        .map((e) => jsonDecode(e) as Map<String, dynamic>)
         .toList();
     _sortInvoices();
   }
 
   void _generateInvoiceId() {
-    final t = DateTime.now().millisecondsSinceEpoch.toString();
-    invoiceId = 'INV-${t.substring(t.length - 8)}';
     invoiceDate = DateTime.now();
+    final t = invoiceDate.millisecondsSinceEpoch.toString();
+    invoiceId = 'INV-${t.substring(t.length - 8)}';
   }
 
   void _sortInvoices() {
@@ -77,8 +76,7 @@ class PaymentSharingLogic {
       return 'Please enter a valid amount';
     }
 
-    // توليد invoiceId و invoiceDate جديد لكل فاتورة
-    _generateInvoiceId();
+    _generateInvoiceId(); // توليد تاريخ و ID جديد قبل إضافة الفاتورة
 
     paymentCode =
         '${userId}_${amount.toStringAsFixed(2)}_${DateTime.now().millisecondsSinceEpoch}';
@@ -116,7 +114,7 @@ class PaymentSharingLogic {
   Future<void> toggleInvoiceStatus(String invoiceId) async {
     final invoice = invoices.firstWhere(
       (inv) => inv['id'] == invoiceId,
-      orElse: () => <String, dynamic>{},
+      orElse: () => {},
     );
 
     if (invoice.isNotEmpty) {
