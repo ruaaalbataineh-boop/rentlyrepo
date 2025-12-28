@@ -76,10 +76,10 @@ class PaymentSharingLogic {
       return 'Please enter a valid amount';
     }
 
-    _generateInvoiceId(); // توليد تاريخ و ID جديد قبل إضافة الفاتورة
+    _generateInvoiceId(); 
 
     paymentCode =
-        '${userId}_${amount.toStringAsFixed(2)}_${DateTime.now().millisecondsSinceEpoch}';
+        '${userId}_${amount.toStringAsFixed(2)}_${invoiceDate.millisecondsSinceEpoch}';
 
     final invoice = {
       'id': invoiceId,
@@ -89,6 +89,7 @@ class PaymentSharingLogic {
       'status': 'Pending',
       'payment_code': paymentCode,
       'user_id': userId,
+      'timestamp': invoiceDate.millisecondsSinceEpoch, 
     };
 
     invoices.add(invoice);
@@ -112,23 +113,18 @@ class PaymentSharingLogic {
   }
 
   Future<void> toggleInvoiceStatus(String invoiceId) async {
-    final invoice = invoices.firstWhere(
-      (inv) => inv['id'] == invoiceId,
-      orElse: () => {},
-    );
-
-    if (invoice.isNotEmpty) {
+    final invoiceIndex = invoices.indexWhere((inv) => inv['id'] == invoiceId);
+    
+    if (invoiceIndex != -1) {
+      final invoice = invoices[invoiceIndex];
       invoice['status'] = invoice['status'] == 'Pending' ? 'Paid' : 'Pending';
       await _saveInvoices();
     }
   }
 
   Map<String, dynamic>? getInvoice(String invoiceId) {
-    try {
-      return invoices.firstWhere((inv) => inv['id'] == invoiceId);
-    } catch (e) {
-      return null;
-    }
+    final index = invoices.indexWhere((inv) => inv['id'] == invoiceId);
+    return index != -1 ? invoices[index] : null;
   }
 
   int get totalInvoices => invoices.length;
