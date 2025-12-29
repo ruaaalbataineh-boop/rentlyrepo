@@ -18,7 +18,6 @@ class CreditCardLogic {
 
   CreditCardLogic({required this.amount});
 
-  // Card number formatting and validation
   void updateCardNumber(String value) {
     final cleanedValue = value.replaceAll(' ', '');
     var formattedValue = '';
@@ -95,7 +94,7 @@ class CreditCardLogic {
       if (alternate) {
         digit *= 2;
         if (digit > 9) {
-          digit = (digit % 10) + 1;
+          digit -= 9;
         }
       }
 
@@ -124,11 +123,11 @@ class CreditCardLogic {
       return 'Name is too long';
     }
 
-    if (!RegExp(r'^[a-zA-Z\\s]+$').hasMatch(name)) {
+    if (!RegExp(r'^[a-zA-Z\s]+$').hasMatch(name)) {
       return 'Name must contain only letters and spaces';
     }
 
-    final words = name.trim().split(RegExp(r'\\s+'));
+    final words = name.trim().split(RegExp(r'\s+'));
     if (words.length < 2) {
       return 'Please enter full name (first and last name)';
     }
@@ -143,6 +142,9 @@ class CreditCardLogic {
   }
 
   void updateExpiryDate(String value) {
+  
+    value = value.replaceAll('-', '/');
+    
     final cleanedValue = value.replaceAll('/', '');
     final digitsOnly = cleanedValue.replaceAll(RegExp(r'[^0-9]'), '');
 
@@ -177,7 +179,7 @@ class CreditCardLogic {
       return 'Format: MM/YY (e.g., 12/25)';
     }
 
-    if (!RegExp(r'^(0[1-9]|1[0-2])\\/([0-9]{2})$').hasMatch(value)) {
+    if (!RegExp(r'^(0[1-9]|1[0-2])/([0-9]{2})$').hasMatch(value)) {
       return 'Format: MM/YY (e.g., 12/25)';
     }
 
@@ -189,7 +191,7 @@ class CreditCardLogic {
   }
 
   bool _validateExpiryDate(String expiry) {
-    if (!RegExp(r'^(0[1-9]|1[0-2])\\/([0-9]{2})$').hasMatch(expiry)) {
+    if (!RegExp(r'^(0[1-9]|1[0-2])/([0-9]{2})$').hasMatch(expiry)) {
       return false;
     }
 
@@ -250,6 +252,8 @@ class CreditCardLogic {
   }
 
   Future<bool> processPayment() async {
+  
+    await Future.delayed(const Duration(milliseconds: 500));
     return true;
   }
 
