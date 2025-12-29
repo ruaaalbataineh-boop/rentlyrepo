@@ -22,6 +22,11 @@ export { updateRentalRequestStatus } from "./rentals/updateRentalRequestStatus";
 import { onValueCreated } from "firebase-functions/v2/database";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 
+export { createInvoice } from "./payments/createInvoice";
+export { markInvoicePaid } from "./payments/markInvoicePaid";
+
+export { stripeWebhook } from "./payments/stripeWebhook";
+
 
 /*                            CHAT USER to USER                             */
 

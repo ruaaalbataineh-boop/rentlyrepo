@@ -7,10 +7,16 @@ import 'package:p2/logic/payment_failed_logic.dart';
 
 class PaymentFailedPage extends StatefulWidget {
   final String returnTo;
+  final double amount;
+  final String referenceNumber;
+  final String clientSecret;
 
   const PaymentFailedPage({
     super.key,
     this.returnTo = 'payment',
+    required this.amount,
+    required this.referenceNumber,
+    required this.clientSecret,
   });
 
   @override
@@ -268,7 +274,11 @@ class _PaymentFailedPageState extends State<PaymentFailedPage> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) => const CreditCardPaymentPage(amount: 0.0),
+          builder: (context) => CreditCardPaymentPage(
+            amount: widget.amount,
+            referenceNumber: widget.referenceNumber,
+            clientSecret: widget.clientSecret,
+          ),
         ),
       );
     } else {

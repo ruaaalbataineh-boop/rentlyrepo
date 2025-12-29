@@ -2,11 +2,17 @@ import 'package:flutter/material.dart';
 import '../logic/credit_card_logic.dart';
 import 'payment_success_page.dart';
 import 'payment_failed_page.dart';
+import 'package:flutter_stripe/flutter_stripe.dart' as stripe;
+import '../services/firestore_service.dart';
 
 class CreditCardPaymentPage extends StatefulWidget {
   final double amount;
+  final String referenceNumber;
+  final String clientSecret;
   
-  const CreditCardPaymentPage({super.key, required this.amount});
+  const CreditCardPaymentPage({super.key, required this.amount,
+    required this.referenceNumber,
+    required this.clientSecret,});
 
   @override
   State<CreditCardPaymentPage> createState() => _CreditCardPaymentPageState();
@@ -36,24 +42,42 @@ class _CreditCardPaymentPageState extends State<CreditCardPaymentPage> {
       _logic.isProcessing = true;
     });
 
-    final isSuccess = await _logic.processPayment();
+    try {
+      // Confirm Stripe payment
+      await stripe.Stripe.instance.confirmPayment(
+        paymentIntentClientSecret: widget.clientSecret,
+        data: stripe.PaymentMethodParams.card(
+          paymentMethodData: stripe.PaymentMethodData(),
+        ),
+      );
 
-    setState(() {
-      _logic.isProcessing = false;
-    });
+      // Mark invoice paid in Firestore
+      await FirestoreService.markInvoicePaid(widget.referenceNumber);
 
-    if (isSuccess) {
+      setState(() {
+        _logic.isProcessing = false;
+      });
+
+      // Success Page
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => PaymentSuccessPage(amount: widget.amount),
         ),
       );
-    } else {
+    } catch (e) {
+      setState(() {
+        _logic.isProcessing = false;
+      });
+
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => const PaymentFailedPage(),
+          builder: (context) => PaymentFailedPage(
+            amount: widget.amount,
+            referenceNumber: widget.referenceNumber,
+            clientSecret: widget.clientSecret,
+          ),
         ),
       );
     }

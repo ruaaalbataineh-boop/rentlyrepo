@@ -24,6 +24,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'fake_uid.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
 
 class UserHomePage extends StatelessWidget {
   const UserHomePage({super.key});
@@ -39,6 +40,10 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  Stripe.publishableKey =
+  "pk_test_51SjRFIJqX4BeUhberrKmAnRG9IK2nvh6j5oHDKKpyuxOsJRXRRkRcMFbhKWGbrPWu91WRp5yZOurPPLkg0X28I4P00Z2hCDQr6";
+  await Stripe.instance.applySettings();
 
   FirebaseMessaging messaging = FirebaseMessaging.instance;
 
@@ -130,7 +135,6 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// الصفحة الحاسمة
 class MainPage extends StatelessWidget {
   const MainPage({super.key});
 

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:p2/logic/withdrawal_logic.dart';
+import 'logic/cash_withdrawal_logic.dart';
 
 
 class CashWithdrawalPage extends StatefulWidget {

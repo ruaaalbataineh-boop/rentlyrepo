@@ -101,5 +101,21 @@ class FirestoreService {
     return null;
   }
 
+  static Future<Map<String, dynamic>> createInvoice(double amount, String method) async {
+    final callable = FirebaseFunctions.instance.httpsCallable("createInvoice");
+    final result = await callable.call({
+      "amount": amount,
+      "method": method,
+    });
+
+    return Map<String, dynamic>.from(result.data);
+  }
+
+  static Future<void> markInvoicePaid(String referenceNumber) async {
+    final callable = FirebaseFunctions.instance.httpsCallable("markInvoicePaid");
+    await callable.call({
+      "referenceNumber": referenceNumber,
+    });
+  }
 
 }

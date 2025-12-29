@@ -1,8 +1,9 @@
 
 import 'package:flutter/material.dart';
-import 'package:p2/ClickPaymentPage.dart';
+import 'package:p2/EfawateercomInvoicePage.dart';
 import 'package:p2/CreditCardPaymentPage.dart';
-import 'package:p2/logic/wallet_recharge_logic.dart';
+import 'package:p2/services/firestore_service.dart';
+import 'logic/wallet_recharge_logic.dart';
 
 
 class WalletRechargePage extends StatefulWidget {
@@ -17,6 +18,8 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
   String? selectedMethod;
   final TextEditingController amountController = TextEditingController();
   double currentBalance = WalletRechargeLogic.defaultBalance;
+
+  bool loading = false;
 
   @override
   Widget build(BuildContext context) {
@@ -37,36 +40,38 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-             
-              _buildBalanceCard(balanceStats),
-              const SizedBox(height: 25),
+      body: AbsorbPointer(
+        absorbing: loading,
+        child: Stack(
+          children: [
+            _buildBody(balanceStats),
+            if (loading)
+              const Center(child: CircularProgressIndicator()),
+          ],
+        ),
+      ),
+    );
+  }
 
-            
-              _buildAmountInputCard(),
-              const SizedBox(height: 20),
-
-             
-              _buildQuickAmountsCard(),
-              const SizedBox(height: 25),
-
-              _buildPaymentMethodsCard(),
-              const SizedBox(height: 30),
-
-            
-              _buildContinueButton(),
-              const SizedBox(height: 20),
-
-              _buildImportantInfo(),
-              const SizedBox(height: 30),
-            ],
-          ),
+  Widget _buildBody(Map<String, String> balanceStats) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          children: [
+            _buildBalanceCard(balanceStats),
+            const SizedBox(height: 25),
+            _buildAmountInputCard(),
+            const SizedBox(height: 20),
+            _buildQuickAmountsCard(),
+            const SizedBox(height: 25),
+            _buildPaymentMethodsCard(),
+            const SizedBox(height: 30),
+            _buildContinueButton(),
+            const SizedBox(height: 20),
+            _buildImportantInfo(),
+          ],
         ),
       ),
     );
@@ -534,7 +539,6 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
       ),
     );
   }
-
  
   Widget _buildMiniStat(String period, String amount, Color color) {
     return Column(
@@ -604,35 +608,54 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
     }
   }
 
-  void _handlePayment() {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+  Future<void> _handlePayment() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (selectedMethod == null) return;
 
     final amount = WalletRechargeLogic.parseAmount(amountController.text);
-    if (amount < WalletRechargeLogic.minRechargeAmount) {
-      return;
-    }
 
-    if (selectedMethod == null) {
-      return;
-    }
+    try {
+      setState(() => loading = true);
 
-    final methodInfo = WalletRechargeLogic.getPaymentMethodInfo(selectedMethod!);
-    
-    if (WalletRechargeLogic.isCreditCardPayment(selectedMethod!)) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => CreditCardPaymentPage(amount: amount),
-        ),
+      final invoice = await FirestoreService.createInvoice(
+        amount,
+        selectedMethod!, // "credit_card" or "efawateercom"
       );
-    } else if (WalletRechargeLogic.isEfawateercomPayment(selectedMethod!)) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => PaymentSharingPage(),
-        ),
+
+      setState(() => loading = false);
+
+      final ref = invoice["referenceNumber"];
+      final method = invoice["method"];
+      final clientSecret = invoice["clientSecret"];
+
+      if (method == "credit_card") {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => CreditCardPaymentPage(
+              amount: amount,
+              referenceNumber: ref,
+              clientSecret: clientSecret,
+            ),
+          ),
+        );
+      } else {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => EfawateercomInvoicePage(
+              amount: amount,
+              referenceNumber: ref,
+            ),
+          ),
+        );
+      }
+
+    } catch (e) {
+      setState(() => loading = false);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to start payment process")),
       );
     }
   }

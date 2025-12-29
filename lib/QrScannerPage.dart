@@ -17,7 +17,7 @@ class QrScannerPage extends StatelessWidget {
       appBar: AppBar(title: const Text("Scan Pickup QR")),
       body: MobileScanner(
         onDetect: (capture) async {
-          if (scanned) return; // 🔒 prevent double scan
+          if (scanned) return; // prevent double scan
           scanned = true;
 
           final qr = capture.barcodes.first.rawValue;

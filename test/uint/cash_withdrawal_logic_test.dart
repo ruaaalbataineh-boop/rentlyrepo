@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:p2/logic/withdrawal_logic.dart';
+import 'package:p2/logic/cash_withdrawal_logic.dart';
 
 void main() {
   late CashWithdrawalLogic logic;

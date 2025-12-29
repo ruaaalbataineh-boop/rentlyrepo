@@ -1,6 +1,6 @@
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:p2/logic/personal_info_provider.dart';
+import 'package:p2/logic/personal_info_logic.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
