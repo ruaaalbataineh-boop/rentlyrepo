@@ -6,11 +6,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class QrPage extends StatefulWidget {
   final String qrToken;
   final String requestId;
+  final bool isReturnPhase;
 
   const QrPage({
     super.key,
     required this.qrToken,
     required this.requestId,
+    this.isReturnPhase = false,
   });
 
   @override
@@ -33,10 +35,11 @@ class _QrPageState extends State<QrPage> {
       if (!snap.exists) return;
 
       final status = snap["status"];
-      if (status == "active") {
-        if (mounted) {
-          Navigator.pop(context);
-        }
+      if (!widget.isReturnPhase && status == "active") {
+        if (mounted) Navigator.pop(context);
+      }
+      if (widget.isReturnPhase && status == "ended") {
+        if (mounted) Navigator.pop(context);
       }
     });
   }
@@ -74,7 +77,7 @@ class _QrPageState extends State<QrPage> {
                   ),
                   const SizedBox(height: 20),
                   Text(
-                    "Waiting for renter to scan…",
+                    "Waiting for user to scan…",
                     style: TextStyle(
                       fontSize: 16,
                       color: Colors.grey[200],

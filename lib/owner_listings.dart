@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:p2/services/firestore_service.dart';
 import 'AddItemPage .dart';
 import 'QrPage.dart';
+import 'QrScannerPage.dart';
 import 'bottom_nav.dart';
 
 class OwnerItemsPage extends StatefulWidget {
@@ -19,7 +20,7 @@ class _OwnerItemsPageState extends State<OwnerItemsPage> {
 
   String get ownerUid => FirebaseAuth.instance.currentUser!.uid;
 
-  // ===== COUNTERS =====
+  //  COUNTERS
 
 Widget myItemsCounter() {
   return StreamBuilder<QuerySnapshot>(
@@ -87,7 +88,7 @@ Widget _counterBadge(int count) {
           SizedBox(height: size.height * 0.02),
           
           
-          ///counter 
+          //counter
           Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -329,7 +330,7 @@ Widget _counterBadge(int count) {
                   },
                 ),
               ],
-              if (status == "accepted")
+              if (status == "accepted") ...[
                 IconButton(
                   icon: const Icon(Icons.qr_code, size: 28),
                   onPressed: () {
@@ -344,7 +345,75 @@ Widget _counterBadge(int count) {
                     );
                   },
                 ),
-              const SizedBox(width: 6),
+                IconButton(
+                  icon: const Icon(Icons.flash_on, color: Colors.orange, size: 28),
+                  tooltip: "Force Active (Testing)",
+                  onPressed: () async {
+                    try {
+                      await FirestoreService.updateRentalRequestStatus(
+                        requestId,
+                        "active",
+                        qrToken: data["qrToken"],
+                      );
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Rental forced to ACTIVE"),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text("Failed: $e"),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  },
+                ),
+              ],
+              if (status == "active") ...[
+                IconButton(
+                  icon: const Icon(Icons.qr_code_scanner,
+                      size: 28, color: Color(0xFF1F0F46)),
+                  tooltip: "Scan Return QR",
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => QrScannerPage(requestId: requestId),
+                      ),
+                    );
+                  },
+                ),
+
+                IconButton(
+                  icon: const Icon(Icons.flash_on, color: Colors.red, size: 28),
+                  tooltip: "Force ENDED (Testing)",
+                  onPressed: () async {
+                    try {
+                      await FirestoreService.updateRentalRequestStatus(
+                        requestId,
+                        "ended",
+                      );
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Rental forced to END"),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text("Failed: $e"),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  },
+                ),
+              ],
             ],
           ),
 

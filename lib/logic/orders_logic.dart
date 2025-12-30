@@ -57,12 +57,6 @@ class OrdersLogic {
     return FirestoreService.getRenterRequestsByStatuses(renterUid, statuses);
   }
 
-
-  bool shouldShowQRButton(String status) {
-    return status == "accepted";
-  }
-
-  
   Map<String, String> getRequestDetails(RentalRequest req) {
     final details = <String, String>{
       'Rental Type': req.rentalType,
@@ -71,7 +65,6 @@ class OrdersLogic {
       'End Date': _formatDate(req.endDate),
       'Total Price': 'JOD ${req.totalPrice.toStringAsFixed(2)}',
     };
-    
 
     if (req.startTime != null && req.startTime!.isNotEmpty) {
       details['Start Time'] = req.startTime!;

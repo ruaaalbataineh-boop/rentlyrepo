@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:p2/logic/orders_logic.dart';
 import 'package:p2/WalletPage.dart';
 import 'package:p2/models/rental_request.dart';
+import 'QrPage.dart';
 import 'QrScannerPage.dart';
 import 'app_locale.dart';
 import 'bottom_nav.dart';
@@ -53,7 +54,6 @@ class _OrdersPageState extends State<OrdersPage> {
     );
   }
 
- 
   Widget _buildHeader(double screenHeight, double screenWidth, bool small) {
     return ClipPath(
       clipper: SideCurveClipper(),
@@ -97,7 +97,6 @@ class _OrdersPageState extends State<OrdersPage> {
       ),
     );
   }
-
  
   Widget _buildTabs(double screenWidth, bool small) {
     return Row(
@@ -145,7 +144,6 @@ class _OrdersPageState extends State<OrdersPage> {
       ),
     );
   }
-
   
   Widget _buildTabContent(double screenWidth) {
     return _buildRequestStream(screenWidth);
@@ -213,7 +211,6 @@ class _OrdersPageState extends State<OrdersPage> {
 
             const SizedBox(height: 4),
 
-            
             Row(
               children: [
                 Text(
@@ -223,10 +220,11 @@ class _OrdersPageState extends State<OrdersPage> {
 
                 const Spacer(),
 
-                if (_logic.shouldShowQRButton(req.status))
+                if (req.status == "accepted") ...[
                   IconButton(
-                    icon: const Icon(
-                        Icons.qr_code_scanner, size: 28, color: Color(0xFF1F0F46)),
+                    icon: const Icon(Icons.qr_code_scanner,
+                        size: 28, color: Color(0xFF1F0F46)),
+                    tooltip: "Scan Pickup QR",
                     onPressed: () {
                       Navigator.push(
                         context,
@@ -236,6 +234,26 @@ class _OrdersPageState extends State<OrdersPage> {
                       );
                     },
                   ),
+                ],
+                if (req.status == "active") ...[
+                  IconButton(
+                    icon: const Icon(Icons.qr_code,
+                        size: 28, color: Color(0xFF1F0F46)),
+                    tooltip: "Show Return QR",
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => QrPage(
+                            qrToken: req.qrToken!,
+                            requestId: req.id,
+                            isReturnPhase: true,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ],
             ),
 
@@ -274,7 +292,6 @@ class _OrdersPageState extends State<OrdersPage> {
     );
   }
 }
-
 
 class SideCurveClipper extends CustomClipper<Path> {
   @override
