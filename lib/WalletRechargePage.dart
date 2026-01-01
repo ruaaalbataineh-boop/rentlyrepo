@@ -145,7 +145,7 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
           ),
           const SizedBox(height: 10),
           Text(
-            'JD${WalletRechargeLogic.formatBalance(currentBalance)}',
+            '${WalletRechargeLogic.formatBalance(currentBalance)}JD',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 36,

@@ -27,7 +27,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
   TimeOfDay? startTime;
   int count = 1;
   String? pickupTime;
-  
+
   double insuranceAmount = 0.0;
   double rentalPrice = 0.0;
   double totalRequired = 0.0;
@@ -994,7 +994,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
               value == null
                   ? "Select Start Date"
                   : DateFormat("yyyy-MM-dd").format(value),
-              style: const TextStyle(fontSize: 15),
+              style: const TextStyle(fontSize: 15, color: Colors.white),
             ),
           ),
         ),
@@ -1025,7 +1025,9 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
-            child: Text(value == null ? "Select Time" : value.format(context)),
+            child: Text(value == null ? "Select Time" : value.format(context),
+              style: const TextStyle(fontSize: 15, color: Colors.white),
+            ),
           ),
         ),
       ],
@@ -1122,7 +1124,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
               ),
               child: Text(
                 pickupTime == null ? "Select Pickup Time" : pickupTime!,
-                style: const TextStyle(fontSize: 15),
+                style: const TextStyle(fontSize: 15, color: Colors.white),
               ),
             ),
           ),
@@ -1392,7 +1394,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
             } : null,
             child: Text(
               _getRentButtonText(),
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, ),
             ),
           ),
           

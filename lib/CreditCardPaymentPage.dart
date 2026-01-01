@@ -106,7 +106,6 @@ class _CreditCardPaymentPageState extends State<CreditCardPaymentPage> {
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 18,
-                      fontWeight: FontWeight.bold,
                     ),
                   ),
                   SizedBox(height: 12),
@@ -178,7 +177,7 @@ class _CreditCardPaymentPageState extends State<CreditCardPaymentPage> {
                     ? const CircularProgressIndicator(color: Colors.white)
                     : const Text(
                   "Confirm Payment",
-                  style: TextStyle(fontSize: 20),
+                  style: TextStyle(fontSize: 20, color: Colors.white),
                 ),
               ),
             ),

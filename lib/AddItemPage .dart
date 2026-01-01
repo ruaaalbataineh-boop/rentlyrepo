@@ -563,9 +563,10 @@ class _AddItemPageState extends State<AddItemPage> {
           
           ElevatedButton.icon(
             onPressed: addRentalPeriod,
-            icon: const Icon(Icons.add),
-            label: const Text("Add Period"),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF8A005D)),
+            icon: const Icon(Icons.add, color: Colors.white),
+            label: const Text("Add Period",
+                style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF8A005D))
           ),
           
           const SizedBox(height: 10),
@@ -607,7 +608,8 @@ class _AddItemPageState extends State<AddItemPage> {
           ElevatedButton(
             onPressed: pickLocation,
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF8A005D)),
-            child: const Text("Pick Location"),
+            child: const Text("Pick Location",
+                style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -626,7 +628,7 @@ class _AddItemPageState extends State<AddItemPage> {
         ),
         child: Text(
           widget.existingItem == null ? "Submit Item" : "Update Item",
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
         ),
       ),
     );
