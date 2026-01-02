@@ -22,11 +22,27 @@ export { updateRentalRequestStatus } from "./rentals/updateRentalRequestStatus";
 import { onValueCreated } from "firebase-functions/v2/database";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 
-export { createInvoice } from "./payments/createInvoice";
-export { markInvoicePaid } from "./payments/markInvoicePaid";
+export { createAdminWallet } from "./wallets/createAdminWallet";
+export { getWallet } from "./wallets/getWallet";
+export { getUserWallets } from "./wallets/getUserWallets";
 
+export { createTransaction } from "./payments/createTransaction";
+export { confirmTransaction } from "./payments/confirmTransaction";
+export { failTransaction } from "./payments/failTransaction";
+
+export { createEfawateerkomTopUp } from "./payments/createEfawateerkomTopUp";
+export { createStripeTopUp } from "./payments/createStripeTopUp";
 export { stripeWebhook } from "./payments/stripeWebhook";
+export { expireTopUps } from "./payments/expireTopUps";
+export { approveEfawateerkomTopUp } from "./PSPsimulations/approveEfawateerkomTopUp";
+export { rejectEfawateerkomTopUp } from "./PSPsimulations/rejectEfawateerkomTopUp";
 
+export { requestWithdrawal } from "./payments/requestWithdrawal";
+export { approveWithdrawal } from "./PSPsimulations/approveWithdrawal";
+export { rejectWithdrawal } from "./PSPsimulations/rejectWithdrawal";
+export { expireWithdrawals } from "./payments/expireWithdrawals";
+
+export { setPspRole } from "./users/setPspRole";
 
 /*                            CHAT USER to USER                             */
 

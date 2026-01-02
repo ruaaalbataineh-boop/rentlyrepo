@@ -1,6 +1,5 @@
 import { onCall } from "firebase-functions/v2/https";
 import { getFirestore, Timestamp } from "firebase-admin/firestore";
-import * as admin from "firebase-admin";
 
 export const approveUser = onCall(async (request) => {
 
@@ -36,17 +35,30 @@ export const approveUser = onCall(async (request) => {
     approvedAt: Timestamp.now(),
   });
 
-// create wallet if doesnt exist
-  const walletRef = db.collection("wallets").doc(uid);
-  const walletDoc = await walletRef.get();
+  const batch = db.batch();
 
-  if (!walletDoc.exists) {
-    await walletRef.set({
-      uid,
-      balance: 0,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-  }
+  // Create USER wallet
+  const walletsRef = db.collection("wallets");
+  const userWalletRef = walletsRef.doc();
+  batch.set(userWalletRef, {
+    userId: uid,
+    type: "USER",
+    balance: 0,
+    createdAt: Timestamp.now(),
+    updatedAt: Timestamp.now(),
+  });
+
+  // Create HOLDING wallet
+  const holdingWalletRef = walletsRef.doc();
+  batch.set(holdingWalletRef, {
+    userId: uid,
+    type: "HOLDING",
+    balance: 0,
+    createdAt: Timestamp.now(),
+    updatedAt: Timestamp.now(),
+  });
+
+  await batch.commit();
 
   return { success: true };
 });

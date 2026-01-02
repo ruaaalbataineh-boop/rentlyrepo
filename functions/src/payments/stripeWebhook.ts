@@ -1,9 +1,12 @@
+import { getFirestore, Timestamp } from "firebase-admin/firestore";
 import { onRequest } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
 import Stripe from "stripe";
+
 import * as admin from "firebase-admin";
 
 if (!admin.apps.length) admin.initializeApp();
+const db = getFirestore();
 
 const STRIPE_SECRET_KEY = defineSecret("STRIPE_SECRET_KEY");
 const STRIPE_WEBHOOK_SECRET = defineSecret("STRIPE_WEBHOOK_SECRET");
@@ -13,7 +16,7 @@ export const stripeWebhook = onRequest(
     region: "us-central1",
     secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET],
   },
-  async (req, res): Promise<void> => {
+  async (req, res) => {
     if (req.method !== "POST") {
       res.status(405).send("Method Not Allowed");
       return;
@@ -28,7 +31,6 @@ export const stripeWebhook = onRequest(
     }
 
     let event: Stripe.Event;
-
     try {
       event = stripe.webhooks.constructEvent(
         req.rawBody,
@@ -44,69 +46,55 @@ export const stripeWebhook = onRequest(
     // SUCCESS
     if (event.type === "payment_intent.succeeded") {
       const pi = event.data.object as Stripe.PaymentIntent;
-      const referenceNumber = pi.metadata?.referenceNumber;
-      const uid = pi.metadata?.userId;
-      const amount = pi.amount_received / 100;
-
-      if (!referenceNumber || !uid) {
-        console.error("Missing metadata");
-        res.status(200).send("ok");
-        return;
-      }
-
-      const db = admin.firestore();
+      const paymentIntentId = pi.id;
 
       const snap = await db
-        .collection("paymentInvoices")
-        .where("referenceNumber", "==", referenceNumber)
+        .collection("topUpRequests")
+        .where("referenceNumber", "==", paymentIntentId)
         .limit(1)
         .get();
 
       if (snap.empty) {
-        console.error("Invoice not found");
+        console.error("TopUp request not found");
         res.status(200).send("ok");
         return;
       }
 
-      const doc = snap.docs[0];
-
-      if (doc.data().status === "PAID") {
+      const topUpDoc = snap.docs[0];
+      const topUp = topUpDoc.data();
+      if (topUp.status === "approved") {
         res.status(200).send("ok");
         return;
       }
 
-      const walletRef = db.collection("wallets").doc(uid);
+      const txRef = db.collection("walletTransactions").doc(topUp.transactionId);
+      const walletRef = db.collection("wallets").doc(topUp.walletId);
 
-      await db.runTransaction(async (tx) => {
-        const walletDoc = await tx.get(walletRef);
-        const currentBalance = walletDoc.exists
-          ? walletDoc.data()?.balance || 0
-          : 0;
+      await db.runTransaction(async (t) => {
+        const txSnap = await t.get(txRef);
+        const walletSnap = await t.get(walletRef);
 
-        tx.set(
-          walletRef,
-          {
-            uid,
-            balance: currentBalance + amount,
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          },
-          { merge: true }
-        );
+        if (!walletSnap.exists) throw new Error("Wallet missing");
+        if (!txSnap.exists) throw new Error("Transaction missing");
 
-        tx.update(doc.ref, {
-          status: "PAID",
-          paidAt: admin.firestore.FieldValue.serverTimestamp(),
+        const walletBalance = walletSnap.data()!.balance;
+        const tx = txSnap.data()!;
+
+        if (tx.status === "confirmed") return;
+
+        t.update(walletRef, {
+          balance: walletBalance + tx.amount,
+          updatedAt: Timestamp.now(),
         });
 
-        tx.set(db.collection("transactions").doc(), {
-          uid,
-          type: "TOPUP",
-          method: "credit_card",
-          amount,
-          referenceNumber,
-          invoiceId: doc.id,
-          status: "SUCCESS",
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        t.update(txRef, {
+          status: "confirmed",
+          updatedAt: Timestamp.now(),
+        });
+
+        t.update(topUpDoc.ref, {
+          status: "approved",
+          updatedAt: Timestamp.now(),
         });
       });
 
@@ -117,15 +105,46 @@ export const stripeWebhook = onRequest(
     // FAILED
     if (event.type === "payment_intent.payment_failed") {
       const pi = event.data.object as Stripe.PaymentIntent;
-      const userId = pi.metadata?.userId;
+      const paymentIntentId = pi.id;
 
-      if (userId) {
-        await admin.firestore().collection("wallet_recharges").add({
-          userId,
-          status: "failed",
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
+      const snap = await db
+        .collection("topUpRequests")
+        .where("referenceNumber", "==", paymentIntentId)
+        .limit(1)
+        .get();
+
+      if (snap.empty) {
+        console.error("TopUp request not found for failed payment");
+        res.status(200).send("ok");
+        return;
       }
+
+      const topUpDoc = snap.docs[0];
+      const topUp = topUpDoc.data();
+
+      // already processed?
+      if (topUp.status !== "pending") {
+        res.status(200).send("ok");
+        return;
+      }
+
+      const txRef = db.collection("walletTransactions").doc(topUp.transactionId);
+
+      await Promise.all([
+        topUpDoc.ref.update({
+          status: "rejected",
+          updatedAt: Timestamp.now(),
+          failureReason: pi.last_payment_error?.message ?? "Unknown failure",
+        }),
+        txRef.update({
+          status: "failed",
+          updatedAt: Timestamp.now(),
+        }),
+      ]);
+
+      console.log("Stripe topup failed & marked correctly");
+      res.status(200).send("ok");
+      return;
     }
 
     res.status(200).send("ok");
