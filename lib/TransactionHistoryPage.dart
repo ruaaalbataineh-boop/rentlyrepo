@@ -140,7 +140,6 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
     );
   }
 
-
   Widget _buildFilterButtons() {
     return Padding(
       padding: const EdgeInsets.all(16.0),
@@ -293,8 +292,7 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
             ),
             
             const SizedBox(width: 15),
-            
-          
+
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -311,7 +309,7 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
                         ),
                       ),
                       Text(
-                        '${isDeposit ? '+' : '-'}\$${logic.formatAmount(transaction['amount'] as double)}', 
+                        '${isDeposit ? '+' : '-'}${logic.formatAmount(transaction['amount'] as double)}JD',
                         style: TextStyle(
                           color: typeColor,
                           fontWeight: FontWeight.w700,
@@ -395,7 +393,7 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
         ),
         const SizedBox(height: 5),
         Text(
-          '\$${logic.formatAmount(amount)}', 
+          '${logic.formatAmount(amount)}JD',
           style: TextStyle(
             color: color,
             fontSize: 18,

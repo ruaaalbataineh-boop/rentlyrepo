@@ -29,7 +29,6 @@ class TransactionHistoryLogic {
   bool isFilterActive(String filterName) {
     return filter == filterName;
   }
-
  
   double get totalDeposits {
     return transactions
@@ -88,51 +87,6 @@ class TransactionHistoryLogic {
     }
   }
 
-  Map<String, double> get dailyStats {
-    final dailyDeposits = <String, double>{};
-    final dailyWithdrawals = <String, double>{};
-    
-    for (final transaction in transactions) {
-      final date = transaction['date'] as String;
-      final amount = _parseAmount(transaction['amount']);
-      final type = transaction['type'] as String;
-      
-      if (type == 'deposit') {
-        dailyDeposits[date] = (dailyDeposits[date] ?? 0) + amount;
-      } else {
-        dailyWithdrawals[date] = (dailyWithdrawals[date] ?? 0) + amount;
-      }
-    }
-    
-    return {
-      'highestDailyDeposit': dailyDeposits.values.isNotEmpty ? dailyDeposits.values.reduce(max) : 0,
-      'highestDailyWithdrawal': dailyWithdrawals.values.isNotEmpty ? dailyWithdrawals.values.reduce(max) : 0,
-      'averageDailyDeposit': dailyDeposits.values.isNotEmpty ? dailyDeposits.values.reduce((a, b) => a + b) / dailyDeposits.length : 0,
-      'averageDailyWithdrawal': dailyWithdrawals.values.isNotEmpty ? dailyWithdrawals.values.reduce((a, b) => a + b) / dailyWithdrawals.length : 0,
-    };
-  }
-
-  Map<String, double> get monthlyStats {
-    final monthlyTotals = <String, double>{};
-    
-    for (final transaction in transactions) {
-      final date = transaction['date'] as String;
-      final amount = _parseAmount(transaction['amount']);
-      final type = transaction['type'] as String;
-      
-        
-      final parts = date.split('-');
-      if (parts.length >= 2) {
-        final monthYear = '${parts[0]}-${parts[1]}';
-        final key = type == 'deposit' ? '${monthYear}_deposit' : '${monthYear}_withdrawal';
-        monthlyTotals[key] = (monthlyTotals[key] ?? 0) + amount;
-      }
-    }
-    
-    return monthlyTotals;
-  }
-
-  
   List<Map<String, dynamic>> getTransactionsByDateRange(DateTime startDate, DateTime endDate) {
     return transactions.where((transaction) {
       final dateStr = transaction['date'] as String;
@@ -183,7 +137,6 @@ class TransactionHistoryLogic {
     });
     return sorted;
   }
-
   
   List<Map<String, dynamic>> searchTransactions(String query) {
     final lowerQuery = query.toLowerCase();
@@ -223,7 +176,6 @@ class TransactionHistoryLogic {
     final transaction = getTransactionDetails(transactionId);
     return transaction['status'] as String? ?? '';
   }
-
 
   bool hasTransactions() {
     return transactions.isNotEmpty;
@@ -320,7 +272,6 @@ class TransactionHistoryLogic {
     return '${formatDate(dateStr)} at $timeStr';
   }
 
-  
   Color getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'completed':
@@ -355,7 +306,6 @@ class TransactionHistoryLogic {
     }
   }
 
-  
   Color getTypeColor(String type) {
     return type == 'deposit' ? Colors.green : Colors.red;
   }
