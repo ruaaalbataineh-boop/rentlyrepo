@@ -38,47 +38,41 @@ class _EfawateercomPaymentPageState extends State<EfawateercomPaymentPage> {
         elevation: 0,
       ),
 
-      body: Padding(
-        padding: const EdgeInsets.all(22),
-        child: Column(
-          children: [
-            _amountCard(),
-            const SizedBox(height: 22),
-            _referenceCard(),
-            const SizedBox(height: 25),
-            _howToPay(),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(22),
+          child: Column(
+            children: [
+              _amountCard(),
+              const SizedBox(height: 22),
+              _referenceCard(),
+              const SizedBox(height: 25),
+              _howToPay(),
 
-            const Spacer(),
+              const SizedBox(height: 100),
 
-            const Text(
-              "Once you complete the payment, you can check its status\nfrom your wallet transactions.",
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.black54),
-            ),
-
-            const SizedBox(height: 18),
-
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1F0F46),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Color(0xFF1F0F46),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    Navigator.pop(context);
+                  },
+                  child: const Text(
+                    "Done",
+                    style: TextStyle(fontSize: 18, color: Colors.white),
                   ),
                 ),
-                onPressed: () {
-                  Navigator.pop(context);
-                  Navigator.pop(context);
-                },
-                child: const Text(
-                  "Done",
-                  style: TextStyle(fontSize: 18, color: Colors.white),
-                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -133,6 +127,18 @@ class _EfawateercomPaymentPageState extends State<EfawateercomPaymentPage> {
               fontSize: 26,
               fontWeight: FontWeight.bold,
               color: Color(0xFF8A005D),
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          const Text(
+            "Please screenshot or save this reference number.\n"
+                "You will NOT be able to access it again after closing this page.",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.redAccent,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
