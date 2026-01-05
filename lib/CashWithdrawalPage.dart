@@ -74,11 +74,14 @@ class _CashWithdrawalPageState extends State<CashWithdrawalPage> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<double>(
-        stream: FirestoreService.walletBalanceStream(UserManager.uid!),
+    return StreamBuilder<Map<String, double>>(
+        stream: FirestoreService.combinedWalletStream(UserManager.uid!),
         builder: (context, snapshot) {
           final isLoading = snapshot.connectionState == ConnectionState.waiting;
-          currentBalance = snapshot.data ?? 0.0;
+
+          final balances = snapshot.data ?? {"userBalance": 0.0, "holdingBalance": 0.0};
+          final currentBalance = balances["userBalance"] ?? 0.0;
+          final holdingBalance = balances["holdingBalance"] ?? 0.0;
 
           logic.currentBalance = currentBalance;
 
@@ -109,7 +112,7 @@ class _CashWithdrawalPageState extends State<CashWithdrawalPage> {
                     padding: const EdgeInsets.all(20),
                     child: Column(
                       children: [
-                        _balanceCard(),
+                        _balanceCard(currentBalance, holdingBalance),
                         const SizedBox(height: 25),
                         _amountInputCard(),
                         const SizedBox(height: 25),
@@ -138,7 +141,7 @@ class _CashWithdrawalPageState extends State<CashWithdrawalPage> {
     );
   }
 
-  Widget _balanceCard() {
+  Widget _balanceCard(double currentBalance, double holdingBalance) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
@@ -186,6 +189,15 @@ class _CashWithdrawalPageState extends State<CashWithdrawalPage> {
               letterSpacing: 1,
             ),
           ),
+          const SizedBox(height: 6),
+          Text(
+            "Holding: ${holdingBalance.toStringAsFixed(2)}JD",
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          )
         ],
       ),
     );
@@ -488,7 +500,6 @@ class _CashWithdrawalPageState extends State<CashWithdrawalPage> {
         SnackBar(
           content: const Text("Withdrawal request submitted successfully"),
           backgroundColor: Colors.green,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           duration: const Duration(seconds: 3),
         ),
       );

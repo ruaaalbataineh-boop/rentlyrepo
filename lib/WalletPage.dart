@@ -36,11 +36,14 @@ class _WalletHomePageState extends State<WalletHomePage> {
       );
     }
 
-    return StreamBuilder<double>(
-      stream: FirestoreService.walletBalanceStream(userId),
+    return StreamBuilder<Map<String, double>>(
+      stream: FirestoreService.combinedWalletStream(userId),
       builder: (context, snapshot) {
         final isLoading = snapshot.connectionState == ConnectionState.waiting;
-        final currentBalance = snapshot.data ?? 0.0;
+
+        final balances = snapshot.data ?? {"userBalance": 0.0, "holdingBalance": 0.0};
+        final currentBalance = balances["userBalance"] ?? 0.0;
+        final holdingBalance = balances["holdingBalance"] ?? 0.0;
 
         return Scaffold(
           appBar: AppBar(
@@ -80,7 +83,7 @@ class _WalletHomePageState extends State<WalletHomePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildBalanceCard(isLoading, currentBalance),
+                _buildBalanceCard(isLoading, currentBalance, holdingBalance),
                 const SizedBox(height: 30),
                 _buildActionButtons(),
                 const SizedBox(height: 30),
@@ -99,7 +102,7 @@ class _WalletHomePageState extends State<WalletHomePage> {
   }
 
 
-  Widget _buildBalanceCard(bool isLoading, double currentBalance) {
+  Widget _buildBalanceCard(bool isLoading, double currentBalance, double holdingBalance) {
     return Container(
       padding: const EdgeInsets.all(25),
       decoration: BoxDecoration(
@@ -139,7 +142,7 @@ class _WalletHomePageState extends State<WalletHomePage> {
           Text(
             isLoading
                 ? '...'
-                : 'JD${WalletLogic.formatBalance(currentBalance)}',
+                : '${WalletLogic.formatBalance(currentBalance)}JD',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 42,
@@ -147,6 +150,15 @@ class _WalletHomePageState extends State<WalletHomePage> {
               letterSpacing: 1,
             ),
           ),
+          const SizedBox(height: 6),
+          Text(
+            "Holding: ${holdingBalance.toStringAsFixed(2)}JD",
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          )
         ],
       ),
     );

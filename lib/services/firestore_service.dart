@@ -118,6 +118,35 @@ class FirestoreService {
     });
   }
 
+  static Stream<Map<String, double>> combinedWalletStream(String uid) {
+    return FirebaseFirestore.instance
+        .collection("wallets")
+        .where("userId", isEqualTo: uid)
+        .snapshots()
+        .map((snap) {
+      double userBalance = 0.0;
+      double holdingBalance = 0.0;
+
+      for (final doc in snap.docs) {
+        final data = doc.data();
+        final type = data["type"];
+
+        final balance = (data["balance"] ?? 0).toDouble();
+
+        if (type == "USER") {
+          userBalance = balance;
+        } else if (type == "HOLDING") {
+          holdingBalance = balance;
+        }
+      }
+
+      return {
+        "userBalance": userBalance,
+        "holdingBalance": holdingBalance,
+      };
+    });
+  }
+
   static Future<Map<String, dynamic>> createStripeTopUp({
     required double amount,
     required String userId,

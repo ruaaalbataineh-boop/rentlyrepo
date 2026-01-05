@@ -33,11 +33,14 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
       );
     }
 
-    return StreamBuilder<double>(
-      stream: FirestoreService.walletBalanceStream(userId),
+    return StreamBuilder<Map<String, double>>(
+      stream: FirestoreService.combinedWalletStream(userId),
       builder: (context, snapshot) {
         final isLoading = snapshot.connectionState == ConnectionState.waiting;
-        final currentBalance = snapshot.data ?? 0.0;
+
+        final balances = snapshot.data ?? {"userBalance": 0.0, "holdingBalance": 0.0};
+        final currentBalance = balances["userBalance"] ?? 0.0;
+        final holdingBalance = balances["holdingBalance"] ?? 0.0;
 
         final balanceStats = WalletRechargeLogic.getBalanceStats(currentBalance);
 
@@ -72,7 +75,7 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
             absorbing: loading,
             child: Stack(
               children: [
-                _buildBody(balanceStats, isLoading, currentBalance),
+                _buildBody(balanceStats, isLoading, currentBalance, holdingBalance),
                 if (loading)
                   const Center(child: CircularProgressIndicator()),
               ],
@@ -83,14 +86,14 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
     );
   }
 
-  Widget _buildBody(Map<String, String> balanceStats, bool isLoading, double currentBalance) {
+  Widget _buildBody(Map<String, String> balanceStats, bool isLoading, double currentBalance, double holdingBalance) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Form(
         key: _formKey,
         child: Column(
           children: [
-            _buildBalanceCard(balanceStats, currentBalance),
+            _buildBalanceCard(balanceStats, currentBalance, holdingBalance),
             const SizedBox(height: 25),
             _buildAmountInputCard(),
             const SizedBox(height: 20),
@@ -107,7 +110,7 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
     );
   }
 
-  Widget _buildBalanceCard(Map<String, String> stats, double currentBalance) {
+  Widget _buildBalanceCard(Map<String, String> stats, double currentBalance, double holdingBalance) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -153,6 +156,15 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
               letterSpacing: 1,
             ),
           ),
+          const SizedBox(height: 6),
+          Text(
+            "Holding: ${holdingBalance.toStringAsFixed(2)}JD",
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          )
         ],
       ),
     );
