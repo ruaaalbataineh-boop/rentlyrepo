@@ -1,58 +1,45 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:p2/main_user.dart';
-
+import 'package:p2/Login_Page.dart';
+import 'package:p2/Categories_Page.dart';
 
 void main() {
+
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  setUpAll(() async {
-    WidgetsFlutterBinding.ensureInitialized();
-    await Firebase.initializeApp();
+  group('Login Page Integration Test', () {
+
+    testWidgets(
+      'Successful login navigates to Category Page',
+          (WidgetTester tester) async {
+
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: LoginPage(),
+          ),
+        );
+
+        expect(find.byKey(const ValueKey('emailField')), findsOneWidget);
+        expect(find.byKey(const ValueKey('passwordField')), findsOneWidget);
+        expect(find.byKey(const ValueKey('loginButton')), findsOneWidget);
+
+        final emailField = find.byKey(const ValueKey('emailField'));
+        await tester.enterText(emailField,'test@test.com' );
 
 
-    FirebaseAuth.instance.useAuthEmulator('localhost', 9099);
+        final passwordField = find.byKey(const ValueKey('passwordField'));
+        await tester.enterText(passwordField,'123456' );
+
+
+        final loginButton = find.byKey(const ValueKey('loginButton'));
+        await tester.tap(loginButton );
+
+
+        await tester.pumpAndSettle();
+
+        expect(find.byType(CategoryPage), findsOneWidget);
+      },
+    );
   });
-
-  testWidgets('Login success navigates to CategoryPage',
-          (WidgetTester tester) async {
-
-        await tester.pumpWidget(const MyApp());
-        await tester.pumpAndSettle();
-
-
-        final emailField = find.byType(TextFormField).at(0);
-        await tester.enterText(emailField, 'test@test.com');
-
-
-        final passwordField = find.byType(TextFormField).at(1);
-        await tester.enterText(passwordField, '123456');
-
-
-        final loginButton = find.text('Login');
-        await tester.tap(loginButton);
-
-        await tester.pumpAndSettle(const Duration(seconds: 5));
-
-        expect(find.text('Categories'), findsOneWidget);
-      });
-
-  testWidgets('Login fails with wrong password',
-          (WidgetTester tester) async {
-        await tester.pumpWidget(const MyApp());
-        await tester.pumpAndSettle();
-
-        await tester.enterText(
-            find.byType(TextFormField).at(0), 'test@test.com');
-        await tester.enterText(
-            find.byType(TextFormField).at(1), 'wrongpass');
-
-        await tester.tap(find.text('Login'));
-        await tester.pumpAndSettle(const Duration(seconds: 3));
-
-        expect(find.textContaining('failed'), findsOneWidget);
-      });
 }

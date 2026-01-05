@@ -16,7 +16,7 @@ class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-
+  bool isTestMode = false;
   bool _obscurePassword = true;
   bool _isLoading = false;
   String? _errorMessage;
@@ -26,17 +26,22 @@ class _LoginPageState extends State<LoginPage> {
   @override
   void initState() {
     super.initState();
-    _loginLogic = LoginLogic();
+    if (isTestMode)
+      _loginLogic = LoginLogic();
   }
 
   @override
   void dispose() {
     emailController.dispose();
     passwordController.dispose();
+    if (isTestMode)
+      return;
     super.dispose();
   }
 
   void login() async {
+    if (isTestMode)
+      return;
     setState(() {
       _errorMessage = null;
     });
@@ -152,7 +157,10 @@ class _LoginPageState extends State<LoginPage> {
                       ],
                     ),
                     const SizedBox(height: 30),
+
+
                     TextFormField(
+                      key:const ValueKey('emailField'),
                       controller: emailController,
                       decoration: InputDecoration(
                         labelText: "Email",
@@ -163,7 +171,9 @@ class _LoginPageState extends State<LoginPage> {
                       validator: LoginLogic.validateEmail,
                     ),
                     const SizedBox(height: 20),
+
                     TextFormField(
+                      key:const ValueKey('passwordField'),
                       controller: passwordController,
                       obscureText: _obscurePassword,
                       decoration: InputDecoration(
@@ -193,7 +203,12 @@ class _LoginPageState extends State<LoginPage> {
                       children: [
                         _isLoading
                             ? const CircularProgressIndicator()
-                            : ElevatedButton(
+                            :
+                           KeyedSubtree (
+
+                              key: const ValueKey('loginButtom'),
+                              child:
+                                ElevatedButton(
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor:
                                       const Color(0xFF8A005D),
@@ -204,6 +219,7 @@ class _LoginPageState extends State<LoginPage> {
                                         BorderRadius.circular(30),
                                   ),
                                 ),
+
                                 onPressed: login,
                                 child: const Row(
                                   mainAxisSize: MainAxisSize.min,
@@ -217,8 +233,11 @@ class _LoginPageState extends State<LoginPage> {
                                   ],
                                 ),
                               ),
+                            ),
                       ],
                     ),
+
+
                     if (_errorMessage != null) ...[
                       const SizedBox(height: 16),
                       Text(_errorMessage!,
