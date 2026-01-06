@@ -2,7 +2,7 @@ import 'package:go_router/go_router.dart';
 import 'package:p2/admin_ui/Pages/AdminDashboard.dart';
 import 'package:p2/admin_ui/Pages/ChatsPage_admin.dart';
 import 'package:p2/admin_ui/Pages/ComplaintsPage.dart';
-import 'package:p2/admin_ui/Pages/InteractionsPage.dart';
+import 'package:p2/admin_ui/Pages/systemWallet.dart';
 import 'package:p2/admin_ui/Pages/ItemManagementPage.dart';
 import 'package:p2/admin_ui/Pages/LoginPage_admin.dart';
 import 'package:p2/admin_ui/Pages/NotificationsPage.dart';
@@ -69,8 +69,8 @@ final GoRouter adminRouter = GoRouter(
           builder: (context, state) => const ChatsPage(),
         ),
         GoRoute(
-          path: '/interactions',
-          builder: (context, state) => const InteractionsPage(),
+          path: '/wallet',
+          builder: (context, state) => const SystemWalletPage(),
         ),
       ],
     ),

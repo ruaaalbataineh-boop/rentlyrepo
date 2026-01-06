@@ -60,23 +60,14 @@ class AdminDashboard extends StatelessWidget {
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
                 children: [
-                  _buildDashboardCard(context, "Manage Users", Icons.person, '/users'),
-                  _buildDashboardCard(context, "Reports", Icons.bar_chart, '/reports'),
+                  _buildDashboardCard(context, "User Management", Icons.person, '/users'),
+                  _buildDashboardCard(context, "Wallet", Icons.wallet, '/wallet'),
                   _buildDashboardCard(context, "Item Management", Icons.inventory, '/items'),
-
-                  //  NEW: Item Notifications
-                  //_buildDashboardCard(
-                  //  context,
-                  //  "Item Notifications",
-                  //  Icons.notifications_active,
-                  //  '/item-notifications',
-                  // ),
-
                   _buildDashboardCard(context, "Transactions", Icons.monetization_on, '/transactions'),
                   _buildDashboardCard(context, "Complaints", Icons.report_problem, '/complaints'),
-                  _buildDashboardCard(context, "Notifications", Icons.notifications, '/notifications'),
+                  _buildDashboardCard(context, "Reports", Icons.bar_chart, '/reports'),
+                  _buildDashboardCard(context, "Notify Users", Icons.notifications, '/notifications'),
                   _buildDashboardCard(context, "Chats", Icons.chat, '/chats'),
-                  _buildDashboardCard(context, "Interactions", Icons.forum, '/interactions'),
                   _buildDashboardCard(context, "Logout", Icons.logout, '/adminLogin'),
                 ],
               ),
