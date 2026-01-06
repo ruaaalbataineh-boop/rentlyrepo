@@ -42,6 +42,58 @@ export { approveWithdrawal } from "./PSPsimulations/approveWithdrawal";
 export { rejectWithdrawal } from "./PSPsimulations/rejectWithdrawal";
 export { expireWithdrawals } from "./payments/expireWithdrawals";
 
+// req notif
+
+export const notifyOwnerOnNewRentalRequest = onDocumentCreated(
+  {
+    document: "rentalRequests/{requestId}",
+    region: "asia-southeast1",
+  },
+  async (event) => {
+    const req = event.data?.data();
+    const requestId = event.params.requestId;
+
+    if (!req) return;
+
+    const ownerUid = req.itemOwnerUid;
+    const itemTitle = req.itemTitle ?? "Item";
+
+    if (!ownerUid) {
+      console.log("Missing itemOwnerUid on request:", requestId);
+      return;
+    }
+
+    const tokenSnap = await admin
+      .database()
+      .ref(`users/${ownerUid}/fcmToken`)
+      .get();
+
+    if (!tokenSnap.exists()) {
+      console.log("No FCM token for owner:", ownerUid);
+      return;
+    }
+
+    const fcmToken = tokenSnap.val();
+
+    await admin.messaging().send({
+      token: fcmToken,
+      android: { priority: "high" },
+      notification: {
+        title: "New Rental Request",
+        body: `You have a new request for "${itemTitle}"`,
+      },
+      data: {
+        type: "rental_request",
+        requestId: requestId,
+        tab: "1",
+      },
+    });
+
+    console.log("Rental request notification sent to owner:", ownerUid);
+  }
+);
+
+
 
 /*                            CHAT USER to USER                             */
 
@@ -82,12 +134,13 @@ export const testOnNewMessage = onValueCreated(
         await admin.messaging().send({
             token: fcmToken,
             notification: {
-                title: " New Message",
+                title: "New Message",
                 body: text,
             },
             data: {
-                chatId,
-                senderId,
+                type: "chat",          // ✅ ADDED
+                chatId: chatId,
+                senderUid: senderId,   // ✅ RENAMED (was senderId)
             },
         });
 
@@ -112,7 +165,6 @@ export const notifyAdminOnNewItem = onDocumentCreated(
 
         const ownerId = item.ownerId;
 
-        
         const ADMIN_UID = "m3B5iwPzb3N8EffKu0PsLnpb93k2";
 
         //  Save notification 
