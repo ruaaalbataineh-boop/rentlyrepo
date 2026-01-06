@@ -15,14 +15,15 @@ class _AppShellState extends State<AppShell> {
   void initState() {
     super.initState();
     
-    // ✅ تشغيل FCM Global مرة واحدة
+    // FCM Global 
     NotificationInit.start();
-    FcmService.init();        // 🔥 تخزين FCM token (الحل)
+    FcmService.init();        // FCM token 
   }
 
   @override
   Widget build(BuildContext context) {
-    // ✅ أول صفحة حقيقية بعد اللوجين
+    //  أول صفحة حقيقية بعد اللوجين
     return const CategoryPage();
   }
 }
+
