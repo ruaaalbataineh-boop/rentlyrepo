@@ -6,7 +6,7 @@ import 'bottom_nav.dart';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
+//import 'package:firebase_messaging/firebase_messaging.dart';
 
 class EquipmentCategory {
   final String id;
@@ -47,7 +47,7 @@ class CategoryPage extends StatefulWidget {
 class _CategoryPageState extends State<CategoryPage> {
   String searchQuery = "";
 
-  @override
+/*  @override
   void initState() {
     super.initState();
     if (!widget.testMode && widget.enableFirebase)  {
@@ -66,7 +66,7 @@ class _CategoryPageState extends State<CategoryPage> {
     await FirebaseDatabase.instance
         .ref("users/${user.uid}/fcmToken")
         .set(token);
-  }
+  }*/
 
   @override
   Widget build(BuildContext context) {
