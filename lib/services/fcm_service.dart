@@ -10,7 +10,7 @@ class FcmService {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    // طلب permission (Android 13+)
+    // 
     await _messaging.requestPermission();
 
     // get token
@@ -32,3 +32,4 @@ class FcmService {
     });
   }
 }
+
