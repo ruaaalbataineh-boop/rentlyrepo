@@ -62,7 +62,7 @@ class _LoginPageState extends State<LoginPage> {
 
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const CategoryPage()),
+          MaterialPageRoute(builder: (_) => const AppShell()),
         );
       },
       onError: (error) {
