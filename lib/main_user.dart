@@ -26,6 +26,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'fake_uid.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 
+
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 class UserHomePage extends StatelessWidget {
   const UserHomePage({super.key});
 
@@ -68,6 +72,7 @@ class MyApp extends StatelessWidget {
       valueListenable: AppLocale.locale,
       builder: (context, locale, child) {
         return MaterialApp(
+          navigatorKey: navigatorKey,
           debugShowCheckedModeBanner: false,
           locale: locale,
           supportedLocales: const [
