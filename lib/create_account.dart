@@ -155,8 +155,10 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
 
                         const SizedBox(height: 30),
 
-                
+
                         TextFormField(
+
+                          key: const ValueKey('createEmailField'),
                           controller: emailController,
                           decoration: InputDecoration(
                             labelText: AppLocale.t('email'),
@@ -169,8 +171,11 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
 
                         const SizedBox(height: 20),
 
-                        
+
                         TextFormField(
+
+                          key: const ValueKey('createPasswordField'),
+
                           controller: passwordController,
                           obscureText: obscurePassword,
                           decoration: InputDecoration(
@@ -180,8 +185,8 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
                             ),
                             suffixIcon: IconButton(
                               icon: Icon(
-                                obscurePassword 
-                                    ? Icons.visibility_off 
+                                obscurePassword
+                                    ? Icons.visibility_off
                                     : Icons.visibility,
                               ),
                               onPressed: () {
@@ -199,6 +204,10 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
+                          KeyedSubtree (
+
+                            key: const ValueKey('createAccountButton'),
+                            child:
                             ElevatedButton(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF8A005D),
@@ -211,27 +220,28 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
                               onPressed: isLoading ? null : _onContinue,
                               child: isLoading
                                   ? const SizedBox(
-                                      height: 18,
-                                      width: 18,
-                                      child: CircularProgressIndicator(
-                                          color: Colors.white, strokeWidth: 2),
-                                    )
+                                height: 18,
+                                width: 18,
+                                child: CircularProgressIndicator(
+                                    color: Colors.white, strokeWidth: 2),
+                              )
                                   : Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(AppLocale.t('continue'),
-                                            style: const TextStyle(color: Colors.white)),
-                                        const SizedBox(width: 8),
-                                        const Icon(Icons.arrow_forward, color: Colors.white),
-                                      ],
-                                    ),
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(AppLocale.t('continue'),
+                                      style: const TextStyle(color: Colors.white)),
+                                  const SizedBox(width: 8),
+                                  const Icon(Icons.arrow_forward, color: Colors.white),
+                                ],
+                              ),
                             ),
+                           ),
                           ],
                         ),
 
                         if (_errorMessage != null) ...[
                           const SizedBox(height: 16),
-                          Text(_errorMessage!, 
+                          Text(_errorMessage!,
                               style: const TextStyle(color: Colors.red)),
                         ],
                       ],
