@@ -20,6 +20,21 @@ class _OwnerItemsPageState extends State<OwnerItemsPage> {
 
   String get ownerUid => FirebaseAuth.instance.currentUser!.uid;
 
+
+   @override
+      void initState() {
+        super.initState();
+
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final args = ModalRoute.of(context)?.settings.arguments;
+          if (args is Map && args['tab'] is int) {
+            setState(() {
+              selectedTab = args['tab'];
+            });
+          }
+        });
+      }
+
   //  COUNTERS
 Widget myItemsCounter() {
   return StreamBuilder<QuerySnapshot>(
