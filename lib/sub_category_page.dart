@@ -73,6 +73,8 @@ class SubCategoryPage extends StatelessWidget {
                     final sub = subCategories[index];
 
                     return GestureDetector(
+                      key: ValueKey('sub_${sub["title"]}'),
+
                       onTap: () {
                         Navigator.pushNamed(
                           context,
