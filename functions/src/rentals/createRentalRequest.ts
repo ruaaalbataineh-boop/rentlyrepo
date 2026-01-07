@@ -5,181 +5,205 @@ import * as admin from "firebase-admin";
 if (!admin.apps.length) admin.initializeApp();
 const db = getFirestore();
 
+function asMillis(v: any): number {
+  if (!v) return 0;
+
+  if (typeof v.toMillis === "function") return v.toMillis();
+
+  if (v._seconds) return v._seconds * 1000;
+
+  if (typeof v === "string") return new Date(v).getTime();
+
+  return Number(v) || 0;
+}
+
 export const createRentalRequest = onCall(async (request) => {
-  const renterUid = request.auth?.uid;
-  if (!renterUid)
-    throw new HttpsError("unauthenticated", "Not authenticated.");
+    try{
+        const renterUid = request.auth?.uid;
+          if (!renterUid)
+            throw new HttpsError("unauthenticated", "Not authenticated.");
 
-  const data = request.data;
+          const data = request.data;
 
-  const required = [
-    "itemId",
-    "itemTitle",
-    "itemOwnerUid",
-    "ownerName",
-    "rentalType",
-    "rentalQuantity",
-    "startDate",
-    "endDate",
-    "pickupTime",
-    "rentalPrice",
-    "totalPrice",
-    "insurance",
-    "penalty",
-  ];
+          const startMs = data.startDate;
+          const endMs = data.endDate;
 
-  for (const k of required) {
-      if (data[k] === undefined || data[k] === null) {
-        throw new HttpsError(
-            "invalid-argument",
-            `Missing field: ${k}`);
-      }
-  }
+          if (!startMs || !endMs) {
+            throw new HttpsError("invalid-argument", "Missing start/end time");
+          }
 
-  // Get user profile
-  const userDoc = await db.collection("users").doc(renterUid).get();
-  const user = userDoc.exists ? userDoc.data() : null;
+          const startTs = admin.firestore.Timestamp.fromMillis(startMs);
+          const endTs = admin.firestore.Timestamp.fromMillis(endMs);
 
-  let renterName = "Unknown User";
+          const required = [
+            "itemId",
+            "itemTitle",
+            "itemOwnerUid",
+            "ownerName",
+            "rentalType",
+            "rentalQuantity",
+            "startDate",
+            "endDate",
+            "pickupTime",
+            "rentalPrice",
+            "totalPrice",
+            "insurance",
+            "penalty",
+          ];
 
-  if (user) {
-    const first = user.firstName ?? user.firstname ?? "";
-    const last = user.lastName ?? user.lastname ?? "";
+          for (const k of required) {
+              if (data[k] === undefined || data[k] === null) {
+                throw new HttpsError(
+                    "invalid-argument",
+                    `Missing field: ${k}`);
+              }
+          }
 
-    if (first || last) {
-      renterName = `${first} ${last}`.trim();
-    }
-  }
+          // Get user profile
+          const userDoc = await db.collection("users").doc(renterUid).get();
+          const user = userDoc.exists ? userDoc.data() : null;
 
-  const fiveDays = 5 * 24 * 60 * 60 * 1000;
-  const startDate = data.startDate.toMillis();
-  const endDate = data.endDate.toMillis();
+          let renterName = "Unknown User";
 
-  if (endDate <= startDate) {
-    throw new HttpsError(
-      "invalid-argument",
-      "Invalid rental period."
-    );
-  }
+          if (user) {
+            const first = user.firstName ?? user.firstname ?? "";
+            const last = user.lastName ?? user.lastname ?? "";
 
-  const snap = await db
-    .collection("rentalRequests")
-    .where("itemId", "==", data.itemId)
-    .where("status", "in", ["accepted", "active"])
-    .where("startDate", "<", data.endDate)
-    .get();
+            if (first || last) {
+              renterName = `${first} ${last}`.trim();
+            }
+          }
 
-  for (const doc of snap.docs) {
-    const existing = doc.data();
-    const existingStart = existing.startDate.toMillis();
-    const existingEnd = existing.endDate.toMillis();
+          const fiveDays = 5 * 24 * 60 * 60 * 1000;
+          const startDate = startTs.toMillis();
+          const endDate = endTs.toMillis();
 
-    const noOverlap =
-          endDate + fiveDays <= existingStart ||
-          startDate - fiveDays >= existingEnd;
+          if (endDate <= startDate) {
+            throw new HttpsError(
+              "invalid-argument",
+              "Invalid rental period."
+            );
+          }
 
-    if (!noOverlap) {
-      throw new HttpsError(
-        "failed-precondition",
-        "Conflicts with another accepted rental (buffer rule)."
-      )
-    }
+          const snap = await db
+            .collection("rentalRequests")
+            .where("itemId", "==", data.itemId)
+            .where("status", "in", ["accepted", "active"])
+            .get();
 
-    //if (startDate < existingEnd && endDate > existingStart) {
-    //  throw new HttpsError(
-    //    "failed-precondition",
-    //    "This item is already rented for the selected time period."
-    //  );
-    //}
-  }
+          for (const doc of snap.docs) {
+            const existing = doc.data();
+            const existingStart = asMillis(existing.startDate);
+            const existingEnd = asMillis(existing.endDate);
 
-  return await db.runTransaction(async (trx) => {
-      // Get wallets
-      const walletsRef = db.collection("wallets");
+            const noOverlap =
+                  endDate + fiveDays <= existingStart ||
+                  startDate - fiveDays >= existingEnd;
 
-      const userWalletSnap = await trx.get(
-        walletsRef.where("userId","==", renterUid).where("type","==","USER").limit(1)
-      );
+            if (!noOverlap) {
+              throw new HttpsError(
+                "failed-precondition",
+                "Conflicts with another accepted rental (buffer rule)."
+              )
+            }
+          }
 
-      const holdingWalletSnap = await trx.get(
-        walletsRef.where("userId","==", renterUid).where("type","==","HOLDING").limit(1)
-      );
+          return await db.runTransaction(async (trx) => {
+              // Get wallets
+              const walletsRef = db.collection("wallets");
 
-      if (userWalletSnap.empty || holdingWalletSnap.empty)
-        throw new HttpsError("failed-precondition","Wallets not found");
+              const userWalletSnap = await trx.get(
+                walletsRef.where("userId","==", renterUid).where("type","==","USER").limit(1)
+              );
 
-      const userWallet = userWalletSnap.docs[0];
-      const holdingWallet = holdingWalletSnap.docs[0];
+              const holdingWalletSnap = await trx.get(
+                walletsRef.where("userId","==", renterUid).where("type","==","HOLDING").limit(1)
+              );
 
-      const userBalance = userWallet.data().balance || 0;
-      const total = Number(data.totalPrice);
+              if (userWalletSnap.empty || holdingWalletSnap.empty)
+                throw new HttpsError("failed-precondition","Wallets not found");
 
-      if (userBalance < total)
-        throw new HttpsError("failed-precondition","Insufficient wallet balance");
+              const userWallet = userWalletSnap.docs[0];
+              const holdingWallet = holdingWalletSnap.docs[0];
 
-      // Move Money
-      trx.update(userWallet.ref, {
-        balance: userBalance - total,
-        updatedAt: FieldValue.serverTimestamp(),
-      });
+              const userBalance = userWallet.data().balance || 0;
+              const total = Number(data.totalPrice);
 
-      trx.update(holdingWallet.ref, {
-        balance: (holdingWallet.data().balance || 0) + total,
-        updatedAt: FieldValue.serverTimestamp(),
-      });
+              if (userBalance < total)
+                throw new HttpsError("failed-precondition","Insufficient wallet balance");
 
-      const txRef = db.collection("walletTransactions").doc();
-      trx.set(txRef, {
-        userId: renterUid,
-        fromWalletId: userWallet.id,
-        toWalletId: holdingWallet.id,
-        amount: total,
-        purpose: "RENTAL_LOCK",
-        status: "confirmed",
-        createdAt: FieldValue.serverTimestamp(),
-      });
+              // Move Money
+              trx.update(userWallet.ref, {
+                balance: userBalance - total,
+                updatedAt: FieldValue.serverTimestamp(),
+              });
 
-      await db.collection("rentalRequests").add({
-          itemId: data.itemId,
-          itemTitle: data.itemTitle,
+              trx.update(holdingWallet.ref, {
+                balance: (holdingWallet.data().balance || 0) + total,
+                updatedAt: FieldValue.serverTimestamp(),
+              });
 
-          itemOwnerUid: data.itemOwnerUid,
-          ownerName: data.ownerName ?? null,
+              const txRef = db.collection("walletTransactions").doc();
+              trx.set(txRef, {
+                userId: renterUid,
+                fromWalletId: userWallet.id,
+                toWalletId: holdingWallet.id,
+                amount: total,
+                purpose: "RENTAL_LOCK",
+                status: "confirmed",
+                createdAt: FieldValue.serverTimestamp(),
+              });
 
-          renterUid,
-          renterName,
+              const reqRef = db.collection("rentalRequests").doc();
 
-          rentalType: data.rentalType,
-          rentalQuantity: data.rentalQuantity,
+              trx.set(reqRef, {
+                  itemId: data.itemId,
+                  itemTitle: data.itemTitle,
 
-          startDate: data.startDate,
-          endDate: data.endDate,
-          startTime: data.startTime ?? null,
-          endTime: data.endTime ?? null,
-          pickupTime: data.pickupTime,
+                  itemOwnerUid: data.itemOwnerUid,
+                  ownerName: data.ownerName ?? null,
 
-          rentalPrice: data.rentalPrice,
-          totalPrice: data.totalPrice,
+                  renterUid,
+                  renterName,
 
-          insurance: {
-              itemOriginalPrice: data.insurance.itemOriginalPrice,
-              ratePercentage: data.insurance.ratePercentage,
-              amount: data.insurance.amount,
-              accepted: data.insurance.accepted,
-          },
+                  rentalType: data.rentalType,
+                  rentalQuantity: data.rentalQuantity,
 
-          penalty: {
-              hourlyRate: data.penalty.hourlyRate,
-              dailyRate: data.penalty.dailyRate,
-              maxHours: data.penalty.maxHours,
-              maxDays: data.penalty.maxDays,
-          },
+                  startDate: startTs,
+                  endDate: endTs,
+                  startTime: data.startTime ?? null,
+                  endTime: data.endTime ?? null,
+                  pickupTime: data.pickupTime,
 
-          status: "pending",
-          paymentStatus: "locked",
-          createdAt: FieldValue.serverTimestamp(),
-        });
+                  rentalPrice: data.rentalPrice,
+                  totalPrice: data.totalPrice,
 
-    return { success: true };
-  });
+                  insurance: {
+                      itemOriginalPrice: data.insurance.itemOriginalPrice,
+                      ratePercentage: data.insurance.ratePercentage,
+                      amount: data.insurance.amount,
+                      accepted: data.insurance.accepted,
+                  },
+
+                  penalty: {
+                      hourlyRate: data.penalty.hourlyRate,
+                      dailyRate: data.penalty.dailyRate,
+                      maxHours: data.penalty.maxHours,
+                      maxDays: data.penalty.maxDays,
+                  },
+
+                  status: "pending",
+                  paymentStatus: "locked",
+                  createdAt: FieldValue.serverTimestamp(),
+                });
+
+            return { success: true };
+          });
+
+        } catch (e){
+            console.error("CreateRentalRequest ERROR:", e);
+                throw e;
+
+            }
+
 });

@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
+import 'config/dev_config.dart';
+
 class QrPage extends StatefulWidget {
   final String requestId;
   final bool isReturnPhase;
@@ -68,8 +70,15 @@ class _QrPageState extends State<QrPage> {
     final data = doc.data()!;
     final today = DateTime.now();
 
-    final startDate = DateTime.parse(data["startDate"]);
-    final endDate = DateTime.parse(data["endDate"]);
+    // convert safely
+    DateTime toDate(dynamic v) {
+      if (v is Timestamp) return v.toDate();
+      if (v is String) return DateTime.parse(v);
+      throw Exception("Invalid date format");
+    }
+
+    final startDate = toDate(data["startDate"]);
+    final endDate = toDate(data["endDate"]);
 
     //START PHASE
     if (!widget.isReturnPhase) {
@@ -78,7 +87,7 @@ class _QrPageState extends State<QrPage> {
               today.month == startDate.month &&
               today.day == startDate.day;
 
-      if (!isTodayStart) {
+      if (!DEV_MODE && !isTodayStart) {
         setState(() {
           message =
           "QR Code will be available on ${startDate.toString().split(' ')[0]}.";
@@ -115,7 +124,7 @@ class _QrPageState extends State<QrPage> {
     // RETURN PHASE
     final expiredLimit = endDate.add(const Duration(days: 3));
 
-    if (today.isBefore(endDate)) {
+    if (!DEV_MODE && today.isBefore(endDate)) {
       setState(() {
         message =
         "Return QR will be available on ${endDate.toString().split(' ')[0]}.";

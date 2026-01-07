@@ -17,6 +17,7 @@ export const expireWithdrawals = onSchedule("every 5 minutes", async () => {
 
   for (const doc of snap.docs) {
     const data = doc.data();
+    const userId = data.userId;
 
     const userRef = db.collection("wallets").doc(data.userWalletId);
     const holdingRef = db.collection("wallets").doc(data.holdingWalletId);
@@ -46,6 +47,7 @@ export const expireWithdrawals = onSchedule("every 5 minutes", async () => {
       trx.set(txRef, {
         fromWalletId: data.holdingWalletId,
         toWalletId: data.userWalletId,
+        userId,
         amount: data.amount,
         purpose: "WITHDRAWAL_EXPIRED_RETURN",
         status: "confirmed",

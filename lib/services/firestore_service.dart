@@ -275,20 +275,26 @@ class FirestoreService {
   static Future<void> confirmPickup({
     required String requestId,
     required String qrToken,
+    bool force = false,
   }) async {
     await FirebaseFunctions.instance.httpsCallable("confirmPickup").call({
       "requestId": requestId,
+      //"qrToken": qrToken,
       "qrToken": qrToken,
+      "force": force,
     });
   }
 
   static Future<void> confirmReturn({
     required String requestId,
     required String qrToken,
+    bool force = false,
   }) async {
     await FirebaseFunctions.instance.httpsCallable("confirmReturn").call({
       "requestId": requestId,
+      //"qrToken": qrToken,
       "qrToken": qrToken,
+      "force": force,
     });
   }
 

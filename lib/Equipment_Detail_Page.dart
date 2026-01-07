@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -1318,8 +1319,8 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                 "rentalType": selectedPeriod,
                 "rentalQuantity": count,
 
-                "startDate": startDate!.toIso8601String(),
-                "endDate": endDate!.toIso8601String(),
+                "startDate": startDate!.millisecondsSinceEpoch,
+                "endDate": endDate!.millisecondsSinceEpoch,
 
                 "startTime": isHourly ? startTime!.format(context) : null,
                 "endTime": isHourly
@@ -1394,7 +1395,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
             } : null,
             child: Text(
               _getRentButtonText(),
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, ),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
             ),
           ),
           
@@ -1428,7 +1429,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
           Text(label),
           Row(
             children: [
-              Text("JD ${amount.toStringAsFixed(2)}"),
+              Text("${amount.toStringAsFixed(2)}JD"),
               if (note != null)
                 Text(
                   " $note",
@@ -1623,8 +1624,10 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
               backgroundColor: const Color(0xFF8A005D),
             ),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text("Confirm & Pay Now"),
-          ),
+            child: const Text("Confirm & Pay Now",
+              style: TextStyle(color: Colors.white),
+            ),
+          )
         ],
       ),
     ) ?? false;

@@ -281,6 +281,8 @@ Widget _counterBadge(int count) {
   Widget _buildRequestCard(String requestId, Map<String, dynamic> data) {
     final status = data["status"] ?? "pending";
     final itemTitle = data["itemTitle"] ?? "Unknown Item";
+    final pickupQr = data["pickupQrToken"];
+    final returnQr = data["returnQrToken"];
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -358,10 +360,11 @@ Widget _counterBadge(int count) {
                   tooltip: "Force Active (Testing)",
                   onPressed: () async {
                     try {
-                      await FirestoreService.updateRentalRequestStatus(
-                        requestId,
-                        "active",
-                        qrToken: data["qrToken"],
+                      await FirestoreService.confirmPickup(
+                        requestId: requestId,
+                        //qrToken: returnQr,
+                        qrToken: "DEV_FORCE",
+                        force: true,
                       );
 
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -401,9 +404,11 @@ Widget _counterBadge(int count) {
                   tooltip: "Force ENDED (Testing)",
                   onPressed: () async {
                     try {
-                      await FirestoreService.updateRentalRequestStatus(
-                        requestId,
-                        "ended",
+                      await FirestoreService.confirmReturn(
+                        requestId: requestId,
+                        //qrToken: pickupQr,
+                        qrToken: "DEV_FORCE",
+                        force: true,
                       );
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(

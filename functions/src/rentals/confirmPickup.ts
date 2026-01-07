@@ -1,61 +1,74 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 
+const DEV_MODE = true;   //  TURN OFF IN PRODUCTION
+
 export const confirmPickup = onCall(async (req) => {
   const authUid = req.auth?.uid;
   if (!authUid) throw new HttpsError("unauthenticated", "Not authenticated");
 
-  const { requestId, qrToken } = req.data;
-  if (!requestId || !qrToken)
-    throw new HttpsError("invalid-argument", "Missing parameters");
+  const { requestId, qrToken, force } = req.data;
+
+  if (!requestId)
+    throw new HttpsError("invalid-argument", "Missing requestId");
 
   const db = getFirestore();
   const ref = db.collection("rentalRequests").doc(requestId);
   const snap = await ref.get();
 
   if (!snap.exists) throw new HttpsError("not-found", "Rental not found");
+
   const data = snap.data()!;
 
-  // Must be renter scanning
-  if (data.renterUid !== authUid)
+  // Must be renter scanning unless force
+  if (!force && data.renterUid !== authUid)
     throw new HttpsError("permission-denied", "Only renter can confirm pickup");
 
   if (data.status !== "accepted")
     throw new HttpsError("failed-precondition", "Rental not accepted");
 
-  // Validate QR
-  if (!data.pickupQrToken || data.pickupQrToken !== qrToken)
-    throw new HttpsError("failed-precondition", "Invalid pickup QR");
+  //  DEV MODE / FORCE
+  if (DEV_MODE || force) {
+    console.log("DEV MODE / FORCE → Pickup bypass validation");
+  } else {
+    //  STRICT QR VALIDATION
+    if (!qrToken)
+      throw new HttpsError("invalid-argument", "Missing qrToken");
 
-  // DATE VALIDATION
-  const startDate = new Date(data.startDate);
-  const today = new Date();
+    if (!data.pickupQrToken || data.pickupQrToken !== qrToken)
+      throw new HttpsError("failed-precondition", "Invalid pickup QR");
 
-  const sameDay =
-    today.getFullYear() === startDate.getFullYear() &&
-    today.getMonth() === startDate.getMonth() &&
-    today.getDate() === startDate.getDate();
+    //  DATE VALIDATION
+    const startDate = new Date(data.startDate);
+    const today = new Date();
 
-  if (!sameDay)
-    throw new HttpsError(
-      "failed-precondition",
-      "Pickup only allowed on start date"
-    );
+    const sameDay =
+      today.getFullYear() === startDate.getFullYear() &&
+      today.getMonth() === startDate.getMonth() &&
+      today.getDate() === startDate.getDate();
 
-  // MONEY LOGIC
+    if (!sameDay)
+      throw new HttpsError(
+        "failed-precondition",
+        "Pickup only allowed on start date"
+      );
+  }
+
+  //  MONEY LOGIC
   const renterUid = data.renterUid;
   const ownerUid = data.itemOwnerUid;
+
   const rentalPrice = Number(data.rentalPrice || 0);
   const insurance = Number(data.insuranceAmount || 0);
+
+  if (rentalPrice <= 0)
+    throw new HttpsError("failed-precondition", "Invalid rental price");
 
   const commissionRate = 0.07;
   const commissionAmount = rentalPrice * commissionRate;
   const ownerAmount = rentalPrice - commissionAmount;
 
-  if (rentalPrice <= 0)
-    throw new HttpsError("failed-precondition", "Invalid rental price");
-
-  // get wallets
+  // renter wallets
   const renterWallets = await db
     .collection("wallets")
     .where("userId", "==", renterUid)
@@ -71,8 +84,9 @@ export const confirmPickup = onCall(async (req) => {
   });
 
   if (!holdingRef)
-    throw new HttpsError("failed-precondition", "Renter holding wallet missing");
+    throw new HttpsError("failed-precondition", "Holding wallet missing");
 
+  // owner wallet
   const ownerWallet = await db
     .collection("wallets")
     .where("userId", "==", ownerUid)
@@ -85,6 +99,7 @@ export const confirmPickup = onCall(async (req) => {
 
   const ownerRef = ownerWallet.docs[0].ref;
 
+  // admin wallet
   const adminWallet = await db
     .collection("wallets")
     .where("type", "==", "ADMIN")
@@ -96,7 +111,6 @@ export const confirmPickup = onCall(async (req) => {
 
   const adminRef = adminWallet.docs[0].ref;
 
-  // transactions
   await db.runTransaction(async (tx) => {
     const holdSnap = await tx.get(holdingRef!);
     const ownerSnap = await tx.get(ownerRef);
@@ -113,7 +127,6 @@ export const confirmPickup = onCall(async (req) => {
         "Holding wallet has insufficient funds"
       );
 
-    // UPDATE BALANCES
     tx.update(holdingRef!, {
       balance: holdingBalance - rentalPrice,
       updatedAt: FieldValue.serverTimestamp(),
@@ -129,51 +142,40 @@ export const confirmPickup = onCall(async (req) => {
       updatedAt: FieldValue.serverTimestamp(),
     });
 
-    //  WALLET TRANSACTIONS
     const walletTx = db.collection("walletTransactions");
 
-    // To Owner
-    const ownerTxRef = walletTx.doc();
-    tx.set(ownerTxRef, {
+    tx.set(walletTx.doc(), {
       fromWalletId: holdingRef!.id,
       toWalletId: ownerRef.id,
       amount: ownerAmount,
       purpose: "RENTAL_PAYOUT",
       rentalRequestId: requestId,
-      userId: data.itemOwnerUid,
+      userId: ownerUid,
       status: "confirmed",
       createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
     });
 
-    const renterTxRef = walletTx.doc();
-        tx.set(renterTxRef, {
+    tx.set(walletTx.doc(), {
           fromWalletId: holdingRef!.id,
           toWalletId: ownerRef.id,
           amount: ownerAmount,
           purpose: "RENTAL_PAYOUT",
           rentalRequestId: requestId,
-          userId: data.renterUid,
+          userId: renterUid,
           status: "confirmed",
           createdAt: FieldValue.serverTimestamp(),
-          updatedAt: FieldValue.serverTimestamp(),
         });
 
-    // Commission to Admin
-    const adminTxRef = walletTx.doc();
-    tx.set(adminTxRef, {
+    tx.set(walletTx.doc(), {
       fromWalletId: holdingRef!.id,
       toWalletId: adminRef.id,
       amount: commissionAmount,
       purpose: "PLATFORM_COMMISSION",
       rentalRequestId: requestId,
-      userId: null,
       status: "confirmed",
       createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
     });
 
-    // RENTAL status UPDATE
     tx.update(ref, {
       status: "active",
       paymentStatus: "released",
