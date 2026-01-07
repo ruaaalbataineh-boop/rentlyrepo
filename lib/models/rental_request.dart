@@ -36,9 +36,12 @@ class RentalRequest {
   final num penaltyMaxDays;
 
   final String status;
+  final String paymentStatus;
 
-  final String? qrToken;
-  final DateTime? qrGeneratedAt;
+  final String? pickupQrToken;
+  final DateTime? pickupQrGeneratedAt;
+  final String? returnQrToken;
+  final DateTime? returnQrGeneratedAt;
 
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -69,8 +72,11 @@ class RentalRequest {
     required this.penaltyMaxHours,
     required this.penaltyMaxDays,
     required this.status,
-    this.qrToken,
-    this.qrGeneratedAt,
+    required this.paymentStatus,
+    this.pickupQrToken,
+    this.pickupQrGeneratedAt,
+    this.returnQrToken,
+    this.returnQrGeneratedAt,
     this.createdAt,
     this.updatedAt,
   });
@@ -127,10 +133,15 @@ class RentalRequest {
       penaltyMaxDays: penalty["maxDays"] ?? 0,
 
       status: data["status"] ?? "pending",
+      paymentStatus: data["paymentStatus"] ?? "locked",
 
-      qrToken: data["qrToken"],
-      qrGeneratedAt: data["qrGeneratedAt"] != null
-          ? (data["qrGeneratedAt"] as Timestamp).toDate()
+      pickupQrToken: data["pickupQrToken"],
+      pickupQrGeneratedAt: data["pickupQrGeneratedAt"] != null
+          ? (data["pickupQrGeneratedAt"] as Timestamp).toDate()
+          : null,
+      returnQrToken: data["returnQrToken"],
+      returnQrGeneratedAt: data["returnQrGeneratedAt"] != null
+          ? (data["returnQrGeneratedAt"] as Timestamp).toDate()
           : null,
 
       createdAt: data["createdAt"] != null

@@ -18,6 +18,8 @@ export { rejectItem } from "./items/rejectItem";
 
 export { createRentalRequest } from "./rentals/createRentalRequest";
 export { updateRentalRequestStatus } from "./rentals/updateRentalRequestStatus";
+export { confirmPickup } from "./rentals/confirmPickup";
+
 
 import { onValueCreated } from "firebase-functions/v2/database";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
@@ -41,6 +43,7 @@ export { requestWithdrawal } from "./payments/requestWithdrawal";
 export { approveWithdrawal } from "./PSPsimulations/approveWithdrawal";
 export { rejectWithdrawal } from "./PSPsimulations/rejectWithdrawal";
 export { expireWithdrawals } from "./payments/expireWithdrawals";
+
 
 
 /*                            CHAT USER to USER                             */

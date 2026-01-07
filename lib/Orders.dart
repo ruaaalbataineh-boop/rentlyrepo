@@ -245,7 +245,6 @@ class _OrdersPageState extends State<OrdersPage> {
                         context,
                         MaterialPageRoute(
                           builder: (_) => QrPage(
-                            qrToken: req.qrToken!,
                             requestId: req.id,
                             isReturnPhase: true,
                           ),

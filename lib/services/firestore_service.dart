@@ -272,5 +272,24 @@ class FirestoreService {
     });
   }
 
+  static Future<void> confirmPickup({
+    required String requestId,
+    required String qrToken,
+  }) async {
+    await FirebaseFunctions.instance.httpsCallable("confirmPickup").call({
+      "requestId": requestId,
+      "qrToken": qrToken,
+    });
+  }
+
+  static Future<void> confirmReturn({
+    required String requestId,
+    required String qrToken,
+  }) async {
+    await FirebaseFunctions.instance.httpsCallable("confirmReturn").call({
+      "requestId": requestId,
+      "qrToken": qrToken,
+    });
+  }
 
 }

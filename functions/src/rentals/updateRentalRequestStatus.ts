@@ -1,6 +1,5 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
-import { randomUUID } from "crypto";
 
 export const updateRentalRequestStatus = onCall(async (request) => {
   const userUid = request.auth?.uid;
@@ -42,20 +41,64 @@ export const updateRentalRequestStatus = onCall(async (request) => {
   const rentalPrice = Number(data.totalPrice || 0);
   const insuranceAmount = Number(data.insuranceAmount || 0);
 
-  // ============================= ACCEPTED =============================
+  //  ACCEPTED
   if (newStatus === "accepted") {
-    const token = randomUUID();
+    if (data.status !== "pending") {
+      throw new HttpsError(
+        "failed-precondition",
+        "Only pending requests can be accepted."
+      );
+    }
+
+    // prevent accepting old rentals
+    const now = Date.now();
+    const start = data.startDate?.toMillis?.() ?? 0;
+
+    if (start <= now) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Rental start date has already passed."
+      );
+    }
+
+    // check buffer rule conflicts
+    const db = getFirestore();
+    const conflicting = await db
+      .collection("rentalRequests")
+      .where("itemId", "==", data.itemId)
+      .where("status", "in", ["accepted", "active"])
+      .get();
+
+    const fiveDays = 5 * 24 * 60 * 60 * 1000;
+    const startDate = data.startDate.toMillis();
+    const endDate = data.endDate.toMillis();
+
+    for (const doc of conflicting.docs) {
+      const existing = doc.data();
+      const existingStart = existing.startDate.toMillis();
+      const existingEnd = existing.endDate.toMillis();
+
+      const noOverlap =
+        endDate + fiveDays <= existingStart ||
+        startDate - fiveDays >= existingEnd;
+
+      if (!noOverlap) {
+        throw new HttpsError(
+          "failed-precondition",
+          "Conflicts with another accepted rental (buffer rule)."
+        );
+      }
+    }
 
     await ref.update({
       status: "accepted",
-      qrToken: token,
-      qrGeneratedAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
     });
 
     return { success: true };
   }
 
-  // ============================= ACTIVE =============================
+  //  ACTIVE
   if (newStatus === "active") {
     if (!qrToken || qrToken !== data.qrToken) {
       throw new HttpsError(
@@ -100,7 +143,7 @@ export const updateRentalRequestStatus = onCall(async (request) => {
     return { success: true };
   }
 
-  // ============================= ENDED =============================
+  // ENDED
   if (newStatus === "ended") {
     await db.runTransaction(async (tx) => {
       const renterWalletSnap = await tx.get(renterWalletRef);
@@ -119,7 +162,7 @@ export const updateRentalRequestStatus = onCall(async (request) => {
     return { success: true };
   }
 
-  // ============================= REJECTED / OTHER =============================
+  // REJECTED / OTHER
   await ref.update({
     status: newStatus,
     updatedAt: FieldValue.serverTimestamp(),
