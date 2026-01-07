@@ -3,7 +3,8 @@ import 'package:flutter_custom_clippers/flutter_custom_clippers.dart';
 import 'package:p2/logic/login_logic.dart';
 import 'Categories_Page.dart';
 import 'app_locale.dart';
-import 'fake_uid.dart';   
+import 'app_shell.dart';
+import 'fake_uid.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -26,22 +27,17 @@ class _LoginPageState extends State<LoginPage> {
   @override
   void initState() {
     super.initState();
-    if (isTestMode)
-      _loginLogic = LoginLogic();
+    _loginLogic = LoginLogic();
   }
 
   @override
   void dispose() {
     emailController.dispose();
     passwordController.dispose();
-    if (isTestMode)
-      return;
     super.dispose();
   }
 
   void login() async {
-    if (isTestMode)
-      return;
     setState(() {
       _errorMessage = null;
     });
