@@ -19,7 +19,7 @@ class OrdersLogic {
       case 1: 
         return ["active"];
       case 2: 
-        return ["ended", "rejected"];
+        return ["ended", "rejected", "cancelled", "outdated"];
       default:
         return [];
     }

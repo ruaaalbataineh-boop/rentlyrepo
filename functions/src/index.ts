@@ -44,6 +44,11 @@ export { approveWithdrawal } from "./PSPsimulations/approveWithdrawal";
 export { rejectWithdrawal } from "./PSPsimulations/rejectWithdrawal";
 export { expireWithdrawals } from "./payments/expireWithdrawals";
 
+export { submitIssueReport } from "./issueReports/submitIssueReport";
+export { approveIssueReport } from "./issueReports/approveIssueReport";
+
+
+
 // req notif
 
 export const notifyOwnerOnNewRentalRequest = onDocumentCreated(

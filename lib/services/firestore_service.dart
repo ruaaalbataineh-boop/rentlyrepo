@@ -298,4 +298,23 @@ class FirestoreService {
     });
   }
 
+  static Future<void> submitIssueReport({
+    required String requestId,
+    required String type,
+    String? severity,
+    String? description,
+    List<String>? mediaUrls,
+  }) async {
+    final callable =
+    FirebaseFunctions.instance.httpsCallable('submitIssueReport');
+
+    await callable.call({
+      'requestId': requestId,
+      'type': type,
+      'severity': severity,
+      'description': description,
+      'mediaUrls': mediaUrls ?? [],
+    });
+  }
+
 }

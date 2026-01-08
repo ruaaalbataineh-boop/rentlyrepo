@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:p2/services/firestore_service.dart';
+import 'package:p2/services/storage_service.dart';
 import 'Orders.dart';
 import 'config/dev_config.dart';
 
@@ -29,7 +30,7 @@ class _QrScannerPageState extends State<QrScannerPage> {
   bool allowScan = false;
   String? message;
   bool scanned = false;
-
+  final TextEditingController _descriptionController = TextEditingController();
   final List<File> pickedImages = [];
   String? severity;
 
@@ -136,6 +137,7 @@ class _QrScannerPageState extends State<QrScannerPage> {
 
   @override
   void dispose() {
+    _descriptionController.dispose();
     _sub?.cancel();
     super.dispose();
   }
@@ -167,8 +169,7 @@ class _QrScannerPageState extends State<QrScannerPage> {
                 mainAxisSize: MainAxisSize.min,
 
                 children: [
-
-                  /// ================= TITLE =================
+                  //TITLE
                   Center(
                     child: Text(
                       widget.isReturnPhase
@@ -184,7 +185,7 @@ class _QrScannerPageState extends State<QrScannerPage> {
 
                   const SizedBox(height: 20),
 
-                  /// ================= BUTTONS =================
+                  //  BUTTONS
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
@@ -243,7 +244,7 @@ class _QrScannerPageState extends State<QrScannerPage> {
 
                   const SizedBox(height: 20),
 
-                  /// ================= IMAGES PREVIEW =================
+                  //IMAGES PREVIEW
                   if (pickedImages.isNotEmpty)
                     Wrap(
                       children: List.generate(
@@ -281,7 +282,7 @@ class _QrScannerPageState extends State<QrScannerPage> {
                       ),
                     ),
 
-                  /// ================= VIDEO PREVIEW =================
+                  // VIDEO PREVIEW
                   if (pickedVideo != null)
                     Container(
                       margin: const EdgeInsets.symmetric(vertical: 10),
@@ -308,7 +309,7 @@ class _QrScannerPageState extends State<QrScannerPage> {
                       ),
                     ),
 
-                  /// ================= DAMAGE DROPDOWN =================
+                  // DAMAGE DROPDOWN
                   if (widget.isReturnPhase) ...[
                     const SizedBox(height: 14),
                     const Text(
@@ -332,15 +333,15 @@ class _QrScannerPageState extends State<QrScannerPage> {
                       ),
                       items: const [
                         DropdownMenuItem(
-                          value: "low",
+                          value: "mild",
                           child: Text("Low Damage"),
                         ),
                         DropdownMenuItem(
-                          value: "medium",
+                          value: "moderate",
                           child: Text("Medium Damage"),
                         ),
                         DropdownMenuItem(
-                          value: "high",
+                          value: "severe",
                           child: Text("Severe Damage"),
                         ),
                       ],
@@ -350,7 +351,7 @@ class _QrScannerPageState extends State<QrScannerPage> {
 
                   const SizedBox(height: 16),
 
-                  /// ================= DESCRIPTION =================
+                  // DESCRIPTION
                   const Text(
                     "Description (optional)",
                     style: TextStyle(
@@ -361,6 +362,7 @@ class _QrScannerPageState extends State<QrScannerPage> {
                   const SizedBox(height: 6),
 
                   TextField(
+                    controller: _descriptionController,
                     maxLines: 4,
                     decoration: InputDecoration(
                       filled: true,
@@ -373,7 +375,7 @@ class _QrScannerPageState extends State<QrScannerPage> {
 
                   const SizedBox(height: 22),
 
-                  /// ================= BUTTONS =================
+                  // BUTTONS
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -397,12 +399,56 @@ class _QrScannerPageState extends State<QrScannerPage> {
                           ),
                         ),
                         onPressed: () async {
-                          Navigator.pop(context);
+                          try {
+                            final List<String> uploadedUrls = [];
 
-                          await FirestoreService.updateRentalRequestStatus(
-                            widget.requestId,
-                            widget.isReturnPhase ? "ended" : "cancelled",
-                          );
+                            // upload IMAGES
+                            for (var i = 0; i < pickedImages.length; i++) {
+                              final url = await StorageService.uploadReportMedia(
+                                requestId: widget.requestId,
+                                file: pickedImages[i],
+                                fileName: "img_${DateTime.now().millisecondsSinceEpoch}_$i.jpg",
+                              );
+                              uploadedUrls.add(url);
+                            }
+
+                            // upload VIDEO
+                            if (pickedVideo != null) {
+                              final file = File(pickedVideo!.path);
+                              final url = await StorageService.uploadReportMedia(
+                                requestId: widget.requestId,
+                                file: file,
+                                fileName: "video_${DateTime.now().millisecondsSinceEpoch}.mp4",
+                              );
+                              uploadedUrls.add(url);
+                            }
+
+                            await FirestoreService.submitIssueReport(
+                              requestId: widget.requestId,
+                              type: widget.isReturnPhase ? "return_issue" : "pickup_issue",
+                              severity: severity,
+                              description: _descriptionController.text,
+                              mediaUrls: uploadedUrls,
+                            );
+
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("Issue reported successfully")),
+                            );
+
+                            // go back to orders
+                            Navigator.of(context).pushAndRemoveUntil(
+                              MaterialPageRoute(
+                                builder: (_) => const OrdersPage(initialTab: 2),
+                              ),
+                                  (route) => false,
+                            );
+                          } catch (e) {
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text("Failed to submit report: $e")),
+                            );
+                          }
                         },
                         child: Text(
                           widget.isReturnPhase

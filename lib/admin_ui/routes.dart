@@ -1,7 +1,7 @@
 import 'package:go_router/go_router.dart';
 import 'package:p2/admin_ui/Pages/AdminDashboard.dart';
 import 'package:p2/admin_ui/Pages/ChatsPage_admin.dart';
-import 'package:p2/admin_ui/Pages/ComplaintsPage.dart';
+import 'package:p2/admin_ui/Pages/issueReportsPage.dart';
 import 'package:p2/admin_ui/Pages/systemWallet.dart';
 import 'package:p2/admin_ui/Pages/ItemManagementPage.dart';
 import 'package:p2/admin_ui/Pages/LoginPage_admin.dart';
@@ -50,7 +50,7 @@ final GoRouter adminRouter = GoRouter(
         ),
         GoRoute(
           path: '/complaints',
-          builder: (context, state) => const ComplaintsPage(),
+          builder: (context, state) => const AdminReportsPage(),
         ),
         GoRoute(
           path: '/notifications',

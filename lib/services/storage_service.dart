@@ -32,4 +32,20 @@ class StorageService {
 
     return await ref.getDownloadURL();
   }
+
+  static Future<String> uploadReportMedia({
+    required String requestId,
+    required File file,
+    required String fileName,
+  }) async {
+    final ref = FirebaseStorage.instance
+        .ref("rental_reports")
+        .child(requestId)
+        .child(fileName);
+
+    await ref.putFile(file);
+
+    return await ref.getDownloadURL();
+  }
+
 }
