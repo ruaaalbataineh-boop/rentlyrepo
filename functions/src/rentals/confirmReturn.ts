@@ -1,127 +1,144 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import { requireWallets } from "../utils/walletHelpers";
 
-const DEV_MODE = true;   // TURN OFF IN PROD
+const DEV_MODE = true;
 
 export const confirmReturn = onCall(async (req) => {
   const authUid = req.auth?.uid;
-  if (!authUid) throw new HttpsError("unauthenticated", "Not authenticated");
+  if (!authUid) throw new HttpsError("unauthenticated","Not authenticated");
 
   const { requestId, qrToken, force } = req.data;
-
-  if (!requestId)
-    throw new HttpsError("invalid-argument", "Missing requestId");
+  if (!requestId) throw new HttpsError("invalid-argument","Missing requestId");
 
   const db = getFirestore();
   const ref = db.collection("rentalRequests").doc(requestId);
   const snap = await ref.get();
+  if (!snap.exists) throw new HttpsError("not-found","Rental not found");
 
-  if (!snap.exists) throw new HttpsError("not-found", "Rental not found");
+  const r = snap.data()!;
 
-  const data = snap.data()!;
+  if (!force && r.itemOwnerUid !== authUid)
+    throw new HttpsError("permission-denied","Only owner can confirm return");
 
-  if (!force && data.itemOwnerUid !== authUid)
-    throw new HttpsError("permission-denied", "Only owner can confirm return");
+  if (r.status !== "active")
+    throw new HttpsError("failed-precondition","Rental not active");
 
-  if (data.status !== "active")
-    throw new HttpsError("failed-precondition", "Rental not active");
+  const endDate = new Date(r.endDate);
+  const today = new Date();
+  const dLate = Math.floor((today.getTime() - endDate.getTime()) / 86400000);
 
-  //  DEV MODE / FORCE
-  if (DEV_MODE || force) {
-    console.log("DEV MODE / FORCE → Return bypass validation");
-  } else {
-    //STRICT QR
-    if (!qrToken)
-      throw new HttpsError("invalid-argument", "Missing qrToken");
-
-    if (!data.returnQrToken || data.returnQrToken !== qrToken)
-      throw new HttpsError("failed-precondition", "Invalid return QR");
-
-    // DATE VALIDATION
-    const endDate = new Date(data.endDate);
-    const today = new Date();
+  if (!DEV_MODE && !force) {
+    if (!qrToken || qrToken !== r.returnQrToken)
+      throw new HttpsError("failed-precondition","Invalid return QR");
 
     const maxReturn = new Date(endDate);
     maxReturn.setDate(maxReturn.getDate() + 3);
 
     if (today < endDate)
-      throw new HttpsError(
-        "failed-precondition",
-        "Return not allowed yet"
-      );
+      throw new HttpsError("failed-precondition","Return not allowed yet");
 
     if (today > maxReturn)
-      throw new HttpsError(
-        "failed-precondition",
-        "Return window expired"
-      );
+      throw new HttpsError("failed-precondition","Return window expired");
   }
 
-  const renterUid = data.renterUid;
-  const insurance = Number(data.insurance?.amount || 0);
+  const renterUid = r.renterUid;
+  const ownerUid = r.itemOwnerUid;
+  const insurance = Number(r.insurance?.amount || 0);
 
-  const wallets = await db
+  // determine late fee eligibility
+  const isShort =
+    (r.rentalType === "daily" && r.rentalQuantity <= 30) ||
+    (r.rentalType === "weekly" && r.rentalQuantity <= 4);
+
+  const dailyOrWeekly = ["daily","weekly"].includes(r.rentalType);
+
+  let basePerDay = 0;
+  if (r.rentalType === "daily")
+    basePerDay = r.rentalPrice / r.rentalQuantity;
+  if (r.rentalType === "weekly")
+    basePerDay = r.rentalPrice / 7;
+
+  const lateFee =
+    dailyOrWeekly && isShort && dLate > 0
+      ? dLate * basePerDay
+      : 0;
+
+  // wallets
+  const { user: renterUser, holding: renterHolding } =
+      await requireWallets(renterUid);
+
+  const ownerWallets = await db
     .collection("wallets")
-    .where("userId", "==", renterUid)
+    .where("userId", "==", ownerUid)
+    .where("type", "==", "USER")
+    .limit(1)
     .get();
 
-  if (wallets.empty)
-    throw new HttpsError("not-found", "Wallets missing");
+  if (ownerWallets.empty)
+     throw new HttpsError("failed-precondition", "Owner wallet missing");
 
-  let holdingRef: FirebaseFirestore.DocumentReference | null = null;
-  let mainRef: FirebaseFirestore.DocumentReference | null = null;
+  const ownerUser = ownerWallets.docs[0].ref;
 
-  wallets.forEach((doc) => {
-    const w = doc.data();
-    if (w.type === "HOLDING") holdingRef = doc.ref;
-    if (w.type === "USER") mainRef = doc.ref;
+  await db.runTransaction(async(tx)=>{
+    const h = await tx.get(renterHolding);
+    const ru = await tx.get(renterUser);
+    const ou = await tx.get(ownerUser);
+
+    const hb = Number(h.data()?.balance||0);
+    const rub = Number(ru.data()?.balance||0);
+    const oub = Number(ou.data()?.balance||0);
+
+    // insurance release
+    tx.update(renterHolding,{balance:hb-insurance});
+    tx.update(renterUser,{balance:rub+(insurance - lateFee)});
+
+    tx.set(db.collection("walletTransactions").doc(),{
+      rentalRequestId:requestId,
+      purpose:"RENTAL_INSURANCE_RELEASE",
+      fromWalletId:renterHolding.id,
+      toWalletId:renterUser.id,
+      userId:renterUid,
+      amount:insurance,
+      status:"confirmed",
+      createdAt:FieldValue.serverTimestamp()
+    });
+
+    // late fee
+    if(lateFee>0){
+      tx.update(ownerUser,{balance:oub+lateFee});
+
+      tx.set(db.collection("walletTransactions").doc(),{
+        rentalRequestId:requestId,
+        purpose:"RENTAL_LATE_FEE",
+        fromWalletId:renterUser.id,
+        toWalletId:ownerUser.id,
+        userId:renterUid,
+        amount:lateFee,
+        status:"confirmed",
+        createdAt:FieldValue.serverTimestamp()
+      });
+
+      tx.set(db.collection("walletTransactions").doc(),{
+              rentalRequestId:requestId,
+              purpose:"RENTAL_LATE_FEE",
+              fromWalletId:renterUser.id,
+              toWalletId:ownerUser.id,
+              userId:ownerUid,
+              amount:lateFee,
+              status:"confirmed",
+              createdAt:FieldValue.serverTimestamp()
+            });
+    }
+
+    tx.update(ref,{
+      status:"ended",
+      lateDays:dLate>0?dLate:0,
+      endReason:dLate>0?"late":"normal",
+      updatedAt:FieldValue.serverTimestamp(),
+      returnConfirmedAt:FieldValue.serverTimestamp()
+    });
   });
 
-  if (!holdingRef || !mainRef)
-    throw new HttpsError("failed-precondition", "Wallet missing");
-
-  await db.runTransaction(async (tx) => {
-    const holdSnap = await tx.get(holdingRef!);
-    const mainSnap = await tx.get(mainRef!);
-
-    const holdBal = Number(holdSnap.data()?.balance || 0);
-    const mainBal = Number(mainSnap.data()?.balance || 0);
-
-    if (holdBal < insurance)
-      throw new HttpsError(
-        "failed-precondition",
-        "Holding inconsistency"
-      );
-
-    tx.update(holdingRef!, {
-      balance: holdBal - insurance,
-      updatedAt: FieldValue.serverTimestamp(),
-    });
-
-    tx.update(mainRef!, {
-      balance: mainBal + insurance,
-      updatedAt: FieldValue.serverTimestamp(),
-    });
-
-    const walletTx = db.collection("walletTransactions");
-
-    tx.set(walletTx.doc(), {
-      fromWalletId: holdingRef!.id,
-      toWalletId: mainRef!.id,
-      amount: insurance,
-      purpose: "INSURANCE_RELEASE",
-      rentalRequestId: requestId,
-      userId: renterUid,
-      status: "confirmed",
-      createdAt: FieldValue.serverTimestamp(),
-    });
-
-    tx.update(ref, {
-      status: "ended",
-      updatedAt: FieldValue.serverTimestamp(),
-      returnConfirmedAt: FieldValue.serverTimestamp(),
-    });
-  });
-
-  return { success: true };
+  return {success:true};
 });

@@ -67,6 +67,10 @@ export const submitIssueReport = onCall(async (req) => {
     if (rental.status !== "active")
       throw new HttpsError("failed-precondition", "Return issue allowed only when active");
 
+    const endDate = new Date(rental.endDate);
+    const today = new Date();
+    const dLate = Math.floor((today.getTime()-endDate.getTime())/86400000);
+
     await db.runTransaction(async (tx) => {
       tx.set(db.collection("rentalReports").doc(), {
         requestId,
@@ -76,13 +80,15 @@ export const submitIssueReport = onCall(async (req) => {
         severity: severity ?? null,
         description: description ?? "",
         media: mediaUrls,
+        lateDays:dLate>0?dLate:0,
         status: "pending",
         createdAt: FieldValue.serverTimestamp(),
       });
 
       tx.update(rentalRef, {
         status: "ended",
-        endReason: "damaged",
+        lateDays:dLate>0?dLate:0,
+        endReason:dLate>0?"damaged_late":"damaged",
         issueReportedAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
       });

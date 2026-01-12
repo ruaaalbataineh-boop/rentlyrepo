@@ -176,9 +176,14 @@ export const confirmPickup = onCall(async (req) => {
       createdAt: FieldValue.serverTimestamp(),
     });
 
+    const endDate = new Date(data.endDate);
+    const endPlus3 = new Date(endDate);
+    endPlus3.setDate(endPlus3.getDate() + 3);
+
     tx.update(ref, {
       status: "active",
       paymentStatus: "released",
+      endDatePlus3: endPlus3,
       pickupConfirmedAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     });

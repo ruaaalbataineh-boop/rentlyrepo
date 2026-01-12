@@ -1,33 +1,8 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import { requireWallets } from "../utils/walletHelpers";
 
 const db = getFirestore();
-
-type WalletRef = FirebaseFirestore.DocumentReference<FirebaseFirestore.DocumentData>;
-
-async function requireWallets(uid: string): Promise<{
-  user: WalletRef;
-  holding: WalletRef;
-}> {
-  const ws = await db.collection("wallets").where("userId", "==", uid).get();
-
-  let user: WalletRef | null = null;
-  let holding: WalletRef | null = null;
-
-  ws.forEach((d) => {
-    const t = d.data().type;
-    if (t === "USER") user = d.ref as WalletRef;
-    if (t === "HOLDING") holding = d.ref as WalletRef;
-  });
-
-  if (!user || !holding)
-    throw new HttpsError(
-      "failed-precondition",
-      `Missing wallet(s) for ${uid}`
-    );
-
-  return { user, holding };
-}
 
 export const approveIssueReport = onCall(async (req) => {
   const authUid = req.auth?.uid;
@@ -109,6 +84,7 @@ export const approveIssueReport = onCall(async (req) => {
   // RETURN ISSUE
   if (type === "return_issue") {
     const severity = report.severity || "mild";
+    const lateDays = Number(report.lateDays || 0);
 
     let percent = 0.1;
     if (severity === "moderate") percent = 0.5;
@@ -116,6 +92,23 @@ export const approveIssueReport = onCall(async (req) => {
 
     const payout = insuranceAmount * percent;
     const refund = insuranceAmount - payout;
+
+    const rentalType = rental.rentalType;
+    const rentalQuantity = Number(rental.rentalQuantity || 0);
+    const rentalPrice = Number(rental.rentalPrice || 0);
+
+    const isShort =
+        (rentalType === "daily" && rentalQuantity <= 30) ||
+        (rentalType === "weekly" && rentalQuantity <= 4);
+
+    let basePerDay = 0;
+      if (rentalType === "daily") basePerDay = rentalPrice / rentalQuantity;
+      if (rentalType === "weekly") basePerDay = rentalPrice / 7;
+
+    const lateFee =
+        lateDays > 0 && isShort && ["daily","weekly"].includes(rentalType)
+          ? lateDays * basePerDay
+          : 0;
 
     const { user: renterUser, holding: renterHolding } =
       await requireWallets(renterUid);
@@ -130,7 +123,7 @@ export const approveIssueReport = onCall(async (req) => {
     if (ownerWallets.empty)
       throw new HttpsError("failed-precondition", "Owner wallet missing");
 
-    const ownerUser = ownerWallets.docs[0].ref as WalletRef;
+    const ownerUser = ownerWallets.docs[0].ref;
 
     await db.runTransaction(async (tx) => {
       const holdSnap = await tx.get(renterHolding);
@@ -197,6 +190,39 @@ export const approveIssueReport = onCall(async (req) => {
           status: "confirmed",
         });
       }
+
+      // LATE FEE if applicable
+        if (lateFee > 0) {
+            tx.update(renterUser, {
+                balance: renterBal - lateFee,
+            });
+
+            tx.update(ownerUser, {
+                balance: ownerBal + lateFee,
+            });
+
+            tx.set(db.collection("walletTransactions").doc(), {
+                rentalRequestId: requestId,
+                purpose: "RENTAL_LATE_FEE",
+                fromWalletId: renterUser.id,
+                toWalletId: ownerUser.id,
+                userId: renterUid,
+                amount: lateFee,
+                createdAt: FieldValue.serverTimestamp(),
+                status: "confirmed",
+            });
+
+            tx.set(db.collection("walletTransactions").doc(), {
+                rentalRequestId: requestId,
+                purpose: "RENTAL_LATE_FEE",
+                fromWalletId: renterUser.id,
+                toWalletId: ownerUser.id,
+                userId: ownerUid,
+                amount: lateFee,
+                createdAt: FieldValue.serverTimestamp(),
+                status: "confirmed",
+            });
+        }
 
       tx.update(reportRef, {
         status: "approved",

@@ -20,6 +20,9 @@ export { createRentalRequest } from "./rentals/createRentalRequest";
 export { updateRentalRequestStatus } from "./rentals/updateRentalRequestStatus";
 export { confirmPickup } from "./rentals/confirmPickup";
 export { confirmReturn } from "./rentals/confirmReturn";
+export { autoExpirePendingRentals } from "./rentals/autoExpirePendingRentals";
+export { autoNoShowRentals } from "./rentals/autoNoShowRentals";
+export { autoNeverReturned } from "./rentals/autoNeverReturned";
 
 import { onValueCreated } from "firebase-functions/v2/database";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
