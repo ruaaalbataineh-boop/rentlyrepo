@@ -127,8 +127,8 @@ class _CategoryPageState extends State<CategoryPage> {
           Expanded(
             child: GridView.builder(
               padding: const EdgeInsets.all(12),
-              shrinkWrap: true,                     //
-              physics: const NeverScrollableScrollPhysics(), //
+             // shrinkWrap: true,                     
+             // physics: const NeverScrollableScrollPhysics(), 
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
                 crossAxisSpacing: 12,
