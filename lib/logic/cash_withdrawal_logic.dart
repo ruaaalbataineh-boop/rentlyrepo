@@ -1,107 +1,238 @@
+import 'package:p2/security/error_handler.dart';
+import 'package:p2/security/input_validator.dart';
+
 class CashWithdrawalLogic {
   double currentBalance;
+  final int _maxDailyLimit = 1000;
+  final int _minWithdrawal = 10;
+  final int _maxDecimalPlaces = 2;
 
   CashWithdrawalLogic({required this.currentBalance});
 
-  //  AMOUNT
   String? validateAmount(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Please enter amount';
-    }
+    try {
+      if (value == null || value.isEmpty) {
+        return 'Please enter amount';
+      }
 
-    final amount = double.tryParse(value);
-    if (amount == null || amount <= 0) {
-      return 'Please enter valid amount';
-    }
+      final sanitizedValue = InputValidator.sanitizeInput(value);
+      
+      if (!InputValidator.hasNoMaliciousCode(sanitizedValue)) {
+        return 'Invalid amount format';
+      }
 
-    if (amount < 10) {
-      return 'Minimum withdrawal is 10 JD';
-    }
+      final amount = double.tryParse(sanitizedValue);
+      if (amount == null || amount <= 0) {
+        return 'Please enter valid amount';
+      }
 
-    if (amount > currentBalance) {
-      return 'Amount exceeds available balance';
-    }
+      if (amount < _minWithdrawal) {
+        return 'Minimum withdrawal is $_minWithdrawal JD';
+      }
 
-    if (amount > 1000) {
-      return 'Daily limit is 1,000 JD';
-    }
+      if (amount > currentBalance) {
+        return 'Amount exceeds available balance';
+      }
 
-    final decimalPart = value.split('.');
-    if (decimalPart.length > 1 && decimalPart[1].length > 2) {
-      return 'Maximum 2 decimal places';
-    }
+      if (amount > _maxDailyLimit) {
+        return 'Daily limit is $_maxDailyLimit JD';
+      }
 
-    return null;
+      final decimalPart = sanitizedValue.split('.');
+      if (decimalPart.length > 1 && decimalPart[1].length > _maxDecimalPlaces) {
+        return 'Maximum $_maxDecimalPlaces decimal places';
+      }
+
+      return null;
+    } catch (error) {
+      ErrorHandler.logError('Validate Amount', error);
+      return 'Invalid amount';
+    }
   }
 
-  //  BANK WITHDRAWAL
   String? validateIBAN(String? value) {
-    if (value == null || value.isEmpty) return 'Please enter IBAN';
+    try {
+      if (value == null || value.isEmpty) return 'Please enter IBAN';
 
-    value = value.replaceAll(' ', '');
+      final sanitizedValue = InputValidator.sanitizeInput(value);
+      
+      if (!InputValidator.hasNoMaliciousCode(sanitizedValue)) {
+        return 'Invalid IBAN format';
+      }
 
-    if (value.length < 22 || value.length > 34) {
-      return 'Invalid IBAN length';
+      final cleanIBAN = sanitizedValue.replaceAll(' ', '').toUpperCase();
+
+      if (cleanIBAN.length < 22 || cleanIBAN.length > 34) {
+        return 'Invalid IBAN length';
+      }
+
+      if (!RegExp(r'^[A-Z]{2}[0-9]{2}[A-Z0-9]{1,30}$').hasMatch(cleanIBAN)) {
+        return 'Invalid IBAN format';
+      }
+
+      return null;
+    } catch (error) {
+      ErrorHandler.logError('Validate IBAN', error);
+      return 'Invalid IBAN';
     }
-
-    return null;
   }
 
   String? validateBankName(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Please enter bank name';
+    try {
+      if (value == null || value.isEmpty) {
+        return 'Please enter bank name';
+      }
+
+      final sanitizedValue = InputValidator.sanitizeInput(value);
+      
+      if (!InputValidator.hasNoMaliciousCode(sanitizedValue)) {
+        return 'Invalid bank name';
+      }
+
+      if (sanitizedValue.length < 3) return 'Bank name too short';
+      
+      if (sanitizedValue.length > 100) {
+        return 'Bank name too long';
+      }
+
+      return null;
+    } catch (error) {
+      ErrorHandler.logError('Validate Bank Name', error);
+      return 'Invalid bank name';
     }
-
-    if (value.length < 3) return 'Bank name too short';
-
-    return null;
   }
 
   String? validateAccountHolder(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Please enter account holder name';
-    }
+    try {
+      if (value == null || value.isEmpty) {
+        return 'Please enter account holder name';
+      }
 
-    if (value.trim().split(' ').length < 2) {
-      return 'Please enter full name';
-    }
+      final sanitizedValue = InputValidator.sanitizeInput(value);
+      
+      if (!InputValidator.hasNoMaliciousCode(sanitizedValue)) {
+        return 'Invalid name format';
+      }
 
-    return null;
+      final nameParts = sanitizedValue.trim().split(' ');
+      
+      if (nameParts.length < 2) {
+        return 'Please enter full name (first and last)';
+      }
+
+      for (final part in nameParts) {
+        if (part.length < 2) {
+          return 'Each name part must be at least 2 characters';
+        }
+      }
+
+      if (sanitizedValue.length > 150) {
+        return 'Name too long';
+      }
+
+      return null;
+    } catch (error) {
+      ErrorHandler.logError('Validate Account Holder', error);
+      return 'Invalid account holder name';
+    }
   }
 
-  //  EXCHANGE WITHDRAWAL
   String? validatePickupName(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Please enter receiver name';
-    }
+    try {
+      if (value == null || value.isEmpty) {
+        return 'Please enter receiver name';
+      }
 
-    if (value.trim().split(' ').length < 2) {
-      return 'Please enter full name';
-    }
+      final sanitizedValue = InputValidator.sanitizeInput(value);
+      
+      if (!InputValidator.hasNoMaliciousCode(sanitizedValue)) {
+        return 'Invalid name format';
+      }
 
-    return null;
+      final nameParts = sanitizedValue.trim().split(' ');
+      
+      if (nameParts.length < 2) {
+        return 'Please enter full name (first and last)';
+      }
+
+      for (final part in nameParts) {
+        if (part.length < 2) {
+          return 'Each name part must be at least 2 characters';
+        }
+        
+        if (!RegExp(r'^[A-Za-z\s\-]+$').hasMatch(part)) {
+          return 'Name can only contain letters, spaces, and hyphens';
+        }
+      }
+
+      return null;
+    } catch (error) {
+      ErrorHandler.logError('Validate Pickup Name', error);
+      return 'Invalid receiver name';
+    }
   }
 
   String? validatePickupPhone(String? value) {
-    if (value == null || value.isEmpty) return 'Please enter phone number';
+    try {
+      if (value == null || value.isEmpty) return 'Please enter phone number';
 
-    final phone = value.replaceAll(RegExp(r'[^\d]'), '');
+      final sanitizedValue = InputValidator.sanitizeInput(value);
+      
+      if (!InputValidator.hasNoMaliciousCode(sanitizedValue)) {
+        return 'Invalid phone number format';
+      }
 
-    if (!phone.startsWith('07') || phone.length != 10) {
+      final phone = sanitizedValue.replaceAll(RegExp(r'[^\d]'), '');
+
+      if (!phone.startsWith('07') || phone.length != 10) {
+        return 'Invalid Jordanian phone number (07XXXXXXXX)';
+      }
+
+      if (!RegExp(r'^07[0-9]{8}$').hasMatch(phone)) {
+        return 'Invalid phone number format';
+      }
+
+      return null;
+    } catch (error) {
+      ErrorHandler.logError('Validate Pickup Phone', error);
       return 'Invalid phone number';
     }
-
-    return null;
   }
 
   String? validatePickupId(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Please enter ID number';
+    try {
+      if (value == null || value.isEmpty) {
+        return 'Please enter ID number';
+      }
+
+      final sanitizedValue = InputValidator.sanitizeInput(value);
+      
+      if (!InputValidator.hasNoMaliciousCode(sanitizedValue)) {
+        return 'Invalid ID number format';
+      }
+
+      if (sanitizedValue.length < 6) return 'Invalid ID number';
+      
+      if (sanitizedValue.length > 20) {
+        return 'ID number too long';
+      }
+
+      if (!RegExp(r'^[0-9]+$').hasMatch(sanitizedValue)) {
+        return 'ID number can only contain digits';
+      }
+
+      return null;
+    } catch (error) {
+      ErrorHandler.logError('Validate Pickup ID', error);
+      return 'Invalid ID number';
     }
-
-    if (value.length < 6) return 'Invalid ID number';
-
-    return null;
   }
 
+  num getMaxWithdrawalAmount() {
+    return currentBalance > _maxDailyLimit ? _maxDailyLimit : currentBalance;
+  }
+
+  double getMinWithdrawalAmount() {
+    return _minWithdrawal.toDouble();
+  }
 }
