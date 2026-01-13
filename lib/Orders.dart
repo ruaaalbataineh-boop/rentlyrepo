@@ -22,11 +22,14 @@ class _OrdersPageState extends State<OrdersPage> {
   late OrdersLogic _logic;
 
   @override
-  void initState() {
-    super.initState();
-    selectedTab = widget.initialTab;
-    _logic = OrdersLogic();
-  }
+void initState() {
+  super.initState();
+  selectedTab = widget.initialTab;
+  _logic = OrdersLogic();
+
+
+  _logic.clearCache();
+}
 
   @override
   Widget build(BuildContext context) {
@@ -151,6 +154,7 @@ class _OrdersPageState extends State<OrdersPage> {
 
   Widget _buildRequestStream(double screenWidth) {
     return StreamBuilder<List<RentalRequest>>(
+      key: ValueKey(selectedTab),  
       stream: _logic.getRequestsStream(selectedTab),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
