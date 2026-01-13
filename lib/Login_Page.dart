@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_custom_clippers/flutter_custom_clippers.dart';
-import 'package:p2/logic/login_logic.dart';
-import 'Categories_Page.dart';
-import 'app_locale.dart';
+import 'package:provider/provider.dart'; 
+import 'package:firebase_auth/firebase_auth.dart'; 
 import 'app_shell.dart';
 import 'fake_uid.dart';
+import 'package:p2/services/auth_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -17,18 +17,11 @@ class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-  bool isTestMode = false;
+  
   bool _obscurePassword = true;
   bool _isLoading = false;
+  bool _rememberMe = false;
   String? _errorMessage;
-
-  late LoginLogic _loginLogic;
-
-  @override
-  void initState() {
-    super.initState();
-    _loginLogic = LoginLogic();
-  }
 
   @override
   void dispose() {
@@ -37,47 +30,134 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  void login() async {
-    setState(() {
-      _errorMessage = null;
-    });
-
+  Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
       _isLoading = true;
+      _errorMessage = null;
     });
 
-    await _loginLogic.loginUser(
-      email: emailController.text,
-      password: passwordController.text,
-      onSuccess: (uid) {
-        if (!mounted) return;
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      
+      final result = await authService.loginWithEmail(
+        email: emailController.text.trim(),
+        password: passwordController.text.trim(),
+        rememberMe: _rememberMe,
+      );
 
-        LoginUID.uid = uid;
+      if (!mounted) return;
 
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const AppShell()),
-        );
-      },
-      onError: (error) {
-        if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+      });
 
-        setState(() => _errorMessage = error);
+      if (result['success'] == true) {
+        final user = FirebaseAuth.instance.currentUser;
 
+         
+        LoginUID.uid = result['uid'];
+
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const AppShell()),
+          );
+        }
+      } else {
+        _showError(result['error'] ?? 'Login failed');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'An unexpected error occurred: ${e.toString()}';
+        });
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(error),
+            content: Text('An unexpected error occurred: ${e.toString()}'),
             backgroundColor: Colors.red,
           ),
         );
-      },
-    );
+      }
+    }
+  }
+
+  void _showError(String message) {
+    setState(() {
+      _errorMessage = message;
+    });
 
     if (mounted) {
-      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
+  }
+
+  void _showResetPasswordDialog() {
+    final TextEditingController resetEmailController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reset Password'),
+        content: TextField(
+          controller: resetEmailController,
+          keyboardType: TextInputType.emailAddress,
+          decoration: const InputDecoration(
+            labelText: 'Email',
+            hintText: 'Enter your email',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                final authService = Provider.of<AuthService>(context, listen: false);
+                await authService.resetPassword(resetEmailController.text.trim());
+
+                if (mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Password reset link has been sent to your email'),
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to send reset email: ${e.toString()}'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Send'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String? _validateEmail(String? value) {
+    return AuthService.validateEmail(value);
+  }
+
+  String? _validatePassword(String? value) {
+    return AuthService.validatePassword(value);
   }
 
   @override
@@ -131,17 +211,14 @@ class _LoginPageState extends State<LoginPage> {
                   children: [
                     const Text(
                       "Login",
-                      style: TextStyle(
-                          fontSize: 26, fontWeight: FontWeight.bold),
+                      style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 5),
                     Row(
                       children: [
                         const Text("Don't have an account? "),
                         GestureDetector(
-                          onTap: () {
-                            Navigator.pushNamed(context, '/create');
-                          },
+                          onTap: () => Navigator.pushNamed(context, '/create'),
                           child: const Text(
                             "Sign up",
                             style: TextStyle(
@@ -154,9 +231,8 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     const SizedBox(height: 30),
 
-
                     TextFormField(
-                      key:const ValueKey('emailField'),
+                      key: const ValueKey('emailField'),
                       controller: emailController,
                       decoration: InputDecoration(
                         labelText: "Email",
@@ -164,12 +240,12 @@ class _LoginPageState extends State<LoginPage> {
                           borderRadius: BorderRadius.circular(30),
                         ),
                       ),
-                      validator: LoginLogic.validateEmail,
+                      validator: _validateEmail,
                     ),
                     const SizedBox(height: 20),
 
                     TextFormField(
-                      key:const ValueKey('passwordField'),
+                      key: const ValueKey('passwordField'),
                       controller: passwordController,
                       obscureText: _obscurePassword,
                       decoration: InputDecoration(
@@ -179,7 +255,6 @@ class _LoginPageState extends State<LoginPage> {
                             _obscurePassword
                                 ? Icons.visibility_off
                                 : Icons.visibility,
-                            color: Colors.grey,
                           ),
                           onPressed: () {
                             setState(() {
@@ -191,54 +266,60 @@ class _LoginPageState extends State<LoginPage> {
                           borderRadius: BorderRadius.circular(30),
                         ),
                       ),
-                      validator: LoginLogic.validatePassword,
+                      validator: _validatePassword,
                     ),
-                    const SizedBox(height: 40),
+
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        _isLoading
-                            ? const CircularProgressIndicator()
-                            :
-                           KeyedSubtree (
-
-                              key: const ValueKey('loginButtom'),
-                              child:
-                                ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                      const Color(0xFF8A005D),
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 40, vertical: 12),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius:
-                                        BorderRadius.circular(30),
-                                  ),
-                                ),
-
-                                onPressed: login,
-                                child: const Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text("Login",
-                                        style:
-                                            TextStyle(color: Colors.white)),
-                                    SizedBox(width: 8),
-                                    Icon(Icons.arrow_forward,
-                                        color: Colors.white),
-                                  ],
-                                ),
-                              ),
-                            ),
+                        Checkbox(
+                          value: _rememberMe,
+                          onChanged: (value) {
+                            setState(() {
+                              _rememberMe = value ?? false;
+                            });
+                          },
+                        ),
+                        const Text('Remember me'),
+                        const Spacer(),
+                        TextButton(
+                          onPressed: _showResetPasswordDialog,
+                          child: const Text('Forgot password?'),
+                        ),
                       ],
                     ),
 
+                    const SizedBox(height: 20),
+
+                    if (_isLoading)
+                      const Center(child: CircularProgressIndicator())
+                    else
+                      ElevatedButton(
+                        key: const ValueKey('loginButton'),
+                        onPressed: _login,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF8A005D),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 40, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text("Login", style: TextStyle(color: Colors.white)),
+                            SizedBox(width: 8),
+                            Icon(Icons.arrow_forward, color: Colors.white),
+                          ],
+                        ),
+                      ),
 
                     if (_errorMessage != null) ...[
                       const SizedBox(height: 16),
-                      Text(_errorMessage!,
-                          style:
-                              const TextStyle(color: Colors.red)),
+                      Text(
+                        _errorMessage!,
+                        style: const TextStyle(color: Colors.red),
+                      ),
                     ],
                   ],
                 ),
