@@ -1,13 +1,13 @@
-
 import 'dart:io';
+import 'package:p2/security/input_validator.dart';
 
 class PhoneLogic {
-
+  
   static String? validateFirstName(String? value) {
     if (value == null || value.trim().isEmpty) {
       return "Please enter your first name";
     }
-    final trimmedValue = value.trim();
+    final trimmedValue = InputValidator.sanitizeInput(value.trim());
     if (trimmedValue.length < 2) {
       return "First name must be at least 2 characters";
     }
@@ -21,7 +21,7 @@ class PhoneLogic {
     if (value == null || value.trim().isEmpty) {
       return "Please enter your last name";
     }
-    final trimmedValue = value.trim();
+    final trimmedValue = InputValidator.sanitizeInput(value.trim());
     if (trimmedValue.length < 2) {
       return "Last name must be at least 2 characters";
     }
@@ -38,7 +38,6 @@ class PhoneLogic {
     
     final trimmedValue = value.trim();
     
-  
     if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(trimmedValue)) {
       return "Invalid date format. Use YYYY-MM-DD";
     }
@@ -49,7 +48,6 @@ class PhoneLogic {
       final month = int.parse(parts[1]);
       final day = int.parse(parts[2]);
       
-      
       if (month < 1 || month > 12 || day < 1 || day > 31) {
         return "Invalid date";
       }
@@ -57,12 +55,10 @@ class PhoneLogic {
       final birthDate = DateTime(year, month, day);
       final now = DateTime.now();
       
-      
       if (birthDate.isAfter(now)) {
         return "Birth date cannot be in the future";
       }
       
-    
       int age = now.year - birthDate.year;
       if (now.month < birthDate.month || 
           (now.month == birthDate.month && now.day < birthDate.day)) {
@@ -88,7 +84,6 @@ class PhoneLogic {
     }
     
     final cleanedPhone = value.replaceAll(RegExp(r'[^\d+]'), '');
-    
     
     String phoneDigits;
     if (cleanedPhone.startsWith('+962')) {
@@ -170,85 +165,5 @@ class PhoneLogic {
 
   static String formatDate(DateTime date) {
     return "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
-  }
-
-  static String getFullName(String firstName, String lastName) {
-   
-    final cleanedFirstName = firstName.trim().replaceAll(RegExp(r'\s+'), ' ');
-    final cleanedLastName = lastName.trim().replaceAll(RegExp(r'\s+'), ' ');
-    
-   
-    if (cleanedFirstName.isEmpty && cleanedLastName.isEmpty) {
-      return '';
-    } else if (cleanedFirstName.isEmpty) {
-      return cleanedLastName;
-    } else if (cleanedLastName.isEmpty) {
-      return cleanedFirstName;
-    }
-    
-   
-    return '$cleanedFirstName $cleanedLastName';
-  }
-
-  static bool isAdult(String birthDate) {
-    try {
-      final trimmedDate = birthDate.trim();
-      final parts = trimmedDate.split('-');
-      final year = int.parse(parts[0]);
-      final month = int.parse(parts[1]);
-      final day = int.parse(parts[2]);
-      
-      final birthDateTime = DateTime(year, month, day);
-      final now = DateTime.now();
-      
-      
-      int age = now.year - birthDateTime.year;
-      
-      
-      if (now.month < birthDateTime.month || 
-          (now.month == birthDateTime.month && now.day < birthDateTime.day)) {
-        age--;
-      }
-      
-      return age >= 18;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  static String formatPhoneNumber(String phone) {
-    final cleaned = phone.replaceAll(RegExp(r'[^\d]'), '');
-    
-    if (cleaned.length == 9) {
-      return '+962 $cleaned';
-    } else if (cleaned.length == 10 && cleaned.startsWith('0')) {
-      return '+962 ${cleaned.substring(1)}';
-    } else if (cleaned.length == 12 && cleaned.startsWith('962')) {
-      return '+${cleaned}';
-    }
-    
-    return phone;
-  }
-
-  static int calculateAge(String birthDate) {
-    try {
-      final parts = birthDate.split('-');
-      final year = int.parse(parts[0]);
-      final month = int.parse(parts[1]);
-      final day = int.parse(parts[2]);
-      
-      final birthDateTime = DateTime(year, month, day);
-      final now = DateTime.now();
-      
-      int age = now.year - birthDateTime.year;
-      if (now.month < birthDateTime.month || 
-          (now.month == birthDateTime.month && now.day < birthDateTime.day)) {
-        age--;
-      }
-      
-      return age;
-    } catch (e) {
-      return 0;
-    }
   }
 }
