@@ -2,8 +2,10 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-
+ import 'package:p2/logic/qr_scanner_logic.dart';
+import 'package:p2/security/error_handler.dart';
 import 'config/dev_config.dart';
+import 'package:p2/security/secure_storage.dart';
 
 class QrPage extends StatefulWidget {
   final String requestId;
@@ -21,16 +23,30 @@ class QrPage extends StatefulWidget {
 
 class _QrPageState extends State<QrPage> {
   StreamSubscription<DocumentSnapshot>? _sub;
-
   String? qrToken;
   String? message;
   bool loading = true;
+  String? _userId;
 
   @override
   void initState() {
     super.initState();
+    _initializeSecurity();
     _listenStatus();
     _loadQR();
+  }
+
+  Future<void> _initializeSecurity() async {
+    try {
+      
+      final token = await SecureStorage.getToken();
+      if (token != null) {
+      
+        _userId = 'current_user_id';
+      }
+    } catch (error) {
+      ErrorHandler.logError('Initialize QR Security', error);
+    }
   }
 
   void _listenStatus() {
@@ -54,63 +70,70 @@ class _QrPageState extends State<QrPage> {
   }
 
   Future<void> _loadQR() async {
-    final ref = FirebaseFirestore.instance
-        .collection("rentalRequests")
-        .doc(widget.requestId);
+    try {
+      setState(() => loading = true);
 
-    final doc = await ref.get();
-    if (!doc.exists) {
-      setState(() {
-        message = "Rental request not found.";
-        loading = false;
-      });
-      return;
-    }
+      
+      final datesValid = await QrLogic.verifyRequestDates(
+        widget.requestId, 
+        widget.isReturnPhase
+      );
 
-    final data = doc.data()!;
-    final today = DateTime.now();
-
-    // convert safely
-    DateTime toDate(dynamic v) {
-      if (v is Timestamp) return v.toDate();
-      if (v is String) return DateTime.parse(v);
-      throw Exception("Invalid date format");
-    }
-
-    final startDate = toDate(data["startDate"]);
-    final endDate = toDate(data["endDate"]);
-
-    //START PHASE
-    if (!widget.isReturnPhase) {
-      final isTodayStart =
-          today.year == startDate.year &&
-              today.month == startDate.month &&
-              today.day == startDate.day;
-
-      if (!DEV_MODE && !isTodayStart) {
+      if (!datesValid && !DEV_MODE) {
         setState(() {
-          message =
-          "QR Code will be available on ${startDate.toString().split(' ')[0]}.";
+          message = widget.isReturnPhase
+              ? "Return QR will be available on the end date."
+              : "Pickup QR will be available on the start date.";
           loading = false;
         });
         return;
       }
 
-      // reuse QR
-      final existing = data["pickupQrToken"];
-      if (existing != null && existing.toString().isNotEmpty) {
+      final ref = FirebaseFirestore.instance
+          .collection("rentalRequests")
+          .doc(widget.requestId);
+
+      final doc = await ref.get();
+      if (!doc.exists) {
         setState(() {
-          qrToken = existing;
+          message = "Rental request not found.";
           loading = false;
         });
         return;
       }
 
-      // Create new token
+      final data = doc.data()!;
+      
+      
+      final qrField = widget.isReturnPhase ? "returnQrToken" : "pickupQrToken";
+      final existingToken = data[qrField]?.toString();
+
+      if (existingToken != null && existingToken.isNotEmpty) {
+    
+        final isValid = await QrLogic.validateQrToken(existingToken, widget.requestId);
+        if (isValid) {
+          setState(() {
+            qrToken = existingToken;
+            loading = false;
+          });
+          return;
+        }
+      }
+
       final newToken = "${widget.requestId}_${DateTime.now().millisecondsSinceEpoch}";
+       
+      final isValidNew = await QrLogic.validateQrToken(newToken, widget.requestId);
+      if (!isValidNew) {
+        setState(() {
+          message = "Failed to generate valid QR code.";
+          loading = false;
+        });
+        return;
+      }
+
       await ref.update({
-        "pickupQrToken": newToken,
-        "pickupQrGeneratedAt": FieldValue.serverTimestamp(),
+        qrField: newToken,
+        "${qrField.replaceFirst('Token', 'QrGeneratedAt')}": FieldValue.serverTimestamp(),
       });
 
       setState(() {
@@ -118,50 +141,13 @@ class _QrPageState extends State<QrPage> {
         loading = false;
       });
 
-      return;
-    }
-
-    // RETURN PHASE
-    final expiredLimit = endDate.add(const Duration(days: 3));
-
-    if (!DEV_MODE && today.isBefore(endDate)) {
+    } catch (error) {
+      ErrorHandler.logError('Load QR', error);
       setState(() {
-        message =
-        "Return QR will be available on ${endDate.toString().split(' ')[0]}.";
+        message = QrLogic.getSafeMessage(error.toString());
         loading = false;
       });
-      return;
     }
-
-    if (today.isAfter(expiredLimit)) {
-      setState(() {
-        message =
-        "Return period expired.\nThis rental has been automatically closed.";
-        loading = false;
-      });
-      return;
-    }
-
-    // Inside allowed window, show QR
-    final existing = data["returnQrToken"];
-    if (existing != null && existing.toString().isNotEmpty) {
-      setState(() {
-        qrToken = existing;
-        loading = false;
-      });
-      return;
-    }
-
-    final newToken = "${widget.requestId}_${DateTime.now().millisecondsSinceEpoch}";
-    await ref.update({
-      "returnQrToken": newToken,
-      "returnQrGeneratedAt": FieldValue.serverTimestamp(),
-    });
-
-    setState(() {
-      qrToken = newToken;
-      loading = false;
-    });
   }
 
   @override
@@ -204,11 +190,18 @@ class _QrPageState extends State<QrPage> {
                 ? Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                QrImageView(
-                  data: qrToken!,
-                  version: QrVersions.auto,
-                  size: 250,
-                  backgroundColor: Colors.white,
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: QrImageView(
+                    data: qrToken!,
+                    version: QrVersions.auto,
+                    size: 250,
+                    backgroundColor: Colors.white,
+                  ),
                 ),
                 const SizedBox(height: 20),
                 Text(
@@ -220,14 +213,25 @@ class _QrPageState extends State<QrPage> {
                     color: Colors.grey[200],
                   ),
                 ),
+                const SizedBox(height: 10),
+                Text(
+                  "Request ID: ${widget.requestId.substring(0, 8)}...",
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[400],
+                  ),
+                ),
               ],
             )
-                : Text(
-              message ?? "QR unavailable",
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
+                : Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Text(
+                QrLogic.getSafeMessage(message),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                ),
               ),
             ),
           ),
