@@ -30,7 +30,9 @@ class _ChatScreenState extends State<ChatScreen> {
       personName: widget.personName,
       personUid: widget.personUid,
     );
-    logic.initialize();
+      logic.initialize(onUserUpdated: () {
+        if (mounted) setState(() {});
+      });
   }
 
   void _sendMessage() {
