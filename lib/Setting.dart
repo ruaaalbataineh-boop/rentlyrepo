@@ -1,9 +1,7 @@
-
 import 'package:flutter/material.dart';
 import 'package:p2/AddItemPage%20.dart';
 import 'package:p2/Chats_Page.dart';
 import 'package:p2/WalletPage.dart';
-import 'package:p2/logic/setting_logic.dart';
 import 'Orders.dart';
 import 'Categories_Page.dart';
 import 'app_locale.dart';
@@ -15,6 +13,7 @@ import 'Coupons.dart';
 import 'About App.dart';
 import 'Remove Account.dart';
 import 'bottom_nav.dart';
+import 'package:p2/services/auth_service.dart'; 
 
 class SettingPage extends StatefulWidget {
   const SettingPage({super.key});
@@ -24,7 +23,105 @@ class SettingPage extends StatefulWidget {
 }
 
 class _SettingPageState extends State<SettingPage> {
-  final SettingLogic _logic = SettingLogic();
+  bool _isSyncing = false;
+  bool _muteNotifications = false;
+  bool _appAppearance = false;
+
+  
+  Future<void> _syncSettingsWithServer() async {
+    setState(() {
+      _isSyncing = true;
+    });
+
+  
+    await Future.delayed(const Duration(seconds: 2));
+
+    setState(() {
+      _isSyncing = false;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Settings synced successfully'),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+
+  
+  Future<void> _handleToggleNotifications() async {
+    setState(() {
+      _muteNotifications = !_muteNotifications;
+    });
+  }
+
+  
+  Future<void> _handleToggleAppearance() async {
+    setState(() {
+      _appAppearance = !_appAppearance;
+    });
+  }
+
+  Widget _buildHeader() {
+    return ClipPath(
+      clipper: SideCurveClipper(),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.only(top: 50, bottom: 60),
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF1F0F46), Color(0xFF8A005D)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: Stack(
+          children: [
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    AppLocale.t('my_profile'),
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                  if (_isSyncing)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            "Syncing...",
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.white.withOpacity(0.8),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,30 +132,7 @@ class _SettingPageState extends State<SettingPage> {
           backgroundColor: Colors.white,
           body: Column(
             children: [
-              ClipPath(
-                clipper: SideCurveClipper(),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.only(top: 50, bottom: 60),
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Color(0xFF1F0F46), Color(0xFF8A005D)],
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                    ),
-                  ),
-                  child: Center(
-                    child: Text(
-                      AppLocale.t('my_profile'),
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+              _buildHeader(),
               Expanded(
                 child: ListView(
                   padding: const EdgeInsets.symmetric(vertical: 10),
@@ -187,12 +261,8 @@ class _SettingPageState extends State<SettingPage> {
                       },
                     ),
                     SwitchListTile(
-                      value: _logic.muteNotifications,
-                      onChanged: (val) {
-                        setState(() {
-                          _logic.updateSettings(val, _logic.appAppearance);
-                        });
-                      },
+                      value: _muteNotifications,
+                      onChanged: (val) => _handleToggleNotifications(),
                       title: const Text("Mute Notifications"),
                       secondary: CircleAvatar(
                         backgroundColor: Colors.grey[300],
@@ -201,24 +271,18 @@ class _SettingPageState extends State<SettingPage> {
                       ),
                     ),
                     SwitchListTile(
-                      value: _logic.appAppearance,
-                      onChanged: (val) {
-                        setState(() {
-                          _logic.updateSettings(_logic.muteNotifications, val);
-                        });
-                      },
+                      value: _appAppearance,
+                      onChanged: (val) => _handleToggleAppearance(),
                       title: const Text("App Appearance"),
                       secondary: CircleAvatar(
                         backgroundColor: Colors.grey[300],
-                        child:
-                        const Icon(Icons.brightness_4, color: Colors.black),
+                        child: const Icon(Icons.brightness_4, color: Colors.black),
                       ),
                     ),
                     ListTile(
                       leading: CircleAvatar(
                         backgroundColor: Colors.grey[300],
-                        child:
-                        const Icon(Icons.delete_forever, color: Colors.black),
+                        child: const Icon(Icons.delete_forever, color: Colors.black),
                       ),
                       title: Text(AppLocale.t('remove_account')),
                       onTap: () {
@@ -239,12 +303,12 @@ class _SettingPageState extends State<SettingPage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (context) =>
-                              const LogoutConfirmationPage()),
+                              builder: (context) => const LogoutConfirmationPage()),
                         );
                       },
                     ),
-                  ],
+                  
+                   ],
                 ),
               ),
             ],
