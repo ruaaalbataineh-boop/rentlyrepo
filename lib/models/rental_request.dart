@@ -30,6 +30,10 @@ class RentalRequest {
   final DateTime? pickupQrGeneratedAt;
   final String? returnQrToken;
   final DateTime? returnQrGeneratedAt;
+
+  final DateTime? reviewedByRenterAt;
+  final DateTime? reviewedByOwnerAt;
+
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -58,6 +62,8 @@ class RentalRequest {
     this.pickupQrGeneratedAt,
     this.returnQrToken,
     this.returnQrGeneratedAt,
+    this.reviewedByRenterAt,
+    this.reviewedByOwnerAt,
     this.createdAt,
     this.updatedAt,
   });
@@ -112,6 +118,10 @@ class RentalRequest {
       returnQrToken: data["returnQrToken"]?.toString(),
       returnQrGeneratedAt: data["returnQrGeneratedAt"] != null ? 
           _toDate(data["returnQrGeneratedAt"]) : null,
+      reviewedByRenterAt: data["reviewedByRenterAt"] != null ?
+          _toDate(data["reviewedByRenterAt"]) : null,
+      reviewedByOwnerAt: data["reviewedByOwnerAt"] != null ?
+          _toDate(data["reviewedByOwnerAt"]) : null,
       createdAt: data["createdAt"] != null ? 
           _toDate(data["createdAt"]) : null,
       updatedAt: data["updatedAt"] != null ? 
@@ -150,6 +160,10 @@ class RentalRequest {
       returnQrToken: json["returnQrToken"]?.toString(),
       returnQrGeneratedAt: json["returnQrGeneratedAt"] != null ? 
           DateTime.parse(json["returnQrGeneratedAt"].toString()) : null,
+      reviewedByRenterAt: json["reviewedByRenterAt"] != null ?
+          DateTime.parse(json["reviewedByRenterAt"].toString()) : null,
+      reviewedByOwnerAt: json["reviewedByOwnerAt"] != null ?
+          DateTime.parse(json["reviewedByOwnerAt"].toString()) : null,
       createdAt: json["createdAt"] != null ? 
           DateTime.parse(json["createdAt"].toString()) : null,
       updatedAt: json["updatedAt"] != null ? 
@@ -184,6 +198,8 @@ class RentalRequest {
       "pickupQrGeneratedAt": pickupQrGeneratedAt?.toIso8601String(),
       "returnQrToken": returnQrToken,
       "returnQrGeneratedAt": returnQrGeneratedAt?.toIso8601String(),
+      "reviewedByRenterAt": reviewedByRenterAt?.toIso8601String(),
+      "reviewedByOwnerAt": reviewedByOwnerAt?.toIso8601String(),
       "createdAt": createdAt?.toIso8601String(),
       "updatedAt": updatedAt?.toIso8601String(),
     };
@@ -227,6 +243,8 @@ class RentalRequest {
     DateTime? pickupQrGeneratedAt,
     String? returnQrToken,
     DateTime? returnQrGeneratedAt,
+    DateTime? reviewedByRenterAt,
+    DateTime? reviewedByOwnerAt,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -255,6 +273,8 @@ class RentalRequest {
       pickupQrGeneratedAt: pickupQrGeneratedAt ?? this.pickupQrGeneratedAt,
       returnQrToken: returnQrToken ?? this.returnQrToken,
       returnQrGeneratedAt: returnQrGeneratedAt ?? this.returnQrGeneratedAt,
+      reviewedByRenterAt: reviewedByRenterAt ?? this.reviewedByRenterAt,
+      reviewedByOwnerAt: reviewedByOwnerAt ?? this.reviewedByOwnerAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

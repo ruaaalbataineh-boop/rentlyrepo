@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:p2/logic/orders_logic.dart';
 import 'package:p2/WalletPage.dart';
 import 'package:p2/models/rental_request.dart';
+import 'package:p2/rate_product_page.dart';
 import 'QrPage.dart';
 import 'QrScannerPage.dart';
 import 'app_locale.dart';
@@ -182,6 +183,60 @@ void initState() {
     );
   }
 
+  Widget _buildReviewButton(RentalRequest req) {
+    return GestureDetector(
+      onTap: () async {
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => RateProductPage(
+              requestId: req.id,
+              itemTitle: req.itemTitle,
+              ownerName: req.ownerName,
+              renterName: req.renterName,
+              isRenter: true,
+            ),
+          ),
+        );
+
+        if (result == true) {
+          setState(() {});
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFF8A005D),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Text(
+          "Review",
+          style: TextStyle(color: Colors.white, fontSize: 12),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReviewedBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.green.shade600,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.check, color: Colors.white, size: 14),
+          SizedBox(width: 4),
+          Text(
+            "Reviewed",
+            style: TextStyle(color: Colors.white, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildRequestTile(RentalRequest req) {
     final requestDetails = _logic.getRequestDetails(req);
 
@@ -256,6 +311,12 @@ void initState() {
                       );
                     },
                   ),
+                ],
+                if (req.status == "ended" || req.status == "cancelled") ...[
+                  if (req.reviewedByRenterAt == null)
+                    _buildReviewButton(req)
+                  else
+                    _buildReviewedBadge(),
                 ],
               ],
             ),

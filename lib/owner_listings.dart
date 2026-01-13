@@ -2,12 +2,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:p2/rate_product_page.dart';
 import 'package:p2/security/route_guard.dart';
 import 'package:p2/services/firestore_service.dart';
 import 'package:p2/security/error_handler.dart';
 import 'AddItemPage .dart';
 import 'QrPage.dart';
 import 'QrScannerPage.dart';
+import 'UserProfilePage.dart';
 import 'bottom_nav.dart';
 
 class OwnerItemsPage extends StatefulWidget {
@@ -502,8 +504,15 @@ class _OwnerItemsPageState extends State<OwnerItemsPage> {
       );
     }
 
+    if ((status == "ended" || status == "cancelled")) {
+      if (data["reviewedByOwnerAt"] == null)
+        return _buildOwnerReviewButton(requestId, data);
+      else
+        return _buildReviewedBadge();
+    }
+
     return const SizedBox();
-  }
+    }
 
   Widget _buildRequestDetails(Map<String, dynamic> data, String renterName) {
     String formatTimestamp(dynamic value) {
@@ -528,7 +537,28 @@ class _OwnerItemsPageState extends State<OwnerItemsPage> {
               subtitle: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Renter name: $renterName"),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => UserProfilePage(
+                            userId: data["renterUid"],
+                            userName: data["renterName"],
+                            showReviewsFromRenters: false,
+                          ),
+                        ),
+                      );
+                    },
+                    child: Text(
+                      "Renter name: ${data["renterName"]}",
+                      style: const TextStyle(
+                        fontSize: 16,
+                        decoration: TextDecoration.underline,
+                        color: Color(0xFF8A005D),
+                      ),
+                    ),
+                  ),
                   Text("Rental Type: ${data["rentalType"]}"),
                   Text("Quantity: ${data["rentalQuantity"]}"),
 
@@ -583,16 +613,7 @@ class _OwnerItemsPageState extends State<OwnerItemsPage> {
                       (latitude != null && longitude != null)
                           ? "Lat: $latitude\nLng: $longitude"
                           : "No location set",
-                      style: const TextStyle(fontSize: 14)),
-                  const SizedBox(height: 12),
-
-                  const Text("Ratings:",
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  Text(
-                    ratingCount == 0
-                        ? "No ratings yet"
-                        : " $avgRating ($ratingCount reviews)",
-                    style: const TextStyle(fontSize: 14),
+                      style: const TextStyle(fontSize: 14)
                   ),
                   const SizedBox(height: 15),
 
@@ -801,8 +822,64 @@ class _OwnerItemsPageState extends State<OwnerItemsPage> {
     }
   }
 
-  
-  String _sanitizeString(String input) {
+  Widget _buildOwnerReviewButton(
+      String requestId,
+      Map<String, dynamic> data,
+      ) {
+    return GestureDetector(
+      onTap: () async {
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => RateProductPage(
+              requestId: requestId,
+              itemTitle: data["itemTitle"] ?? "",
+              ownerName: data["ownerName"],
+              renterName: data["renterName"],
+              isRenter: false, // OWNER reviewing renter
+            ),
+          ),
+        );
+
+        if (result == true) {
+          setState(() {});
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFF8A005D),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Text(
+          "Review",
+          style: TextStyle(color: Colors.white, fontSize: 12),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReviewedBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.green.shade600,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.check, color: Colors.white, size: 14),
+          SizedBox(width: 4),
+          Text(
+            "Reviewed",
+            style: TextStyle(color: Colors.white, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+
+String _sanitizeString(String input) {
     return input
         .replaceAll('<', '')
         .replaceAll('>', '')
@@ -811,7 +888,6 @@ class _OwnerItemsPageState extends State<OwnerItemsPage> {
         .trim();
   }
 }
-
 
 class SideCurveClipper extends CustomClipper<Path> {
   @override

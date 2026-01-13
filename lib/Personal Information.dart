@@ -308,8 +308,6 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
 
               _buildSaveButton(),
               const SizedBox(height: 15),
-
-              _buildRateProductButton(),
             ],
           ),
         ),
@@ -610,72 +608,6 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                   ),
                 ),
               ),
-      ),
-    );
-  }
-
-  Widget _buildRateProductButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 50,
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.orange,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(25),
-          ),
-        ),
-        onPressed: () async {
-          try {
-            await _logNavigationAction('rate_product');
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const RateProductPage(productId: '', productName: '',),
-              ),
-            );
-          } catch (error) {
-            ErrorHandler.logError('Navigate to Rate Product', error);
-            _showSnackBar(ErrorHandler.getSafeError(error));
-          }
-        },
-        child: const Text(
-          'Rate Product',
-          style: TextStyle(fontSize: 18, color: Colors.white),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildUserRateButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 50,
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.green,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(25),
-          ),
-        ),
-        onPressed: () async {
-          try {
-            await _logNavigationAction('user_rate');
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const UserRatePage(userId: '', userName: '',),
-              ),
-            );
-          } catch (error) {
-            ErrorHandler.logError('Navigate to User Rate', error);
-            _showSnackBar(ErrorHandler.getSafeError(error));
-          }
-        },
-        child: const Text(
-          'User Rate',
-          style: TextStyle(fontSize: 18, color: Colors.white),
-        ),
       ),
     );
   }

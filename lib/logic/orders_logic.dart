@@ -414,7 +414,7 @@ class OrdersLogic {
     return [];
   }
 
-  Map<String, String> getRequestDetails(RentalRequest req) {
+  Map<String, String?> getRequestDetails(RentalRequest req) {
     try {
       if (!_isInitialized) {
         return {'Status': 'Loading...'};
@@ -427,12 +427,13 @@ class OrdersLogic {
         return {'Error': 'Access denied'};
       }
 
-      final details = <String, String>{
-        'Rental Type': InputValidator.sanitizeInput(req.rentalType),
+      final details = <String, String?>{
+        'Owner Name': req.ownerName,
+        'Rental Type': req.rentalType,
         'Quantity': req.rentalQuantity.toString(),
         'Start Date': _formatDate(req.startDate),
         'End Date': _formatDate(req.endDate),
-        'Total Price': 'JOD ${req.totalPrice.toStringAsFixed(2)}',
+        'Total Price': '${req.totalPrice.toStringAsFixed(2)}JD',
       };
 
       if (req.startTime != null && req.startTime!.isNotEmpty) {

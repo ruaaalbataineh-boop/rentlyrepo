@@ -50,6 +50,8 @@ export { expireWithdrawals } from "./payments/expireWithdrawals";
 export { submitIssueReport } from "./issueReports/submitIssueReport";
 export { approveIssueReport } from "./issueReports/approveIssueReport";
 
+export { submitReview } from "./reviews/submitReview";
+
 
 
 // req notif

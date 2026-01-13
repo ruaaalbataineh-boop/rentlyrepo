@@ -78,9 +78,8 @@ class EquipmentDetailLogic {
     'EquipmentDetailLogic',
     'User not authenticated yet delaying init',
       );
-      return; // ❗ لا ترمي Exception
+      return;
     }
-
 
       // Security: Load rental attempt history
       await _loadRentalHistory();
@@ -207,37 +206,42 @@ class EquipmentDetailLogic {
     }
   }
 
- Future<void> loadOwnerName(String uid) async {
-  try {
-    if (!_isValidUserId(uid)) {
-      ownerName = "Owner";
-      return;
-    }
+  Future<void> loadOwnerName(String uid) async {
+    try {
+      if (!_isValidUserId(uid)) {
+        ownerName = "Owner";
+        return;
+      }
 
-    final snap = await FirebaseDatabase.instance
-        .ref("users/$uid/name")
-        .get()
-        .timeout(const Duration(seconds: 10));
+      final snap = await FirebaseFirestore.instance
+          .collection("users")
+          .doc(uid)
+          .get();
 
-    if (snap.exists && snap.value != null) {
-      final name = snap.value.toString().trim();
+      if (snap.exists) {
+        final data = snap.data()!;
 
-      if (name.isNotEmpty && InputValidator.hasNoMaliciousCode(name)) {
-        ownerName = InputValidator.sanitizeInput(name);
+        final first = data["firstName"] ?? data["firstname"] ?? "";
+        final last = data["lastName"] ?? data["lastname"] ?? "";
+
+        final fullName = "$first $last".trim();
+
+        if (fullName.isNotEmpty &&
+            InputValidator.hasNoMaliciousCode(fullName)) {
+          ownerName = InputValidator.sanitizeInput(fullName);
+        } else {
+          ownerName = "Owner";
+        }
       } else {
         ownerName = "Owner";
       }
-    } else {
+
+      ErrorHandler.logInfo('EquipmentDetailLogic', 'Owner name loaded: $ownerName');
+    } catch (error) {
+      ErrorHandler.logError('Load Owner Name (Firestore)', error);
       ownerName = "Owner";
     }
-
-    ErrorHandler.logInfo('EquipmentDetailLogic', 'Owner name loaded: $ownerName');
-  } catch (error) {
-    ErrorHandler.logError('Load Owner Name', error);
-    ownerName = "Owner";
   }
-}
- //ظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظظ////
 
   Future<void> loadItemInsuranceInfo(String itemId) async {
     try {
@@ -385,8 +389,6 @@ class EquipmentDetailLogic {
   }
 }
 
- 
- 
   Future<void> loadTopReviews(String itemId) async {
     try {
       if (!_isValidItemId(itemId)) {
@@ -394,59 +396,26 @@ class EquipmentDetailLogic {
         return;
       }
 
-      // Secure API call for reviews
-      final snap = await FirebaseDatabase.instance
-          .ref("reviews/$itemId")
-          .limitToFirst(3)
-          .get()
-          .timeout(const Duration(seconds: 10));
+      final snap = await FirebaseFirestore.instance
+          .collection("reviews")
+          .where("itemId", isEqualTo: itemId)
+          .where("fromRole", isEqualTo: "renter")
+          .orderBy("createdAt", descending: true)
+          .limit(3)
+          .get();
 
-      if (snap.exists) {
-        topReviews = snap.children.map((c) {
-          try {
-            final rating = c.child("rating").value ?? 0;
-            final review = c.child("review").value ?? "";
-            
-            // Security: Sanitize review content
-            final sanitizedReview = InputValidator.sanitizeInput(review.toString());
-            
-            // Security: Validate rating (1-5)
-            final validatedRating = (rating is num) 
-                ? rating.toDouble().clamp(0.0, 5.0)
-                : 0.0;
-            
-            // Security: Check for malicious content
-            if (!InputValidator.hasNoMaliciousCode(sanitizedReview)) {
-              return {
-                "rating": validatedRating,
-                "review": "[Content removed for security]",
-              };
-            }
-            
-            return {
-              "rating": validatedRating,
-              "review": sanitizedReview,
-            };
-          } catch (e) {
-            ErrorHandler.logError('Parse Review', e);
-            return {
-              "rating": 0.0,
-              "review": "[Error loading review]",
-            };
-          }
-        }).toList();
-        
-        // Security: Filter out empty reviews
-        topReviews = topReviews.where((r) => 
-            r["review"].toString().isNotEmpty).toList();
-      } else {
-        topReviews = [];
-      }
-      
-      ErrorHandler.logInfo('EquipmentDetailLogic', 'Loaded ${topReviews.length} reviews');
-      
+      topReviews = snap.docs.map((d) {
+        final data = d.data();
+
+        return {
+          "rating": (data["rating"] ?? 0).toDouble(),
+          "comment": data["comment"] ?? "",
+          "createdAt": (data["createdAt"] as Timestamp?)?.toDate() ?? DateTime.now(),
+        };
+      }).toList();
+
     } catch (error) {
-      ErrorHandler.logError('Load Top Reviews', error);
+      ErrorHandler.logError('Load Top Reviews (Firestore)', error);
       topReviews = [];
     }
   }

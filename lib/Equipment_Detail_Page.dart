@@ -12,6 +12,7 @@ import 'package:p2/logic/equipment_detail_logic.dart';
 import 'FavouriteManager.dart';
 import 'ChatScreen.dart';
 import 'AllReviewsPage.dart';
+import 'UserProfilePage.dart';
 import 'models/Item.dart';
 import 'package:p2/security/error_handler.dart';
 
@@ -27,7 +28,8 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
   int currentPage = 0;
   bool _loaded = false;
   Item? _item;
-  
+  List<Map<String, dynamic>> topReviews = [];
+
   late EquipmentDetailLogic _logic;
   
   get stack => null;
@@ -75,7 +77,9 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
         _logic.loadTopReviews(_item!.id),
         _logic.loadUnavailableRanges(_item!.id),
       ]);
-      
+
+      topReviews = _logic.topReviews;
+
       if (mounted) {
         setState(() {});
       }
@@ -145,7 +149,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                 ),
               ],
 
-              buildReviewsSection(),
+              buildReviewsSection(item),
               buildMapSection(item),
               const SizedBox(height: 40),
             ],
@@ -269,7 +273,30 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
         children: [
           const Icon(Icons.person, color: Color(0xFF8A005D)),
           const SizedBox(width: 8),
-          Text("Owner: ${_logic.ownerName}"),
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => UserProfilePage(
+                    userId: _item!.ownerId,
+                    userName: _logic.ownerName,
+                    showReviewsFromRenters: true,
+                  ),
+                ),
+              );
+            },
+            child: Text(
+              "Owner Name: ${_logic.ownerName}",
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                decoration: TextDecoration.underline,
+                color: Color(0xFF8A005D),
+                fontSize: 16,
+              ),
+            ),
+          ),
+
         ],
       ),
     );
@@ -286,13 +313,41 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
   Widget buildRatingSection(Item item) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-      child: Row(
-        children: [
-          Icon(Icons.star, color: Colors.amber[700], size: 22),
-          const SizedBox(width: 4),
-          Text("${item.averageRating.toStringAsFixed(1)} (${item.ratingCount})"),
-        ],
-      )
+      child: StreamBuilder<DocumentSnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection("items")
+            .doc(item.id)
+            .snapshots(),
+        builder: (context, snap) {
+          if (!snap.hasData) {
+            return Row(
+              children: const [
+                Icon(Icons.star, color: Colors.amber),
+                SizedBox(width: 6),
+                Text("0.0 (0)"),
+              ],
+            );
+          }
+
+          final data = snap.data!.data() as Map<String, dynamic>? ?? {};
+
+          final ratingSum = (data["ratingSum"] ?? 0).toDouble();
+          final ratingCount = (data["ratingCount"] ?? 0).toInt();
+
+          final avg = ratingCount == 0 ? 0.0 : ratingSum / ratingCount;
+
+          return Row(
+            children: [
+              Icon(Icons.star, color: Colors.amber[700], size: 22),
+              const SizedBox(width: 4),
+              Text(
+                "${avg.toStringAsFixed(1)} ($ratingCount)",
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 
@@ -1409,7 +1464,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  Widget buildReviewsSection() {
+  Widget buildReviewsSection(Item item) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Column(
@@ -1420,7 +1475,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 10),
-          if (_logic.topReviews.isEmpty)
+          if (topReviews.isEmpty)
             const Text(
               "No reviews yet",
               style: TextStyle(fontSize: 14, color: Colors.black54),
@@ -1428,15 +1483,14 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
           else
             Column(
               crossAxisAlignment: CrossAxisAlignment.center,
-              children: _logic.topReviews.map((rev) {
+              children: topReviews.map((rev) {
                 return Container(
                   width: double.infinity,
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(12),
-                  constraints: const BoxConstraints(maxWidth: 350),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.grey.shade300, width: 1),
+                    border: Border.all(color: Colors.grey.shade300),
                     color: Colors.white,
                   ),
                   child: Column(
@@ -1447,12 +1501,22 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                           Icon(Icons.star, color: Colors.amber[700], size: 20),
                           const SizedBox(width: 6),
                           Text("${rev['rating']}"),
+                          const Spacer(),
+                          Text(
+                            DateFormat("MMM d").format(rev['createdAt']),
+                            style: const TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        rev['review'],
+                        rev['comment'],
                         style: const TextStyle(fontSize: 14),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        "By anonymous user",
+                        style: const TextStyle(fontSize: 12, color: Colors.grey),
                       ),
                     ],
                   ),
@@ -1467,7 +1531,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => AllReviewsPage(itemId: _item!.id),
+                    builder: (_) => AllReviewsPage(itemId: item.id),
                   ),
                 );
               },
