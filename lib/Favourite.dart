@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:p2/logic/favourite_logic.dart';
 
@@ -13,6 +12,26 @@ class FavouritePage extends StatefulWidget {
 
 class _FavouritePageState extends State<FavouritePage> {
   final FavouriteLogic _logic = FavouriteLogic();
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeLogic();
+  }
+
+  Future<void> _initializeLogic() async {
+    try {
+      await _logic.initialize();
+      setState(() {
+        _isLoading = false;
+      });
+    } catch (error) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -20,11 +39,14 @@ class _FavouritePageState extends State<FavouritePage> {
       appBar: AppBar(
         title: const Text("Favourite"),
       ),
-      body: _buildBody(),
+      body: _isLoading 
+          ? const Center(child: CircularProgressIndicator())
+          : _buildBody(),
     );
   }
 
   Widget _buildBody() {
+   
     if (!_logic.hasFavourites) {
       return Center(
         child: Text(
@@ -79,6 +101,7 @@ class _FavouritePageState extends State<FavouritePage> {
     );
   }
 
+  
   Widget _buildItemCard(Map<String, dynamic> itemData) {
     final itemId = _logic.getItemId(itemData);
     final itemName = _logic.getItemName(itemData);
