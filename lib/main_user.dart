@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:overlay_support/overlay_support.dart';
+import 'package:p2/app_theme.dart';
 import 'package:p2/security/error_test_page.dart';
 import 'package:p2/security/security_test_page.dart';
 import 'package:provider/provider.dart';
@@ -207,138 +208,145 @@ class MyApp extends StatelessWidget {
     return ValueListenableBuilder<Locale>(
       valueListenable: AppLocale.locale,
       builder: (context, locale, child) {
-        return MaterialApp(
-          navigatorKey: navigatorKey,
-          debugShowCheckedModeBanner: false,
 
-          locale: locale,
-          supportedLocales: const [
-            Locale('en'),
-            Locale('ar'),
-          ],
-          localizationsDelegates: const [
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
+        // ⭐ ADDED (لفّينا MaterialApp فقط)
+        return ValueListenableBuilder<ThemeMode>(
+          valueListenable: AppTheme.themeMode,
+          builder: (context, themeMode, _) {
 
-          
-          home: const MainPage(),
+            return MaterialApp(
+              navigatorKey: navigatorKey,
+              debugShowCheckedModeBanner: false,
 
-          routes: {
-            '/login': (context) => const LoginPage(),
-            '/create': (context) => const CreateAccountPage(),
-            '/phone': (context) => const PhonePage(uid: '', email: ''),
-            '/Code': (context) => const EnterTheCode(),
-            '/orders': (context) => const OrdersPage(),
-            '/setting': (context) => const SettingPage(),
-            '/category': (context) => const CategoryPage(),
-            '/favorites': (context) => const FavouritePage(),
-            
-      
-            '/test/security': (context) =>  SecurityTestPage(),
-            '/test/errors': (context) =>  ErrorTestPage(),
-          },
+              // ⭐ ADDED
+              themeMode: themeMode,
+              theme: ThemeData(brightness: Brightness.light),
+              darkTheme: ThemeData(brightness: Brightness.dark),
 
-          //  Safe routing with validation
-          onGenerateRoute: (settings) {
-            try {
-              if (settings.name == ProductListPage.routeName) {
-                return MaterialPageRoute(
-                  settings: settings,
-                  builder: (_) => const ProductListPage(),
-                );
-              }
+              locale: locale,
+              supportedLocales: const [
+                Locale('en'),
+                Locale('ar'),
+              ],
+              localizationsDelegates: const [
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
 
-              if (settings.name == EquipmentDetailPage.routeName) {
-                if (settings.arguments is! Item) return _errorRoute();
-                return MaterialPageRoute(
-                  settings: settings,
-                  builder: (_) => const EquipmentDetailPage(),
-                );
-              }
+              home: const MainPage(),
 
-              if (settings.name == '/add-item') {
-                final data = settings.arguments;
-                if (data is! Map<String, dynamic>) return _errorRoute();
+              routes: {
+                '/login': (context) => const LoginPage(),
+                '/create': (context) => const CreateAccountPage(),
+                '/phone': (context) => const PhonePage(uid: '', email: ''),
+                '/Code': (context) => const EnterTheCode(),
+                '/orders': (context) => const OrdersPage(),
+                '/setting': (context) => const SettingPage(),
+                '/category': (context) => const CategoryPage(),
+                '/favorites': (context) => const FavouritePage(),
+                '/test/security': (context) => SecurityTestPage(),
+                '/test/errors': (context) => ErrorTestPage(),
+              },
 
-                return MaterialPageRoute(
-                  builder: (_) => AddItemPage(
-                    existingItem: data['item'],
-                  ),
-                );
-              }
+              onGenerateRoute: (settings) {
+                try {
+                  if (settings.name == ProductListPage.routeName) {
+                    return MaterialPageRoute(
+                      settings: settings,
+                      builder: (_) => const ProductListPage(),
+                    );
+                  }
 
-              if (settings.name == '/map') {
-                final position = settings.arguments;
-                if (position is! LatLng?) return _errorRoute();
+                  if (settings.name == EquipmentDetailPage.routeName) {
+                    if (settings.arguments is! Item) return _errorRoute();
+                    return MaterialPageRoute(
+                      settings: settings,
+                      builder: (_) => const EquipmentDetailPage(),
+                    );
+                  }
 
-                return MaterialPageRoute(
-                  builder: (_) => MapScreen(initialPosition: position),
-                );
-              }
+                  if (settings.name == '/add-item') {
+                    final data = settings.arguments;
+                    if (data is! Map<String, dynamic>) return _errorRoute();
 
-              return null;
-            } catch (error, stackTrace) {
-        
-              print(' Route Generation Error: $error');
-              print(' Route Stack: $stackTrace');
-              
-              if (error is ArgumentError) {
-                print(' Route ArgumentError: ${error.message}');
-                return _safeErrorRoute('Route error occurred');
-              }
-              
-              return _safeErrorRoute('Navigation failed');
-            }
-          },
-          
-          
-          builder: (context, widget) {
-            if (widget == null) {
-              return const MaterialApp(
-                home: Scaffold(
-                  body: Center(
-                    child: Text(
-                      'Widget is null',
-                      style: TextStyle(color: Colors.red),
-                    ),
-                  ),
-                ),
-              );
-            }
-            
-            try {
-              return widget;
-            } catch (error, stackTrace) {
-              print(' Widget Builder Error: $error');
-              print(' Widget Builder Stack: $stackTrace');
-              
-              return MaterialApp(
-                home: Scaffold(
-                  body: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.error, size: 50, color: Colors.red),
-                        const SizedBox(height: 20),
-                        const Text(
-                          'UI Error',
-                          style: TextStyle(fontSize: 20, color: Colors.red),
+                    return MaterialPageRoute(
+                      builder: (_) => AddItemPage(
+                        existingItem: data['item'],
+                      ),
+                    );
+                  }
+
+                  if (settings.name == '/map') {
+                    final position = settings.arguments;
+                    if (position is! LatLng?) return _errorRoute();
+
+                    return MaterialPageRoute(
+                      builder: (_) =>
+                          MapScreen(initialPosition: position),
+                    );
+                  }
+
+                  return null;
+                } catch (error, stackTrace) {
+                  print(' Route Generation Error: $error');
+                  print(' Route Stack: $stackTrace');
+                  return _safeErrorRoute('Navigation failed');
+                }
+              },
+
+              builder: (context, widget) {
+                if (widget == null) {
+                  return const MaterialApp(
+                    home: Scaffold(
+                      body: Center(
+                        child: Text(
+                          'Widget is null',
+                          style: TextStyle(color: Colors.red),
                         ),
-                        const SizedBox(height: 10),
-                        ElevatedButton(
-                          onPressed: () {
-                            Navigator.of(context).pop();
-                          },
-                          child: const Text('Go Back'),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-                ),
-              );
-            }
+                  );
+                }
+
+                try {
+                  return widget;
+                } catch (error, stackTrace) {
+                  print(' Widget Builder Error: $error');
+                  print(' Widget Builder Stack: $stackTrace');
+
+                  return MaterialApp(
+                    home: Scaffold(
+                      body: Center(
+                        child: Column(
+                          mainAxisAlignment:
+                              MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.error,
+                                size: 50,
+                                color: Colors.red),
+                            const SizedBox(height: 20),
+                            const Text(
+                              'UI Error',
+                              style: TextStyle(
+                                  fontSize: 20,
+                                  color: Colors.red),
+                            ),
+                            const SizedBox(height: 10),
+                            ElevatedButton(
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                              },
+                              child: const Text('Go Back'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }
+              },
+            );
           },
         );
       },
