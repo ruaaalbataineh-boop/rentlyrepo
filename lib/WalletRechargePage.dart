@@ -1,11 +1,9 @@
-
 import 'package:flutter/material.dart';
 import 'package:p2/EfawateercomPaymentPage.dart';
 import 'package:p2/CreditCardPaymentPage.dart';
 import 'package:p2/services/firestore_service.dart';
 import 'package:p2/user_manager.dart';
-import 'logic/wallet_recharge_logic.dart';
-
+import 'package:p2/logic/wallet_recharge_logic.dart';
 
 class WalletRechargePage extends StatefulWidget {
   const WalletRechargePage({super.key});
@@ -18,11 +16,54 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   String? selectedMethod;
   final TextEditingController amountController = TextEditingController();
-
   bool loading = false;
+  bool securityInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeSecurity();
+  }
+
+  @override
+  void dispose() {
+    
+    // WalletSecurityHandler.dispose();
+    super.dispose();
+  }
+
+  Future<void> _initializeSecurity() async {
+    try {
+     
+      // await WalletSecurityHandler.initialize();
+      setState(() {
+        securityInitialized = true;
+      });
+    } catch (error) {
+      print(' Failed to initialize security: $error');
+      setState(() {
+        securityInitialized = true; 
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (!securityInitialized) {
+      return const Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 20),
+              Text('Loading...'),
+            ],
+          ),
+        ),
+      );
+    }
+
     final userId = UserManager.uid;
 
     if (userId == null) {
@@ -37,12 +78,9 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
       stream: FirestoreService.combinedWalletStream(userId),
       builder: (context, snapshot) {
         final isLoading = snapshot.connectionState == ConnectionState.waiting;
-
         final balances = snapshot.data ?? {"userBalance": 0.0, "holdingBalance": 0.0};
         final currentBalance = balances["userBalance"] ?? 0.0;
         final holdingBalance = balances["holdingBalance"] ?? 0.0;
-
-        final balanceStats = WalletRechargeLogic.getBalanceStats(currentBalance);
 
         return Scaffold(
           appBar: AppBar(
@@ -75,7 +113,7 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
             absorbing: loading,
             child: Stack(
               children: [
-                _buildBody(balanceStats, isLoading, currentBalance, holdingBalance),
+                _buildBody(currentBalance, holdingBalance),
                 if (loading)
                   const Center(child: CircularProgressIndicator()),
               ],
@@ -86,14 +124,14 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
     );
   }
 
-  Widget _buildBody(Map<String, String> balanceStats, bool isLoading, double currentBalance, double holdingBalance) {
+  Widget _buildBody(double currentBalance, double holdingBalance) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Form(
         key: _formKey,
         child: Column(
           children: [
-            _buildBalanceCard(balanceStats, currentBalance, holdingBalance),
+            _buildBalanceCard(currentBalance, holdingBalance),
             const SizedBox(height: 25),
             _buildAmountInputCard(),
             const SizedBox(height: 20),
@@ -110,7 +148,7 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
     );
   }
 
-  Widget _buildBalanceCard(Map<String, String> stats, double currentBalance, double holdingBalance) {
+  Widget _buildBalanceCard(double currentBalance, double holdingBalance) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -182,8 +220,7 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
+              children: [
                 Icon(Icons.add_circle, color: Color(0xFF8A005D)),
                 SizedBox(width: 10),
                 Expanded(
@@ -206,7 +243,7 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
               controller: amountController,
               keyboardType: TextInputType.number,
               textAlign: TextAlign.center,
-              validator: WalletRechargeLogic.validateAmount, 
+              validator: WalletRechargeLogic.validateAmount,
               style: const TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.w700,
@@ -464,7 +501,7 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
   }
 
   Widget _buildContinueButton() {
-    final canProceed = WalletRechargeLogic.canProceedToPayment( 
+    final canProceed = WalletRechargeLogic.canProceedToPayment(
       amountController.text,
       selectedMethod,
     );
@@ -501,17 +538,11 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
           borderRadius: BorderRadius.circular(12),
           child: InkWell(
             borderRadius: BorderRadius.circular(12),
-            onTap: canProceed ? _handlePayment : null,
+            onTap: canProceed ? _handleSecurePayment : null,
             child: Center(
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.lock_outline,
-                    color: canProceed ? Colors.white : Colors.grey[300],
-                    size: 22,
-                  ),
-                  const SizedBox(width: 10),
                   Text(
                     'Continue to Payment',
                     style: TextStyle(
@@ -560,29 +591,6 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
       ),
     );
   }
- 
-  Widget _buildMiniStat(String period, String amount, Color color) {
-    return Column(
-      children: [
-        Text(
-          period,
-          style: const TextStyle(
-            color: Colors.white70,
-            fontSize: 10,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          amount,
-          style: TextStyle(
-            color: color,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
-    );
-  }
 
   Widget _buildInfoItem(String text) {
     return Padding(
@@ -627,22 +635,37 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
     }
   }
 
-  Future<void> _handlePayment() async {
+  Future<void> _handleSecurePayment() async {
     if (!_formKey.currentState!.validate()) return;
     if (selectedMethod == null) return;
 
     final amount = WalletRechargeLogic.parseAmount(amountController.text);
 
     try {
+      // أضفت هنا التحقق الأمني بدون تغيير الواجهة
+      final isSecure = await _performSecurityCheck(
+        amount: amount,
+        method: selectedMethod!,
+      );
+
+      if (!isSecure) {
+        return;
+      }
+
       setState(() => loading = true);
 
       Map<String, dynamic> response;
 
       if (selectedMethod == "credit_card") {
-        response = await FirestoreService.createStripeTopUp(amount: amount, userId: UserManager.uid!);
+        response = await FirestoreService.createStripeTopUp(
+          amount: amount, 
+          userId: UserManager.uid!
+        );
       } else {
-        response =
-        await FirestoreService.createEfawateerkomTopUp(amount: amount, userId: UserManager.uid!);
+        response = await FirestoreService.createEfawateerkomTopUp(
+          amount: amount, 
+          userId: UserManager.uid!
+        );
       }
 
       setState(() => loading = false);
@@ -650,7 +673,7 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
       final ref = response["referenceNumber"];
       final method = response["method"];
       final clientSecret = response["clientSecret"];
-
+      
       if (method == "credit_card") {
         Navigator.push(
           context,
@@ -676,10 +699,75 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
 
     } catch (e) {
       setState(() => loading = false);
-
+      
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to start payment process")),
+        const SnackBar(
+          content: Text("Payment process failed"),
+          backgroundColor: Colors.red,
+        ),
       );
     }
+  }
+
+  // هذه الدالة الأمنية بدون تغيير الواجهة
+  Future<bool> _performSecurityCheck({
+    required double amount,
+    required String method,
+  }) async {
+    try {
+      // 1. تحقق من الحدود
+      if (amount < WalletRechargeLogic.minRechargeAmount || 
+          amount > WalletRechargeLogic.maxRechargeAmount) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Invalid amount'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return false;
+      }
+
+      // 2. تحقق من طريقة الدفع
+      final validMethods = WalletRechargeLogic.paymentMethods.map((m) => m['id']).toList();
+      if (!validMethods.contains(method)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Invalid payment method'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return false;
+      }
+
+      // 3. تحقق من المبالغ المشبوهة (منطق أمني)
+      if (_isSuspiciousAmount(amount)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Amount requires verification'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+
+      return true;
+
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Security check failed'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return false;
+    }
+  }
+
+  bool _isSuspiciousAmount(double amount) {
+    // منطق الكشف عن المبالغ المشبوهة
+    if (amount % 10000 == 0 && amount > 10000) return true;
+    if (amount >= WalletRechargeLogic.maxRechargeAmount * 0.95) return true;
+    
+    final fraudAmounts = [999, 999.99, 9999, 9999.99];
+    return fraudAmounts.contains(amount) || fraudAmounts.contains(amount.toInt());
   }
 }
