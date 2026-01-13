@@ -2,11 +2,19 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show LengthLimitingTextInputFormatter;
 import 'package:image_picker/image_picker.dart';
 import 'package:p2/pick_location_page.dart';
 import 'package:p2/services/firestore_service.dart';
 import 'package:p2/services/storage_service.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+
+// Add security imports
+import 'security/input_validator.dart';
+import 'security/secure_storage.dart';
+import 'security/route_guard.dart';
+import 'security/api_security.dart';
+import 'security/error_handler.dart';
 
 class AddItemPage extends StatefulWidget {
   const AddItemPage({super.key, this.existingItem});
@@ -66,21 +74,28 @@ class _AddItemPageState extends State<AddItemPage> {
   };
   
   final availableRentalPeriods = [
-    "Hourly",
     "Daily",
     "Weekly",
     "Monthly",
     "Yearly"
   ];
-  
+
+  // Security variables
+  bool _isLoading = false;
+  int _imageUploadAttempts = 0;
+  final int _maxImageUploadAttempts = 3;
+
   @override
   void initState() {
     super.initState();
     
+    // Security check
+    _checkAuthentication();
+    
     if (widget.existingItem != null) {
       final data = widget.existingItem!;
-      nameController.text = data["name"] ?? "";
-      descController.text = data["description"] ?? "";
+      nameController.text = InputValidator.sanitizeInput(data["name"] ?? "");
+      descController.text = InputValidator.sanitizeInput(data["description"] ?? "");
       selectedCategory = data["category"];
       selectedSubCategory = data["subCategory"];
       rentalPeriods = Map<String, dynamic>.from(data["rentalPeriods"] ?? {});
@@ -90,6 +105,19 @@ class _AddItemPageState extends State<AddItemPage> {
         final insuranceData = Map<String, dynamic>.from(data["insurance"]);
         OriginalPriceController.text = insuranceData["itemOriginalPrice"]?.toString() ?? "";
       }
+    }
+  }
+
+  // Security: Check if user is authenticated
+  void _checkAuthentication() {
+    if (!RouteGuard.isAuthenticated()) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/login',
+          (route) => false,
+        );
+      });
     }
   }
 
@@ -128,12 +156,53 @@ class _AddItemPageState extends State<AddItemPage> {
     }
   }
   
+  // Secure image picking with validation
   Future<void> pickImages() async {
-    final images = await ImagePicker().pickMultiImage(imageQuality: 85);
-    if (images != null) {
-      setState(() {
-        pickedImages.addAll(images.map((i) => File(i.path)));
-      });
+    try {
+      if (!RouteGuard.isAuthenticated()) {
+        showError("Authentication required");
+        return;
+      }
+
+      // Check number of images (security limit)
+      if (pickedImages.length + existingImageUrls.length >= 10) {
+        showError("Maximum 10 images allowed");
+        return;
+      }
+
+      final images = await ImagePicker().pickMultiImage(
+        imageQuality: 85,
+        maxWidth: 2048,
+        maxHeight: 2048,
+      );
+      
+      if (images != null) {
+        // Validate each image
+        for (final image in images) {
+          final file = File(image.path);
+          
+          // Check file size (max 5MB)
+          final fileSize = await file.length();
+          if (fileSize > 5 * 1024 * 1024) {
+            showError("Image too large (max 5MB): ${image.name}");
+            continue;
+          }
+
+          // Check file type
+          final extension = image.path.split('.').last.toLowerCase();
+          if (!['jpg', 'jpeg', 'png', 'gif'].contains(extension)) {
+            showError("Invalid image format: ${image.name}");
+            continue;
+          }
+        }
+
+        setState(() {
+          pickedImages.addAll(images.map((i) => File(i.path)).toList());
+        });
+      }
+    } catch (error) {
+      ErrorHandler.logError('Image Picking', error);
+      showError("Failed to pick images");
     }
   }
   
@@ -145,69 +214,178 @@ class _AddItemPageState extends State<AddItemPage> {
     setState(() => existingImageUrls.remove(url));
   }
   
+  // Secure rental period addition with validation
   void addRentalPeriod() {
-    if (newRentalPeriod == null || priceController.text.isEmpty) {
-      showError("Please select a rental period and enter a price.");
+    try {
+      if (newRentalPeriod == null || priceController.text.isEmpty) {
+        showError("Please select a rental period and enter a price.");
+        return;
+      }
+
+      // Input validation
+      if (!InputValidator.hasNoMaliciousCode(priceController.text)) {
+        showError("Invalid price format");
+        return;
+      }
+
+      final rentalPrice = double.tryParse(priceController.text);
+
+      if (rentalPrice == null || rentalPrice <= 0) {
+        showError("Enter a valid price");
+        return;
+      }
+
+      // Price range validation
+      if (rentalPrice > 10000) {
+        showError("Price cannot exceed 10,000 JD");
+        return;
+      }
+
+      rentalPeriods[newRentalPeriod!] = rentalPrice;
+      newRentalPeriod = null;
+      priceController.clear();
+      setState(() {});
+    } catch (error) {
+      ErrorHandler.logError('Add Rental Period', error);
+      showError("Failed to add rental period");
+    }
+  }
+  
+  // Secure location picking
+  Future<void> pickLocation() async {
+    try {
+      if (!RouteGuard.isAuthenticated()) {
+        showError("Authentication required");
+        return;
+      }
+
+      final result = await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const PickLocationPage()),
+      );
+      
+      if (result != null && result is LatLng) {
+        setState(() {
+          latitude = result.latitude;
+          longitude = result.longitude;
+        });
+      }
+    } catch (error) {
+      ErrorHandler.logError('Location Picking', error);
+      showError("Failed to pick location");
+    }
+  }
+
+  // Secure save item with all validations
+  Future<void> saveItem() async {
+    if (!RouteGuard.isAuthenticated()) {
+      showError("Authentication required");
       return;
     }
 
-    final rentalPrice = double.tryParse(priceController.text);
+    // Input validation
+    if (nameController.text.isEmpty) {
+      showError("Enter item name");
+      return;
+    }
 
-    if (rentalPrice! <= 0) {
-      return showError("Enter a valid price");
+    if (!InputValidator.hasNoMaliciousCode(nameController.text)) {
+      showError("Invalid characters in item name");
+      return;
     }
-    
-    rentalPeriods[newRentalPeriod!] = rentalPrice;
-    newRentalPeriod = null;
-    priceController.clear();
-    setState(() {});
-  }
-  
-  Future<void> pickLocation() async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const PickLocationPage()),
-    );
-    
-    if (result != null && result is LatLng) {
-      setState(() {
-        latitude = result.latitude;
-        longitude = result.longitude;
-      });
+
+    if (!InputValidator.hasNoMaliciousCode(descController.text)) {
+      showError("Invalid characters in description");
+      return;
     }
-  }
-  Future<void> saveItem() async {
-    if (nameController.text.isEmpty) return showError("Enter item name");
-    if (selectedCategory == null) return showError("Select category");
-    if (selectedSubCategory == null) return showError("Select sub category");
-    if (rentalPeriods.isEmpty) return showError("Add rental periods");
-    if (OriginalPriceController.text.isEmpty) return showError("Enter item original price");
+
+    if (selectedCategory == null) {
+      showError("Select category");
+      return;
+    }
+
+    if (selectedSubCategory == null) {
+      showError("Select sub category");
+      return;
+    }
+
+    if (rentalPeriods.isEmpty) {
+      showError("Add rental periods");
+      return;
+    }
+
+    if (OriginalPriceController.text.isEmpty) {
+      showError("Enter item original price");
+      return;
+    }
 
     final originalPrice = double.tryParse(OriginalPriceController.text);
 
     if (originalPrice == null || originalPrice <= 0) {
-      return showError("Enter valid item original price");
+      showError("Enter valid item original price");
+      return;
     }
+
+    if (originalPrice > 100000) {
+      showError("Item price cannot exceed 100,000 JD");
+      return;
+    }
+
+    // Location validation
+    if (latitude == null || longitude == null) {
+      showError("Please select a location");
+      return;
+    }
+
+    setState(() => _isLoading = true);
 
     try {
       final user = FirebaseAuth.instance.currentUser!;
       final ownerId = user.uid;
 
-      //  upload images
+      // Secure image upload with retry logic
       List<String> uploadedUrls = [];
       for (int i = 0; i < pickedImages.length; i++) {
-        final url = await StorageService.uploadItemImage(
-          ownerId,
-          "temp", // backend assigns final itemId
-          pickedImages[i],
-          "photo_$i.jpg",
-        );
-        uploadedUrls.add(url);
+        _imageUploadAttempts = 0;
+        bool uploadSuccess = false;
+        
+        while (_imageUploadAttempts < _maxImageUploadAttempts && !uploadSuccess) {
+          try {
+            final url = await StorageService.uploadItemImage(
+              ownerId,
+              "temp",
+              pickedImages[i],
+              "photo_$i.jpg",
+            );
+            uploadedUrls.add(url);
+            uploadSuccess = true;
+          } catch (error) {
+            _imageUploadAttempts++;
+            ErrorHandler.logError('Image Upload Attempt $_imageUploadAttempts', error);
+            
+            if (_imageUploadAttempts >= _maxImageUploadAttempts) {
+              throw Exception("Failed to upload image after $_maxImageUploadAttempts attempts");
+            }
+            
+            await Future.delayed(const Duration(seconds: 1));
+          }
+        }
       }
 
       final allImages = [...existingImageUrls, ...uploadedUrls];
 
-      //  insurance
+      // Validate image count
+      if (allImages.isEmpty) {
+        showError("Please add at least one image");
+        return;
+      }
+
+      if (allImages.length > 10) {
+        showError("Maximum 10 images allowed");
+        return;
+      }
+
+      // Insurance calculation
       final insuranceRate = getInsuranceRate(originalPrice);
       final insuranceAmount = calculateInsuranceAmount();
 
@@ -217,11 +395,11 @@ class _AddItemPageState extends State<AddItemPage> {
         "insuranceAmount": insuranceAmount,
       };
 
-      //  build payload
+      // Build secure payload
       final payload = {
         "ownerId": ownerId,
-        "name": nameController.text.trim(),
-        "description": descController.text.trim(),
+        "name": InputValidator.sanitizeInput(nameController.text.trim()),
+        "description": InputValidator.sanitizeInput(descController.text.trim()),
         "category": selectedCategory,
         "subCategory": selectedSubCategory,
         "images": allImages,
@@ -229,29 +407,79 @@ class _AddItemPageState extends State<AddItemPage> {
         "insurance": insuranceData,
         "latitude": latitude,
         "longitude": longitude,
+        //"createdAt": FieldValue.serverTimestamp(), // Secure timestamp
+        //"updatedAt": FieldValue.serverTimestamp(),
+        "createdAt": DateTime.now().millisecondsSinceEpoch,
+        "updatedAt": DateTime.now().millisecondsSinceEpoch,
+        "status": "pending", // Security: default status
       };
 
-      //  CALL CLOUD FUNCTION
+      // Store item data securely for audit trail
+      await SecureStorage.saveData(
+        'last_item_attempt',
+        '${DateTime.now()}: ${nameController.text}',
+      );
+
+      // Secure API call
       await FirestoreService.submitItemForApproval(payload);
 
-      showSuccess("Item submitted for approval");
-      Navigator.pop(context);
+      // Clear sensitive data from memory
+      nameController.clear();
+      descController.clear();
+      OriginalPriceController.clear();
+      priceController.clear();
 
-    } catch (e) {
-      showError("Error: $e");
-    }
+      showSuccess("Item submitted for approval");
+      
+      // Secure navigation back
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+
+    } catch (e, st) {
+  // ✅ اطبع الخطأ الحقيقي
+  debugPrint("🔥 SAVE ITEM REAL ERROR: $e");
+  debugPrint("📌 STACK TRACE:\n$st");
+
+  if (!mounted) return;
+
+  // ✅ اعرض الخطأ الحقيقي بدل رسالة عامة
+  showError("Error: $e");
+} finally {
+  if (!mounted) return;
+  setState(() => _isLoading = false);
+}
+
   }
 
   void showError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(backgroundColor: Colors.red, content: Text(msg)),
+      SnackBar(
+        backgroundColor: Colors.red,
+        content: Text(msg),
+        duration: const Duration(seconds: 3),
+      ),
     );
   }
   
   void showSuccess(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(backgroundColor: Colors.green, content: Text(msg)),
+      SnackBar(
+        backgroundColor: Colors.green,
+        content: Text(msg),
+        duration: const Duration(seconds: 2),
+      ),
     );
+  }
+
+  @override
+  void dispose() {
+    // Clear controllers
+    nameController.dispose();
+    descController.dispose();
+    priceController.dispose();
+    OriginalPriceController.dispose();
+    super.dispose();
   }
   
   @override
@@ -263,24 +491,26 @@ class _AddItemPageState extends State<AddItemPage> {
         children: [
           buildHeader(smallScreen),
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  buildPhotoSection(),
-                  const SizedBox(height: 16),
-                  buildBasicInfoSection(),
-                  const SizedBox(height: 16),
-                  buildRentalPeriodSection(),
-                  const SizedBox(height: 16),
-                  buildInsuranceSection(),
-                  const SizedBox(height: 16),
-                  buildLocationSection(),
-                  const SizedBox(height: 25),
-                  buildSubmitButton(),
-                ],
+            child: _isLoading 
+              ? const Center(child: CircularProgressIndicator())
+              : SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    buildPhotoSection(),
+                    const SizedBox(height: 16),
+                    buildBasicInfoSection(),
+                    const SizedBox(height: 16),
+                    buildRentalPeriodSection(),
+                    const SizedBox(height: 16),
+                    buildInsuranceSection(),
+                    const SizedBox(height: 16),
+                    buildLocationSection(),
+                    const SizedBox(height: 25),
+                    buildSubmitButton(),
+                  ],
+                ),
               ),
-            ),
           ),
         ],
       ),
@@ -307,7 +537,12 @@ class _AddItemPageState extends State<AddItemPage> {
         children: [
           IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              // Secure navigation back
+              if (Navigator.canPop(context)) {
+                Navigator.pop(context);
+              }
+            },
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -339,7 +574,16 @@ class _AddItemPageState extends State<AddItemPage> {
                 border: Border.all(color: const Color(0xFF8A005D)),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Center(child: Text("Add Photos")),
+              child: const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.add_photo_alternate, color: Color(0xFF8A005D)),
+                    SizedBox(height: 5),
+                    Text("Add Photos (Max 10)"),
+                  ],
+                ),
+              ),
             ),
           ),
           
@@ -352,7 +596,20 @@ class _AddItemPageState extends State<AddItemPage> {
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: Image.network(url, width: 90, height: 90, fit: BoxFit.cover),
+                      child: Image.network(
+                        url, 
+                        width: 90, 
+                        height: 90, 
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            width: 90,
+                            height: 90,
+                            color: Colors.grey[200],
+                            child: const Icon(Icons.broken_image),
+                          );
+                        },
+                      ),
                     ),
                     Positioned(
                       top: 4,
@@ -376,13 +633,31 @@ class _AddItemPageState extends State<AddItemPage> {
             const SizedBox(height: 12),
             Wrap(
               spacing: 8,
-              children: pickedImages.map((file) {
+              children: pickedImages.asMap().entries.map((entry) {
+                final index = entry.key;
+                final file = entry.value;
                 return Stack(
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child:
-                      Image.file(file, width: 90, height: 90, fit: BoxFit.cover),
+                      child: Image.file(
+                        file, 
+                        width: 90, 
+                        height: 90, 
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: GestureDetector(
+                        onTap: () => removeImage(index),
+                        child: const CircleAvatar(
+                          radius: 12,
+                          backgroundColor: Colors.red,
+                          child: Icon(Icons.close, size: 14, color: Colors.white),
+                        ),
+                      ),
                     ),
                   ],
                 );
@@ -400,16 +675,39 @@ class _AddItemPageState extends State<AddItemPage> {
       icon: Icons.info_outline,
       child: Column(
         children: [
-          textField(nameController, "Item Name *"),
+          TextField(
+            controller: nameController,
+            maxLines: 1,
+            decoration: InputDecoration(
+              labelText: "Item Name *",
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              filled: true,
+              fillColor: Colors.grey[50],
+            ),
+            inputFormatters: [
+              LengthLimitingTextInputFormatter(100), // Security: limit length
+            ],
+          ),
           const SizedBox(height: 12),
-          textField(descController, "Description", maxLines: 3),
+          TextField(
+            controller: descController,
+            maxLines: 3,
+            decoration: InputDecoration(
+              labelText: "Description",
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              filled: true,
+              fillColor: Colors.grey[50],
+            ),
+            inputFormatters: [
+              LengthLimitingTextInputFormatter(500), // Security: limit length
+            ],
+          ),
           const SizedBox(height: 12),
           
           DropdownButtonFormField<String>(
             value: selectedCategory,
             decoration: dropdownDecoration("Category *"),
-            items:
-            categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+            items: categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
             onChanged: (val) {
               setState(() {
                 selectedCategory = val;
@@ -439,7 +737,6 @@ class _AddItemPageState extends State<AddItemPage> {
     final insuranceAmount = calculateInsuranceAmount();
     final itemPriceText = OriginalPriceController.text;
     final itemPrice = double.tryParse(itemPriceText) ?? 0.0;
-    final insuranceRate = getInsuranceRate(itemPrice);
     final insuranceRateText = getInsuranceRateText(itemPrice);
     
     return card(
@@ -458,10 +755,19 @@ class _AddItemPageState extends State<AddItemPage> {
           
           const SizedBox(height: 16),
           
-          textField(
-            OriginalPriceController,
-            "Item Original Price (JD) *",
-            keyboard: TextInputType.number,
+          TextField(
+            controller: OriginalPriceController,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              labelText: "Item Original Price (JD) *",
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              filled: true,
+              fillColor: Colors.grey[50],
+              suffixText: "JD",
+            ),
+            inputFormatters: [
+              LengthLimitingTextInputFormatter(10), // Security: limit length
+            ],
             onChanged: (_) => setState(() {}),
           ),
           
@@ -558,7 +864,20 @@ class _AddItemPageState extends State<AddItemPage> {
           ),
           
           const SizedBox(height: 10),
-          textField(priceController, "Price (JD)", keyboard: TextInputType.number),
+          TextField(
+            controller: priceController,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              labelText: "Price (JD)",
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              filled: true,
+              fillColor: Colors.grey[50],
+              suffixText: "JD",
+            ),
+            inputFormatters: [
+              LengthLimitingTextInputFormatter(10), // Security: limit length
+            ],
+          ),
           const SizedBox(height: 10),
           
           ElevatedButton.icon(
@@ -566,7 +885,10 @@ class _AddItemPageState extends State<AddItemPage> {
             icon: const Icon(Icons.add, color: Colors.white),
             label: const Text("Add Period",
                 style: TextStyle(color: Colors.white)),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF8A005D))
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF8A005D),
+              minimumSize: const Size(double.infinity, 50),
+            ),
           ),
           
           const SizedBox(height: 10),
@@ -607,7 +929,10 @@ class _AddItemPageState extends State<AddItemPage> {
           
           ElevatedButton(
             onPressed: pickLocation,
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF8A005D)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF8A005D),
+              minimumSize: const Size(double.infinity, 50),
+            ),
             child: const Text("Pick Location",
                 style: TextStyle(color: Colors.white)),
           ),
@@ -621,15 +946,21 @@ class _AddItemPageState extends State<AddItemPage> {
       width: double.infinity,
       height: 50,
       child: ElevatedButton(
-        onPressed: saveItem,
+        onPressed: _isLoading ? null : saveItem,
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF8A005D),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
-        child: Text(
-          widget.existingItem == null ? "Submit Item" : "Update Item",
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
-        ),
+        child: _isLoading
+            ? const CircularProgressIndicator(color: Colors.white)
+            : Text(
+                widget.existingItem == null ? "Submit Item" : "Update Item",
+                style: const TextStyle(
+                  fontSize: 16, 
+                  fontWeight: FontWeight.w600, 
+                  color: Colors.white
+                ),
+              ),
       ),
     );
   }
@@ -640,29 +971,6 @@ class _AddItemPageState extends State<AddItemPage> {
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
       filled: true,
       fillColor: Colors.grey[50],
-    );
-  }
-  
-  Widget textField(
-    TextEditingController controller,
-    String label, {
-    int maxLines = 1,
-    TextInputType keyboard = TextInputType.text,
-    ValueChanged<String>? onChanged,
-    String? suffixText,
-  }) {
-    return TextField(
-      controller: controller,
-      maxLines: maxLines,
-      keyboardType: keyboard,
-      onChanged: onChanged,
-      decoration: InputDecoration(
-        labelText: label,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-        filled: true,
-        fillColor: Colors.grey[50],
-        suffixText: suffixText,
-      ),
     );
   }
   
@@ -682,7 +990,10 @@ class _AddItemPageState extends State<AddItemPage> {
                 Text(
                   title,
                   style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1F0F46)),
+                    fontSize: 16, 
+                    fontWeight: FontWeight.bold, 
+                    color: Color(0xFF1F0F46)
+                  ),
                 )
               ],
             ),
