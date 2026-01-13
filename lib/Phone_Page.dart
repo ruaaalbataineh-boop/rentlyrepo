@@ -1,4 +1,3 @@
-
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_custom_clippers/flutter_custom_clippers.dart';
@@ -6,20 +5,18 @@ import 'package:image_picker/image_picker.dart';
 import 'package:p2/logic/phone_logic.dart';
 import 'package:p2/services/firestore_service.dart';
 import 'package:p2/services/storage_service.dart';
-import 'app_locale.dart';
+import 'package:p2/app_locale.dart';
+import 'package:p2/security/error_handler.dart';
+import 'package:p2/security/input_validator.dart';
 
 class PhonePage extends StatefulWidget {
   final String uid;
   final String email;
 
-  const PhonePage({
-    super.key,
-    required this.uid,
-    required this.email,
-  });
+  const PhonePage({super.key, required this.uid, required this.email});
 
   @override
-  State<StatefulWidget> createState() => _PhonePageState();
+  State<PhonePage> createState() => _PhonePageState();
 }
 
 class _PhonePageState extends State<PhonePage> {
@@ -34,31 +31,58 @@ class _PhonePageState extends State<PhonePage> {
   bool isLoading = false;
 
   Future<void> pickID() async {
-    final img = await ImagePicker().pickImage(source: ImageSource.gallery);
-    if (img != null) {
-      setState(() {
-        idImage = File(img.path);
-      });
+    try {
+      final img = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+        maxWidth: 1200,
+        maxHeight: 1200,
+      );
+      if (img != null) {
+        setState(() {
+          idImage = File(img.path);
+        });
+      }
+    } catch (error) {
+      ErrorHandler.logError('Pick ID', error);
+      _showMessage(ErrorHandler.getSafeError(error));
     }
   }
 
   Future<void> pickFace() async {
-    final img = await ImagePicker().pickImage(source: ImageSource.gallery);
-    if (img != null) {
-      setState(() {
-        faceImage = File(img.path);
-        faceDetected = true;
-      });
+    try {
+      final img = await ImagePicker().pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+        maxWidth: 800,
+        maxHeight: 800,
+      );
+      if (img != null) {
+        setState(() {
+          faceImage = File(img.path);
+          faceDetected = true;
+        });
+      }
+    } catch (error) {
+      ErrorHandler.logError('Pick Face', error);
+      _showMessage(ErrorHandler.getSafeError(error));
     }
   }
 
   void validateAndContinue() async {
-  
+    if (isLoading) return;
+
+    // تنظيف البيانات المدخلة
+    final firstName = InputValidator.sanitizeInput(firstNameController.text.trim());
+    final lastName = InputValidator.sanitizeInput(lastNameController.text.trim());
+    final phone = InputValidator.sanitizeInput(phoneController.text.trim());
+    final birthDate = birthDateController.text.trim();
+
     final errors = PhoneLogic.validateAllFields(
-      firstName: firstNameController.text.trim(),
-      lastName: lastNameController.text.trim(),
-      birthDate: birthDateController.text.trim(),
-      phone: phoneController.text.trim(),
+      firstName: firstName,
+      lastName: lastName,
+      birthDate: birthDate,
+      phone: phone,
       idImage: idImage,
       faceImage: faceImage,
       faceDetected: faceDetected,
@@ -89,10 +113,10 @@ class _PhonePageState extends State<PhonePage> {
       _showMessage("Submitting for approval...");
 
       await FirestoreService.submitUserForApproval({
-        "firstName": firstNameController.text.trim(),
-        "lastName": lastNameController.text.trim(),
-        "phone": phoneController.text.trim(),
-        "birthDate": birthDateController.text.trim(),
+        "firstName": firstName,
+        "lastName": lastName,
+        "phone": phone,
+        "birthDate": birthDate,
         "idPhotoUrl": idUrl,
         "selfiePhotoUrl": selfieUrl,
         "email": widget.email,
@@ -106,8 +130,8 @@ class _PhonePageState extends State<PhonePage> {
       );
 
     } catch (e) {
-      print("Error: $e");
-      _showMessage("Something went wrong, try again.");
+      ErrorHandler.logError('Submit Approval', e);
+      _showMessage(ErrorHandler.getSafeError(e));
     } finally {
       if (mounted) {
         setState(() => isLoading = false);
@@ -177,7 +201,7 @@ class _PhonePageState extends State<PhonePage> {
                     children: [
                       const SizedBox(height: 30),
 
-                    
+                      // First Name
                       TextField(
                         controller: firstNameController,
                         decoration: InputDecoration(
@@ -189,7 +213,7 @@ class _PhonePageState extends State<PhonePage> {
                       ),
                       const SizedBox(height: 15),
 
-                    
+                      // Last Name
                       TextField(
                         controller: lastNameController,
                         decoration: InputDecoration(
@@ -201,7 +225,7 @@ class _PhonePageState extends State<PhonePage> {
                       ),
                       const SizedBox(height: 15),
 
-                  
+                      // Birth Date
                       TextField(
                         controller: birthDateController,
                         readOnly: true,
@@ -230,7 +254,7 @@ class _PhonePageState extends State<PhonePage> {
 
                       const SizedBox(height: 25),
 
-                
+                      // Phone Number
                       Row(
                         children: [
                           Container(
@@ -262,7 +286,7 @@ class _PhonePageState extends State<PhonePage> {
 
                       const SizedBox(height: 25),
 
-                  
+                      // Images
                       Row(
                         children: [
                           Expanded(
@@ -321,7 +345,7 @@ class _PhonePageState extends State<PhonePage> {
 
                       const SizedBox(height: 40),
 
-                  
+                      // Buttons
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
