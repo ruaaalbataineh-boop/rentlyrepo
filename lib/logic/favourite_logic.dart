@@ -1,65 +1,373 @@
+import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:p2/FavouriteManager.dart';
+import 'package:p2/security/secure_storage.dart';
+import 'package:p2/security/error_handler.dart';
+import 'package:p2/security/input_validator.dart';
+import 'package:p2/security/route_guard.dart';
 
 class FavouriteLogic {
   List<String> get favouriteIds => FavouriteManager.favouriteIds;
-
   bool get hasFavourites => FavouriteManager.favouriteIds.isNotEmpty;
-
   String get emptyMessage => "Your favourite items will appear here.";
-
   String get noItemsMessage => "No favourite items found.";
 
-  Future<List<Map<String, dynamic>>> getFavouriteItems() async {
-    if (!hasFavourites) {
-      return [];
-    }
+  // Security variables
+  bool _isInitialized = false;
+  int _maxRequestRetries = 3;
+  final Duration _requestTimeout = Duration(seconds: 15);
 
+  Future<void> initialize() async {
     try {
-      final querySnapshot = await FirebaseFirestore.instance
-          .collection("approved_items")
-          .where("itemId", whereIn: favouriteIds)
-          .get();
+      // Security: Validate route access
+      if (!RouteGuard.isAuthenticated()) {
+        throw Exception('User not authenticated');
+      }
 
-      final items = <Map<String, dynamic>>[];
+      // Load favourite IDs from secure storage
+      await _loadFavouritesFromStorage();
       
-      for (final doc in querySnapshot.docs) {
-        items.add(doc.data());
+      _isInitialized = true;
+      ErrorHandler.logInfo('FavouriteLogic', 'Initialized successfully');
+      
+    } catch (error) {
+      ErrorHandler.logError('FavouriteLogic Initialization', error);
+    }
+  }
+
+  Future<void> _loadFavouritesFromStorage() async {
+    try {
+      final storedFavourites = await SecureStorage.getData('user_favourites');
+      if (storedFavourites != null) {
+        final decoded = ErrorHandler.safeJsonDecode(storedFavourites);
+        if (decoded is List) {
+          // Security: Validate and sanitize stored IDs
+          FavouriteManager.favouriteIds = decoded
+              .where((id) => id is String && _isValidItemId(id))
+              .map((id) => InputValidator.sanitizeInput(id.toString()))
+              .toList()
+              .cast<String>();
+        }
+      }
+    } catch (error) {
+      ErrorHandler.logError('Load Favourites From Storage', error);
+    }
+  }
+
+  Future<void> _saveFavouritesToStorage() async {
+    try {
+      // Security: Validate favourite IDs before saving
+      final validFavourites = favouriteIds.where((id) => _isValidItemId(id)).toList();
+      
+      await SecureStorage.saveData(
+        'user_favourites',
+        ErrorHandler.safeJsonEncode(validFavourites),
+      );
+    } catch (error) {
+      ErrorHandler.logError('Save Favourites To Storage', error);
+    }
+  }
+
+  bool _isValidItemId(String itemId) {
+    if (itemId.isEmpty || itemId.length > 100) return false;
+    return RegExp(r'^[a-zA-Z0-9_-]+$').hasMatch(itemId);
+  }
+
+  Future<List<Map<String, dynamic>>> getFavouriteItems() async {
+    try {
+      if (!hasFavourites) {
+        return [];
+      }
+
+      // Security: Validate all favourite IDs before query
+      final validFavouriteIds = favouriteIds.where(_isValidItemId).toList();
+      
+      if (validFavouriteIds.isEmpty) {
+        return [];
+      }
+
+      // Security: Limit number of items to prevent large queries
+      final limitedIds = validFavouriteIds.length > 50 
+          ? validFavouriteIds.sublist(0, 50) 
+          : validFavouriteIds;
+
+      for (int attempt = 1; attempt <= _maxRequestRetries; attempt++) {
+        try {
+          final querySnapshot = await FirebaseFirestore.instance
+              .collection("approved_items")
+              .where("itemId", whereIn: limitedIds)
+              .limit(50) // Security: Limit results
+              .get()
+              .timeout(_requestTimeout);
+
+          final items = <Map<String, dynamic>>[];
+          
+          for (final doc in querySnapshot.docs) {
+            final data = doc.data();
+            
+            // Security: Validate and sanitize item data
+            if (_isValidItemData(data)) {
+              final sanitizedData = _sanitizeItemData(data);
+              items.add(sanitizedData);
+            }
+          }
+          
+          // Security: Log successful request
+          ErrorHandler.logInfo('FavouriteLogic', 
+              'Loaded ${items.length} favourite items');
+          
+          return items;
+          
+        } on TimeoutException {
+          ErrorHandler.logError('FavouriteLogic', 
+              'Request timeout (attempt $attempt/$_maxRequestRetries)');
+          
+          if (attempt == _maxRequestRetries) {
+            throw Exception('Request timeout after $_maxRequestRetries attempts');
+          }
+          
+          await Future.delayed(Duration(seconds: attempt * 2));
+        } catch (error) {
+          ErrorHandler.logError('FavouriteLogic Get Items', error);
+          
+          if (attempt == _maxRequestRetries) {
+            throw error;
+          }
+        }
       }
       
-      return items;
-    } catch (e) {
       return [];
+      
+    } catch (error) {
+      ErrorHandler.logError('Get Favourite Items', error);
+      return [];
+    }
+  }
+
+  bool _isValidItemData(Map<String, dynamic> data) {
+    try {
+      // Validate required fields
+      final itemId = data["itemId"]?.toString();
+      if (itemId == null || itemId.isEmpty || !_isValidItemId(itemId)) {
+        return false;
+      }
+
+      final name = data["name"]?.toString();
+      if (name == null || name.isEmpty || name.length > 200) {
+        return false;
+      }
+
+      // Security: Check for malicious code
+      if (!InputValidator.hasNoMaliciousCode(name)) {
+        return false;
+      }
+
+      // Validate images array
+      final images = data["images"];
+      if (images is List) {
+        for (var image in images) {
+          if (image != null && !_isValidImageUrl(image.toString())) {
+            return false;
+          }
+        }
+      }
+
+      // Validate rental periods
+      final rental = data["rentalPeriods"];
+      if (rental is Map) {
+        for (var price in rental.values) {
+          final priceValue = double.tryParse(price.toString());
+          if (priceValue == null || priceValue < 0 || priceValue > 10000) {
+            return false;
+          }
+        }
+      }
+
+      return true;
+    } catch (e) {
+      ErrorHandler.logError('Validate Item Data', e);
+      return false;
+    }
+  }
+
+  bool _isValidImageUrl(String url) {
+    if (url.isEmpty || url.length > 1000) return false;
+    return url.startsWith('http://') || url.startsWith('https://');
+  }
+
+  Map<String, dynamic> _sanitizeItemData(Map<String, dynamic> data) {
+    final sanitized = Map<String, dynamic>.from(data);
+    
+    try {
+      // Sanitize name
+      if (sanitized.containsKey("name")) {
+        sanitized["name"] = InputValidator.sanitizeInput(
+            sanitized["name"].toString());
+      }
+
+      // Sanitize description if exists
+      if (sanitized.containsKey("description")) {
+        sanitized["description"] = InputValidator.sanitizeInput(
+            sanitized["description"].toString());
+      }
+
+      // Sanitize category if exists
+      if (sanitized.containsKey("category")) {
+        sanitized["category"] = InputValidator.sanitizeInput(
+            sanitized["category"].toString());
+      }
+
+      return sanitized;
+    } catch (e) {
+      ErrorHandler.logError('Sanitize Item Data', e);
+      return data; // Return original data on error
     }
   }
 
   String getItemName(Map<String, dynamic> data) {
-    return data["name"]?.toString() ?? "Item";
+    try {
+      final name = data["name"]?.toString() ?? "Item";
+      return InputValidator.sanitizeInput(name);
+    } catch (e) {
+      ErrorHandler.logError('Get Item Name', e);
+      return "Item";
+    }
   }
 
   String? getItemImage(Map<String, dynamic> data) {
-    final images = data["images"];
-    if (images is List && images.isNotEmpty) {
-      return images[0]?.toString();
+    try {
+      final images = data["images"];
+      if (images is List && images.isNotEmpty) {
+        final imageUrl = images[0]?.toString();
+        if (imageUrl != null && _isValidImageUrl(imageUrl)) {
+          return imageUrl;
+        }
+      }
+      return null;
+    } catch (e) {
+      ErrorHandler.logError('Get Item Image', e);
+      return null;
     }
-    return null;
   }
 
   String getItemPriceText(Map<String, dynamic> data) {
-    final rental = data["rentalPeriods"];
-    if (rental is Map && rental.containsKey("Hourly")) {
-      final price = rental["Hourly"];
-      return "JOD $price / hour";
+    try {
+      final rental = data["rentalPeriods"];
+      if (rental is Map) {
+        // Try to get hourly price first
+        if (rental.containsKey("Hourly")) {
+          final price = rental["Hourly"];
+          final priceValue = double.tryParse(price.toString()) ?? 0.0;
+          // Security: Validate price range
+          final safePrice = priceValue.clamp(0.0, 1000.0);
+          return "JOD ${safePrice.toStringAsFixed(2)} / hour";
+        }
+        
+        // Or get the first available price
+        final firstKey = rental.keys.firstOrNull;
+        if (firstKey != null) {
+          final firstPrice = rental[firstKey];
+          final priceValue = double.tryParse(firstPrice.toString()) ?? 0.0;
+          final safePrice = priceValue.clamp(0.0, 1000.0);
+          return "JOD ${safePrice.toStringAsFixed(2)} / $firstKey";
+        }
+      }
+      return "Price not available";
+    } catch (e) {
+      ErrorHandler.logError('Get Item Price Text', e);
+      return "Price error";
     }
-    return "No hourly price";
   }
 
   String getItemId(Map<String, dynamic> data) {
-    return data["itemId"]?.toString() ?? "";
+    try {
+      final itemId = data["itemId"]?.toString() ?? "";
+      if (_isValidItemId(itemId)) {
+        return itemId;
+      }
+      return "";
+    } catch (e) {
+      ErrorHandler.logError('Get Item ID', e);
+      return "";
+    }
   }
 
   void removeFavourite(String itemId) {
-    FavouriteManager.remove(itemId);
+    try {
+      // Security: Validate item ID
+      if (!_isValidItemId(itemId)) {
+        ErrorHandler.logError('Remove Favourite', 'Invalid item ID: $itemId');
+        return;
+      }
+
+      final sanitizedId = InputValidator.sanitizeInput(itemId);
+      FavouriteManager.remove(sanitizedId);
+      
+      // Save to secure storage
+      _saveFavouritesToStorage();
+      
+      ErrorHandler.logInfo('FavouriteLogic', 
+          'Removed favourite item: $sanitizedId');
+          
+    } catch (error) {
+      ErrorHandler.logError('Remove Favourite', error);
+    }
+  }
+
+  void addFavourite(String itemId) {
+    try {
+      // Security: Validate item ID
+      if (!_isValidItemId(itemId)) {
+        ErrorHandler.logError('Add Favourite', 'Invalid item ID: $itemId');
+        return;
+      }
+
+      final sanitizedId = InputValidator.sanitizeInput(itemId);
+      FavouriteManager.add(sanitizedId);
+      
+      // Save to secure storage
+      _saveFavouritesToStorage();
+      
+      ErrorHandler.logInfo('FavouriteLogic', 
+          'Added favourite item: $sanitizedId');
+          
+    } catch (error) {
+      ErrorHandler.logError('Add Favourite', error);
+    }
+  }
+
+  // Security: Clear all favourites
+  Future<void> clearAllFavourites() async {
+    try {
+      FavouriteManager.favouriteIds.clear();
+      await SecureStorage.deleteData('user_favourites');
+      
+      ErrorHandler.logInfo('FavouriteLogic', 'Cleared all favourites');
+      
+    } catch (error) {
+      ErrorHandler.logError('Clear All Favourites', error);
+    }
+  }
+
+  // Security: Get favourite count with validation
+  int getValidFavouriteCount() {
+    try {
+      return favouriteIds.where(_isValidItemId).length;
+    } catch (e) {
+      ErrorHandler.logError('Get Valid Favourite Count', e);
+      return 0;
+    }
+  }
+
+  // Security: Check if item is favourite with validation
+  bool isItemFavourite(String itemId) {
+    try {
+      if (!_isValidItemId(itemId)) return false;
+      return FavouriteManager.isFavourite(itemId);
+    } catch (e) {
+      ErrorHandler.logError('Is Item Favourite', e);
+      return false;
+    }
   }
 }
