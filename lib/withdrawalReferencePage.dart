@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 class WithdrawalReferencePage extends StatelessWidget {
   final double amount;
   final String reference;
+  final DateTime _startTime = DateTime.now(); 
 
-  const WithdrawalReferencePage({
+   WithdrawalReferencePage({
     super.key,
     required this.amount,
     required this.reference,
@@ -59,7 +60,7 @@ class WithdrawalReferencePage extends StatelessWidget {
                 height: 52,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Color(0xFF1F0F46),
+                    backgroundColor: const Color(0xFF1F0F46),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -104,7 +105,31 @@ class WithdrawalReferencePage extends StatelessWidget {
                 fontSize: 36,
                 fontWeight: FontWeight.bold,
                 color: Colors.white),
-          )
+          ),
+          const SizedBox(height: 8),
+          
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.verified_user, size: 12, color: Colors.white),
+                SizedBox(width: 4),
+                Text(
+                  "Secured",
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
