@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:p2/services/firestore_service.dart';
 
+
+import 'package:p2/security/route_guard.dart';
+import 'package:p2/security/secure_storage.dart';
+import 'package:p2/security/error_handler.dart';
+import 'package:p2/security/efawateercom_security.dart';
+
 class EfawateercomPaymentPage extends StatefulWidget {
   final double amount;
   final String referenceNumber;
@@ -16,6 +22,57 @@ class EfawateercomPaymentPage extends StatefulWidget {
 }
 
 class _EfawateercomPaymentPageState extends State<EfawateercomPaymentPage> {
+  @override
+  void initState() {
+    super.initState();
+    _initializeSecurity();
+  }
+
+  Future<void> _initializeSecurity() async {
+    try {
+      
+      if (!RouteGuard.isAuthenticated()) {
+        _redirectToLogin();
+        return;
+      }
+
+      
+      if (!EfawateercomSecurity.isValidAmount(widget.amount)) {
+        _handleSecurityError('Invalid payment amount');
+        return;
+      }
+
+      if (!EfawateercomSecurity.isValidReference(widget.referenceNumber)) {
+        _handleSecurityError('Invalid reference number');
+        return;
+      }
+
+      
+      await EfawateercomSecurity.logPageAccess(
+        amount: widget.amount,
+        reference: widget.referenceNumber,
+      );
+
+    } catch (error) {
+      ErrorHandler.logError('Efawateercom Page Init', error);
+      _redirectToLogin();
+    }
+  }
+
+  void _redirectToLogin() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/login',
+        (route) => false,
+      );
+    });
+  }
+
+  void _handleSecurityError(String message) {
+    ErrorHandler.logSecurity('Efawateercom Security', message);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -56,12 +113,18 @@ class _EfawateercomPaymentPageState extends State<EfawateercomPaymentPage> {
                 height: 52,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Color(0xFF1F0F46),
+                    backgroundColor: const Color(0xFF1F0F46),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                   onPressed: () {
+                    
+                    EfawateercomSecurity.logPageExit(
+                      amount: widget.amount,
+                      reference: widget.referenceNumber,
+                    );
+                    
                     Navigator.pop(context);
                     Navigator.pop(context);
                   },
