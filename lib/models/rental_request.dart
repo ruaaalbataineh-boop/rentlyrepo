@@ -2,47 +2,34 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class RentalRequest {
   final String id;
-
   final String itemId;
   final String itemTitle;
-
   final String itemOwnerUid;
   final String? ownerName;
-
   final String renterUid;
   final String renterName;
-
   final String rentalType;
   final int rentalQuantity;
-
   final DateTime startDate;
   final DateTime endDate;
-
   final String? startTime;
   final String? endTime;
   final String? pickupTime;
-
   final num rentalPrice;
   final num totalPrice;
 
-  final num insuranceAmount;
-  final num insuranceRate;
-  final num insuranceOriginalPrice;
-  final bool insuranceAccepted;
-
-  final num penaltyHourlyRate;
-  final num penaltyDailyRate;
-  final num penaltyMaxHours;
-  final num penaltyMaxDays;
-
+  // Insurance information
+  final Map<String, dynamic>? insurance;
+  
+  // Penalty information
+  final Map<String, dynamic>? penalty;
+  
   final String status;
   final String paymentStatus;
-
   final String? pickupQrToken;
   final DateTime? pickupQrGeneratedAt;
   final String? returnQrToken;
   final DateTime? returnQrGeneratedAt;
-
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -63,14 +50,8 @@ class RentalRequest {
     this.pickupTime,
     required this.rentalPrice,
     required this.totalPrice,
-    required this.insuranceAmount,
-    required this.insuranceRate,
-    required this.insuranceOriginalPrice,
-    required this.insuranceAccepted,
-    required this.penaltyHourlyRate,
-    required this.penaltyDailyRate,
-    required this.penaltyMaxHours,
-    required this.penaltyMaxDays,
+    this.insurance,
+    this.penalty,
     required this.status,
     required this.paymentStatus,
     this.pickupQrToken,
@@ -81,6 +62,7 @@ class RentalRequest {
     this.updatedAt,
   });
 
+  // Helper method to convert dynamic to DateTime
   static DateTime _toDate(dynamic value) {
     if (value == null) return DateTime.now();
 
@@ -88,69 +70,231 @@ class RentalRequest {
       return value.toDate();
     }
 
+    if (value is int || value is double) {
+      return DateTime.fromMillisecondsSinceEpoch(value.toInt());
+    }
+
     if (value is String) {
       return DateTime.parse(value);
     }
 
-    throw Exception("Invalid date format in RentalRequest");
+    return DateTime.now();
   }
 
+  // Factory constructor from Firestore document
   factory RentalRequest.fromFirestore(String id, Map<String, dynamic> data) {
-    final insurance = (data["insurance"] ?? {}) as Map<String, dynamic>;
-    final penalty = (data["penalty"] ?? {}) as Map<String, dynamic>;
-
     return RentalRequest(
       id: id,
-      itemId: data["itemId"] ?? "",
-      itemTitle: data["itemTitle"] ?? "",
-      itemOwnerUid: data["itemOwnerUid"] ?? "",
-      ownerName: data["ownerName"],
-
-      renterUid: data["renterUid"] ?? "",
-      renterName: data["renterName"] ?? "",
-
-      rentalType: data["rentalType"] ?? "",
-      rentalQuantity: data["rentalQuantity"] ?? 0,
-
+      itemId: data["itemId"]?.toString() ?? "",
+      itemTitle: data["itemTitle"]?.toString() ?? "",
+      itemOwnerUid: data["itemOwnerUid"]?.toString() ?? "",
+      ownerName: data["ownerName"]?.toString(),
+      renterUid: data["renterUid"]?.toString() ?? "",
+      renterName: data["renterName"]?.toString() ?? "",
+      rentalType: data["rentalType"]?.toString() ?? "",
+      rentalQuantity: (data["rentalQuantity"] as num?)?.toInt() ?? 0,
       startDate: _toDate(data["startDate"]),
       endDate: _toDate(data["endDate"]),
-
-      startTime: data["startTime"],
-      endTime: data["endTime"],
-      pickupTime: data["pickupTime"],
-
-      rentalPrice: data["rentalPrice"] ?? 0,
-      totalPrice: data["totalPrice"] ?? 0,
-
-      insuranceAmount: insurance["amount"] ?? 0,
-      insuranceRate: insurance["ratePercentage"] ?? 0,
-      insuranceOriginalPrice: insurance["itemOriginalPrice"] ?? 0,
-      insuranceAccepted: insurance["accepted"] ?? false,
-
-      penaltyHourlyRate: penalty["hourlyRate"] ?? 0,
-      penaltyDailyRate: penalty["dailyRate"] ?? 0,
-      penaltyMaxHours: penalty["maxHours"] ?? 0,
-      penaltyMaxDays: penalty["maxDays"] ?? 0,
-
-      status: data["status"] ?? "pending",
-      paymentStatus: data["paymentStatus"] ?? "locked",
-
-      pickupQrToken: data["pickupQrToken"],
-      pickupQrGeneratedAt: data["pickupQrGeneratedAt"] != null
-          ? (data["pickupQrGeneratedAt"] as Timestamp).toDate()
-          : null,
-      returnQrToken: data["returnQrToken"],
-      returnQrGeneratedAt: data["returnQrGeneratedAt"] != null
-          ? (data["returnQrGeneratedAt"] as Timestamp).toDate()
-          : null,
-
-      createdAt: data["createdAt"] != null
-          ? (data["createdAt"] as Timestamp).toDate()
-          : null,
-
-      updatedAt: data["updatedAt"] != null
-          ? (data["updatedAt"] as Timestamp).toDate()
-          : null,
+      startTime: data["startTime"]?.toString(),
+      endTime: data["endTime"]?.toString(),
+      pickupTime: data["pickupTime"]?.toString(),
+      rentalPrice: (data["rentalPrice"] as num?) ?? 0,
+      totalPrice: (data["totalPrice"] as num?) ?? 0,
+      insurance: data["insurance"] is Map ? 
+          Map<String, dynamic>.from(data["insurance"] as Map) : null,
+      penalty: data["penalty"] is Map ? 
+          Map<String, dynamic>.from(data["penalty"] as Map) : null,
+      status: data["status"]?.toString() ?? "pending",
+      paymentStatus: data["paymentStatus"]?.toString() ?? "locked",
+      pickupQrToken: data["pickupQrToken"]?.toString(),
+      pickupQrGeneratedAt: data["pickupQrGeneratedAt"] != null ? 
+          _toDate(data["pickupQrGeneratedAt"]) : null,
+      returnQrToken: data["returnQrToken"]?.toString(),
+      returnQrGeneratedAt: data["returnQrGeneratedAt"] != null ? 
+          _toDate(data["returnQrGeneratedAt"]) : null,
+      createdAt: data["createdAt"] != null ? 
+          _toDate(data["createdAt"]) : null,
+      updatedAt: data["updatedAt"] != null ? 
+          _toDate(data["updatedAt"]) : null,
     );
+  }
+
+  // Factory constructor from JSON (for cache/storage)
+  factory RentalRequest.fromJson(Map<String, dynamic> json) {
+    return RentalRequest(
+      id: json["id"]?.toString() ?? "",
+      itemId: json["itemId"]?.toString() ?? "",
+      itemTitle: json["itemTitle"]?.toString() ?? "",
+      itemOwnerUid: json["itemOwnerUid"]?.toString() ?? "",
+      ownerName: json["ownerName"]?.toString(),
+      renterUid: json["renterUid"]?.toString() ?? "",
+      renterName: json["renterName"]?.toString() ?? "",
+      rentalType: json["rentalType"]?.toString() ?? "",
+      rentalQuantity: (json["rentalQuantity"] as num?)?.toInt() ?? 0,
+      startDate: DateTime.parse(json["startDate"]?.toString() ?? DateTime.now().toIso8601String()),
+      endDate: DateTime.parse(json["endDate"]?.toString() ?? DateTime.now().toIso8601String()),
+      startTime: json["startTime"]?.toString(),
+      endTime: json["endTime"]?.toString(),
+      pickupTime: json["pickupTime"]?.toString(),
+      rentalPrice: (json["rentalPrice"] as num?) ?? 0,
+      totalPrice: (json["totalPrice"] as num?) ?? 0,
+      insurance: json["insurance"] is Map ? 
+          Map<String, dynamic>.from(json["insurance"] as Map) : null,
+      penalty: json["penalty"] is Map ? 
+          Map<String, dynamic>.from(json["penalty"] as Map) : null,
+      status: json["status"]?.toString() ?? "pending",
+      paymentStatus: json["paymentStatus"]?.toString() ?? "locked",
+      pickupQrToken: json["pickupQrToken"]?.toString(),
+      pickupQrGeneratedAt: json["pickupQrGeneratedAt"] != null ? 
+          DateTime.parse(json["pickupQrGeneratedAt"].toString()) : null,
+      returnQrToken: json["returnQrToken"]?.toString(),
+      returnQrGeneratedAt: json["returnQrGeneratedAt"] != null ? 
+          DateTime.parse(json["returnQrGeneratedAt"].toString()) : null,
+      createdAt: json["createdAt"] != null ? 
+          DateTime.parse(json["createdAt"].toString()) : null,
+      updatedAt: json["updatedAt"] != null ? 
+          DateTime.parse(json["updatedAt"].toString()) : null,
+    );
+  }
+
+  // Convert to JSON (for cache/storage)
+  Map<String, dynamic> toJson() {
+    return {
+      "id": id,
+      "itemId": itemId,
+      "itemTitle": itemTitle,
+      "itemOwnerUid": itemOwnerUid,
+      "ownerName": ownerName,
+      "renterUid": renterUid,
+      "renterName": renterName,
+      "rentalType": rentalType,
+      "rentalQuantity": rentalQuantity,
+      "startDate": startDate.toIso8601String(),
+      "endDate": endDate.toIso8601String(),
+      "startTime": startTime,
+      "endTime": endTime,
+      "pickupTime": pickupTime,
+      "rentalPrice": rentalPrice,
+      "totalPrice": totalPrice,
+      "insurance": insurance,
+      "penalty": penalty,
+      "status": status,
+      "paymentStatus": paymentStatus,
+      "pickupQrToken": pickupQrToken,
+      "pickupQrGeneratedAt": pickupQrGeneratedAt?.toIso8601String(),
+      "returnQrToken": returnQrToken,
+      "returnQrGeneratedAt": returnQrGeneratedAt?.toIso8601String(),
+      "createdAt": createdAt?.toIso8601String(),
+      "updatedAt": updatedAt?.toIso8601String(),
+    };
+  }
+
+  // Helper getters for insurance data
+  num get insuranceAmount => insurance?["amount"] as num? ?? 0;
+  num get insuranceRate => insurance?["ratePercentage"] as num? ?? 0;
+  num get insuranceOriginalPrice => insurance?["itemOriginalPrice"] as num? ?? 0;
+  bool get insuranceAccepted => insurance?["accepted"] as bool? ?? false;
+
+  // Helper getters for penalty data
+  num get penaltyHourlyRate => penalty?["hourlyRate"] as num? ?? 0;
+  num get penaltyDailyRate => penalty?["dailyRate"] as num? ?? 0;
+  num get penaltyMaxHours => penalty?["maxHours"] as num? ?? 0;
+  num get penaltyMaxDays => penalty?["maxDays"] as num? ?? 0;
+
+  // Copy with method for immutability
+  RentalRequest copyWith({
+    String? id,
+    String? itemId,
+    String? itemTitle,
+    String? itemOwnerUid,
+    String? ownerName,
+    String? renterUid,
+    String? renterName,
+    String? rentalType,
+    int? rentalQuantity,
+    DateTime? startDate,
+    DateTime? endDate,
+    String? startTime,
+    String? endTime,
+    String? pickupTime,
+    num? rentalPrice,
+    num? totalPrice,
+    Map<String, dynamic>? insurance,
+    Map<String, dynamic>? penalty,
+    String? status,
+    String? paymentStatus,
+    String? pickupQrToken,
+    DateTime? pickupQrGeneratedAt,
+    String? returnQrToken,
+    DateTime? returnQrGeneratedAt,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return RentalRequest(
+      id: id ?? this.id,
+      itemId: itemId ?? this.itemId,
+      itemTitle: itemTitle ?? this.itemTitle,
+      itemOwnerUid: itemOwnerUid ?? this.itemOwnerUid,
+      ownerName: ownerName ?? this.ownerName,
+      renterUid: renterUid ?? this.renterUid,
+      renterName: renterName ?? this.renterName,
+      rentalType: rentalType ?? this.rentalType,
+      rentalQuantity: rentalQuantity ?? this.rentalQuantity,
+      startDate: startDate ?? this.startDate,
+      endDate: endDate ?? this.endDate,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
+      pickupTime: pickupTime ?? this.pickupTime,
+      rentalPrice: rentalPrice ?? this.rentalPrice,
+      totalPrice: totalPrice ?? this.totalPrice,
+      insurance: insurance ?? this.insurance,
+      penalty: penalty ?? this.penalty,
+      status: status ?? this.status,
+      paymentStatus: paymentStatus ?? this.paymentStatus,
+      pickupQrToken: pickupQrToken ?? this.pickupQrToken,
+      pickupQrGeneratedAt: pickupQrGeneratedAt ?? this.pickupQrGeneratedAt,
+      returnQrToken: returnQrToken ?? this.returnQrToken,
+      returnQrGeneratedAt: returnQrGeneratedAt ?? this.returnQrGeneratedAt,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  // Check if request is active
+  bool get isActive {
+    return status == "active" && 
+           DateTime.now().isAfter(startDate) && 
+           DateTime.now().isBefore(endDate);
+  }
+
+  // Check if request is upcoming
+  bool get isUpcoming {
+    return status == "accepted" && DateTime.now().isBefore(startDate);
+  }
+
+  // Check if request is completed
+  bool get isCompleted {
+    return status == "ended" || 
+           status == "cancelled" || 
+           status == "rejected" || 
+           status == "outdated";
+  }
+
+  // Calculate remaining time for active rentals
+  Duration? get remainingTime {
+    if (!isActive) return null;
+    return endDate.difference(DateTime.now());
+  }
+
+  // Calculate progress percentage for active rentals
+  double get progressPercentage {
+    if (!isActive) return 0.0;
+    
+    final totalDuration = endDate.difference(startDate).inSeconds;
+    final elapsedDuration = DateTime.now().difference(startDate).inSeconds;
+    
+    if (totalDuration == 0) return 0.0;
+    
+    return (elapsedDuration / totalDuration).clamp(0.0, 1.0);
   }
 }
