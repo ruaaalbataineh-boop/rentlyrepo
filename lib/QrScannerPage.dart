@@ -6,9 +6,12 @@ import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:p2/services/firestore_service.dart';
 import 'package:p2/services/storage_service.dart';
+import 'package:p2/security/error_handler.dart';
+import 'package:p2/security/input_validator.dart';
+import 'package:p2/security/secure_storage.dart';
 import 'Orders.dart';
 import 'config/dev_config.dart';
-
+import 'package:p2/logic/qr_scanner_logic.dart';
 class QrScannerPage extends StatefulWidget {
   final String requestId;
   final bool isReturnPhase;
@@ -25,7 +28,6 @@ class QrScannerPage extends StatefulWidget {
 
 class _QrScannerPageState extends State<QrScannerPage> {
   StreamSubscription<DocumentSnapshot>? _sub;
-
   bool loading = true;
   bool allowScan = false;
   String? message;
@@ -33,12 +35,29 @@ class _QrScannerPageState extends State<QrScannerPage> {
   final TextEditingController _descriptionController = TextEditingController();
   final List<File> pickedImages = [];
   String? severity;
+  String? _userId;
+  MobileScannerController? _scannerController;
 
   @override
   void initState() {
     super.initState();
+    _initializeSecurity();
     _listenStatus();
     _checkAvailability();
+    _scannerController = MobileScannerController();
+  }
+
+  Future<void> _initializeSecurity() async {
+    try {
+      
+      final token = await SecureStorage.getToken();
+      if (token != null) {
+    
+        _userId = 'current_user_id'; 
+      }
+    } catch (error) {
+      ErrorHandler.logError('Initialize Scanner Security', error);
+    }
   }
 
   void _listenStatus() {
@@ -62,91 +81,202 @@ class _QrScannerPageState extends State<QrScannerPage> {
   }
 
   Future<void> _checkAvailability() async {
-    final ref = FirebaseFirestore.instance
-        .collection("rentalRequests")
-        .doc(widget.requestId);
+    try {
+      final datesValid = await QrLogic.verifyRequestDates(
+        widget.requestId, 
+        widget.isReturnPhase
+      );
 
-    final doc = await ref.get();
-    if (!doc.exists) {
-      setState(() {
-        message = "Rental request not found.";
-        loading = false;
-      });
-      return;
-    }
-
-    final data = doc.data()!;
-    final today = DateTime.now();
-
-    DateTime toDate(dynamic v) {
-      if (v is Timestamp) return v.toDate();
-      if (v is String) return DateTime.parse(v);
-      throw Exception("Invalid date");
-    }
-
-    final startDate = toDate(data["startDate"]);
-    final endDate = toDate(data["endDate"]);
-
-    if (!widget.isReturnPhase) {
-      final isTodayStart =
-          today.year == startDate.year &&
-              today.month == startDate.month &&
-              today.day == startDate.day;
-
-      if (!DEV_MODE && !isTodayStart) {
+      if (!datesValid && !DEV_MODE) {
         setState(() {
-          message =
-          "QR Scanner will be available on ${startDate.toString().split(' ')[0]}";
+          message = widget.isReturnPhase
+              ? "Return scanner will be available on the end date."
+              : "Pickup scanner will be available on the start date.";
           loading = false;
         });
         return;
+      }
+
+      
+      if (_userId != null) {
+        final hasPermission = await QrLogic.validateUserPermission(
+          widget.requestId, 
+          _userId!
+        );
+        
+        if (!hasPermission) {
+          setState(() {
+            message = "You don't have permission to scan this QR.";
+            loading = false;
+          });
+          return;
+        }
       }
 
       setState(() {
         allowScan = true;
         loading = false;
       });
-      return;
-    }
-
-    final expiredLimit = endDate.add(const Duration(days: 3));
-
-    if (!DEV_MODE && today.isBefore(endDate)) {
+    } catch (error) {
+      ErrorHandler.logError('Check Availability', error);
       setState(() {
-        message =
-        "Return scanner will be available on ${endDate.toString().split(' ')[0]}";
+        message = QrLogic.getSafeMessage(error.toString());
         loading = false;
       });
-      return;
     }
-
-    if (today.isAfter(expiredLimit)) {
-      setState(() {
-        message =
-        "Return period expired.\nThis rental has been automatically closed.";
-        loading = false;
-      });
-      return;
-    }
-
-    setState(() {
-      allowScan = true;
-      loading = false;
-    });
   }
 
-  @override
-  void dispose() {
-    _descriptionController.dispose();
-    _sub?.cancel();
-    super.dispose();
+  Future<void> _handleQrScan(String qrCode) async {
+    if (scanned) return;
+    scanned = true;
+
+    try {
+  
+      final isValid = await QrLogic.validateQrToken(qrCode, widget.requestId);
+      if (!isValid) {
+        scanned = false;
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(QrLogic.getInvalidQrMessage()),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      
+      if (_userId != null) {
+        final scanValid = await QrLogic.validateScanRequest(
+          widget.requestId, 
+          qrCode, 
+          widget.isReturnPhase, 
+          _userId!
+        );
+
+        if (!scanValid) {
+          scanned = false;
+          return;
+        }
+      }
+
+      
+      if (widget.isReturnPhase) {
+        await FirestoreService.confirmReturn(
+          requestId: widget.requestId,
+          qrToken: qrCode,
+        );
+      } else {
+        await FirestoreService.confirmPickup(
+          requestId: widget.requestId,
+          qrToken: qrCode,
+        );
+      }
+
+      if (!context.mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(QrLogic.getSuccessMessage(widget.isReturnPhase)),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (_) => const OrdersPage(initialTab: 1)),
+          (route) => false,
+      );
+    } catch (error) {
+      scanned = false;
+      ErrorHandler.logError('Handle QR Scan', error);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(QrLogic.getErrorMessage(widget.isReturnPhase)),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
-  // REPORT DIALOG
+  Future<void> _pickImageFromCamera() async {
+    try {
+      final img = await ImagePicker().pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+      );
+      if (img != null) {
+        final file = File(img.path);
+        
+      
+        final fileSize = await file.length();
+        const maxSize = 10 * 1024 * 1024; // 10MB
+        
+        if (fileSize > maxSize) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('Image is too large. Maximum size is 10MB.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return;
+        }
+
+        setState(() => pickedImages.add(file));
+      }
+    } catch (error) {
+      ErrorHandler.logError('Pick Image from Camera', error);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(ErrorHandler.getSafeError(error)),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _pickVideoFromCamera() async {
+    try {
+      final vid = await ImagePicker().pickVideo(
+        source: ImageSource.camera,
+        maxDuration: const Duration(seconds: 30),
+      );
+      
+      if (vid != null) {
+        final file = File(vid.path);
+        final fileSize = await file.length();
+        const maxSize = 50 * 1024 * 1024; // 50MB
+        
+        if (fileSize > maxSize) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('Video is too large. Maximum size is 50MB.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return;
+        }
+        
+        setState(() {});
+      }
+    } catch (error) {
+      ErrorHandler.logError('Pick Video from Camera', error);
+    }
+  }
+
   void showReportDialog() {
     severity = null;
     pickedImages.clear();
-    XFile? pickedVideo;
+    _descriptionController.clear();
 
     showDialog(
       context: context,
@@ -156,323 +286,301 @@ class _QrScannerPageState extends State<QrScannerPage> {
           borderRadius: BorderRadius.circular(18),
         ),
         insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        child: _buildReportDialogContent(context),
+      ),
+    );
+  }
 
-        child: Container(
-          width: MediaQuery.of(context).size.width * 0.95,
-          padding: const EdgeInsets.all(18),
-
-          child: StatefulBuilder(
-            builder: (context, setState) => SingleChildScrollView(
-
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-
-                children: [
-                  //TITLE
-                  Center(
-                    child: Text(
-                      widget.isReturnPhase
-                          ? "Report Return Issue"
-                          : "Report Pickup Issue",
-                      style: const TextStyle(
-                        fontSize: 23,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF1F0F46),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  //  BUTTONS
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF8A005D),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 18, vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        onPressed: () async {
-                          final img = await ImagePicker().pickImage(
-                            source: ImageSource.camera,
-                            imageQuality: 85,
-                          );
-                          if (img != null) {
-                            setState(() => pickedImages.add(File(img.path)));
-                          }
-                        },
-                        icon: const Icon(Icons.camera_alt, color: Colors.white),
-                        label: const Text(
-                          "Live Photo",
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.orange,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 18, vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        onPressed: () async {
-                          final vid = await ImagePicker().pickVideo(
-                            source: ImageSource.camera,
-                            maxDuration: const Duration(seconds: 30),
-                          );
-                          if (vid != null) {
-                            setState(() => pickedVideo = vid);
-                          }
-                        },
-                        icon: const Icon(Icons.videocam, color: Colors.white),
-                        label: const Text(
-                          "Live Video",
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  //IMAGES PREVIEW
-                  if (pickedImages.isNotEmpty)
-                    Wrap(
-                      children: List.generate(
-                        pickedImages.length,
-                            (i) => Stack(
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.all(6),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(10),
-                                child: Image.file(
-                                  pickedImages[i],
-                                  width: 95,
-                                  height: 95,
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              right: 0,
-                              child: GestureDetector(
-                                onTap: () {
-                                  setState(() => pickedImages.removeAt(i));
-                                },
-                                child: const CircleAvatar(
-                                  radius: 13,
-                                  backgroundColor: Colors.red,
-                                  child: Icon(Icons.close,
-                                      size: 15, color: Colors.white),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                  // VIDEO PREVIEW
-                  if (pickedVideo != null)
-                    Container(
-                      margin: const EdgeInsets.symmetric(vertical: 10),
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.withOpacity(.1),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.videocam, color: Colors.orange),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              pickedVideo!.name,
-                              style: const TextStyle(fontSize: 13),
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.close, color: Colors.red),
-                            onPressed: () => setState(() => pickedVideo = null),
-                          )
-                        ],
-                      ),
-                    ),
-
-                  // DAMAGE DROPDOWN
-                  if (widget.isReturnPhase) ...[
-                    const SizedBox(height: 14),
-                    const Text(
-                      "Damage Severity",
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-
-                    const SizedBox(height: 6),
-
-                    DropdownButtonFormField<String>(
-                      value: severity,
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: const Color(0xFFEDE7F6),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      items: const [
-                        DropdownMenuItem(
-                          value: "mild",
-                          child: Text("Low Damage"),
-                        ),
-                        DropdownMenuItem(
-                          value: "moderate",
-                          child: Text("Medium Damage"),
-                        ),
-                        DropdownMenuItem(
-                          value: "severe",
-                          child: Text("Severe Damage"),
-                        ),
-                      ],
-                      onChanged: (v) => setState(() => severity = v),
-                    ),
-                  ],
-
-                  const SizedBox(height: 16),
-
-                  // DESCRIPTION
-                  const Text(
-                    "Description (optional)",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-
-                  const SizedBox(height: 6),
-
-                  TextField(
-                    controller: _descriptionController,
-                    maxLines: 4,
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: Colors.grey.shade100,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 22),
-
-                  // BUTTONS
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text(
-                          "Cancel",
-                          style:
-                          TextStyle(fontSize: 16, color: Colors.black54),
-                        ),
-                      ),
-
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                          widget.isReturnPhase ? Colors.orange : Colors.red,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 22, vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        onPressed: () async {
-                          try {
-                            final List<String> uploadedUrls = [];
-
-                            // upload IMAGES
-                            for (var i = 0; i < pickedImages.length; i++) {
-                              final url = await StorageService.uploadReportMedia(
-                                requestId: widget.requestId,
-                                file: pickedImages[i],
-                                fileName: "img_${DateTime.now().millisecondsSinceEpoch}_$i.jpg",
-                              );
-                              uploadedUrls.add(url);
-                            }
-
-                            // upload VIDEO
-                            if (pickedVideo != null) {
-                              final file = File(pickedVideo!.path);
-                              final url = await StorageService.uploadReportMedia(
-                                requestId: widget.requestId,
-                                file: file,
-                                fileName: "video_${DateTime.now().millisecondsSinceEpoch}.mp4",
-                              );
-                              uploadedUrls.add(url);
-                            }
-
-                            await FirestoreService.submitIssueReport(
-                              requestId: widget.requestId,
-                              type: widget.isReturnPhase ? "return_issue" : "pickup_issue",
-                              severity: severity,
-                              description: _descriptionController.text,
-                              mediaUrls: uploadedUrls,
-                            );
-
-                            if (!mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text("Issue reported successfully")),
-                            );
-
-                            // go back to orders
-                            Navigator.of(context).pushAndRemoveUntil(
-                              MaterialPageRoute(
-                                builder: (_) => const OrdersPage(initialTab: 2),
-                              ),
-                                  (route) => false,
-                            );
-                          } catch (e) {
-                            if (!mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text("Failed to submit report: $e")),
-                            );
-                          }
-                        },
-                        child: Text(
-                          widget.isReturnPhase
-                              ? "Submit & End Rental"
-                              : "Submit & Cancel Rental",
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                      ),
-                    ],
-                  )
-                ],
+  Widget _buildReportDialogContent(BuildContext context) {
+    return Container(
+      width: MediaQuery.of(context).size.width * 0.95,
+      padding: const EdgeInsets.all(18),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Center(
+              child: Text(
+                widget.isReturnPhase
+                    ? "Report Return Issue"
+                    : "Report Pickup Issue",
+                style: const TextStyle(
+                  fontSize: 23,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1F0F46),
+                ),
               ),
             ),
-          ),
+
+            const SizedBox(height: 20),
+
+            _buildMediaButtons(context),
+
+            const SizedBox(height: 20),
+
+            if (pickedImages.isNotEmpty) _buildImagesPreview(),
+
+            if (widget.isReturnPhase) _buildDamageDropdown(),
+
+            const SizedBox(height: 16),
+
+            _buildDescriptionField(),
+
+            const SizedBox(height: 22),
+
+            _buildDialogButtons(context),
+          ],
         ),
       ),
     );
+  }
+
+  Widget _buildMediaButtons(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF8A005D),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          onPressed: _pickImageFromCamera,
+          icon: const Icon(Icons.camera_alt, color: Colors.white),
+          label: const Text(
+            "Live Photo",
+            style: TextStyle(color: Colors.white),
+          ),
+        ),
+
+        ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.orange,
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          onPressed: _pickVideoFromCamera,
+          icon: const Icon(Icons.videocam, color: Colors.white),
+          label: const Text(
+            "Live Video",
+            style: TextStyle(color: Colors.white),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildImagesPreview() {
+    return Wrap(
+      children: List.generate(
+        pickedImages.length,
+        (i) => Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(6),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.file(
+                  pickedImages[i],
+                  width: 95,
+                  height: 95,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+            Positioned(
+              right: 0,
+              child: GestureDetector(
+                onTap: () {
+                  setState(() => pickedImages.removeAt(i));
+                },
+                child: const CircleAvatar(
+                  radius: 13,
+                  backgroundColor: Colors.red,
+                  child: Icon(Icons.close, size: 15, color: Colors.white),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDamageDropdown() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 14),
+        const Text(
+          "Damage Severity",
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 6),
+        DropdownButtonFormField<String>(
+          value: severity,
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: const Color(0xFFEDE7F6),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          items: const [
+            DropdownMenuItem(
+              value: "mild",
+              child: Text("Low Damage"),
+            ),
+            DropdownMenuItem(
+              value: "moderate",
+              child: Text("Medium Damage"),
+            ),
+            DropdownMenuItem(
+              value: "severe",
+              child: Text("Severe Damage"),
+            ),
+          ],
+          onChanged: (v) => setState(() => severity = v),
+          validator: (value) {
+            if (value == null) {
+              return 'Please select damage severity';
+            }
+            return null;
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDescriptionField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Description (optional)",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 6),
+        TextField(
+          controller: _descriptionController,
+          maxLines: 4,
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.grey.shade100,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDialogButtons(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text(
+            "Cancel",
+            style: TextStyle(fontSize: 16, color: Colors.black54),
+          ),
+        ),
+
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: widget.isReturnPhase ? Colors.orange : Colors.red,
+            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          onPressed: () async {
+            try {
+              final safeDescription = InputValidator.sanitizeInput(
+                _descriptionController.text
+              );
+
+              final List<String> uploadedUrls = [];
+
+    
+              for (var image in pickedImages) {
+                final url = await StorageService.uploadReportMedia(
+                  requestId: widget.requestId,
+                  file: image,
+                  fileName: "img_${DateTime.now().millisecondsSinceEpoch}.jpg",
+                );
+                uploadedUrls.add(url);
+              }
+
+              await FirestoreService.submitIssueReport(
+                requestId: widget.requestId,
+                type: widget.isReturnPhase ? "return_issue" : "pickup_issue",
+                severity: severity,
+                description: safeDescription,
+                mediaUrls: uploadedUrls,
+              );
+
+              if (!mounted) return;
+              Navigator.pop(context);
+              
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text("Issue reported successfully"),
+                  backgroundColor: Colors.green,
+                ),
+              );
+
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(
+                  builder: (_) => const OrdersPage(initialTab: 2),
+                ),
+                (route) => false,
+              );
+            } catch (error) {
+              ErrorHandler.logError('Submit Report', error);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(ErrorHandler.getSafeError(error)),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            }
+          },
+          child: Text(
+            widget.isReturnPhase
+                ? "Submit & End Rental"
+                : "Submit & Cancel Rental",
+            style: const TextStyle(color: Colors.white),
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  void dispose() {
+    _descriptionController.dispose();
+    _sub?.cancel();
+    _scannerController?.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-
       appBar: AppBar(
         elevation: 0,
         automaticallyImplyLeading: false,
@@ -511,88 +619,61 @@ class _QrScannerPageState extends State<QrScannerPage> {
         child: loading
             ? const CircularProgressIndicator()
             : !allowScan
-            ? Text(
-          message ?? "Scanner unavailable",
-          textAlign: TextAlign.center,
-          style:
-          const TextStyle(fontSize: 18, color: Colors.black87),
-        )
+            ? Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Text(
+                  QrLogic.getSafeMessage(message),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 18, color: Colors.black87),
+                ),
+              )
             : Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              height: 420,
-              width: 330,
-              decoration: BoxDecoration(
-                color: Colors.black,
-                borderRadius: BorderRadius.circular(16),
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    height: 420,
+                    width: 330,
+                    decoration: BoxDecoration(
+                      color: Colors.black,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: MobileScanner(
+                      controller: _scannerController,
+                      onDetect: (capture) async {
+                        final qr = capture.barcodes.first.rawValue;
+                        if (qr != null) {
+                          await _handleQrScan(qr);
+                        }
+                      },
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  Text(
+                    widget.isReturnPhase
+                        ? "Scan renter's QR to complete return"
+                        : "Scan owner's QR to activate rental",
+                    style: const TextStyle(fontSize: 16, color: Colors.black87),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.redAccent,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 22, vertical: 14),
+                    ),
+                    onPressed: showReportDialog,
+                    icon: const Icon(Icons.report, color: Colors.white),
+                    label: const Text(
+                      "Report Issue",
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  )
+                ],
               ),
-              child: MobileScanner(
-                onDetect: (capture) async {
-                  if (scanned) return;
-                  scanned = true;
-
-                  final qr = capture.barcodes.first.rawValue;
-                  if (qr == null) return;
-
-                  try {
-                    if (widget.isReturnPhase) {
-                      await FirestoreService.confirmReturn(
-                        requestId: widget.requestId,
-                        qrToken: qr,
-                      );
-                    } else {
-                      await FirestoreService.confirmPickup(
-                        requestId: widget.requestId,
-                        qrToken: qr,
-                      );
-                    }
-
-                    if (!context.mounted) return;
-
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(
-                          builder: (_) =>
-                          const OrdersPage(initialTab: 1)),
-                          (route) => false,
-                    );
-                  } catch (e) {
-                    scanned = false;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text("Scan failed: $e")),
-                    );
-                  }
-                },
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            Text(
-              widget.isReturnPhase
-                  ? "Scan renter's QR to complete return"
-                  : "Scan owner's QR to activate rental",
-              style: const TextStyle(
-                  fontSize: 16, color: Colors.black87),
-            ),
-
-            const SizedBox(height: 24),
-
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 22, vertical: 14),
-              ),
-              onPressed: showReportDialog,
-              icon: const Icon(Icons.report, color: Colors.white),
-              label: const Text(
-                "Report Issue",
-                style: TextStyle(color: Colors.white),
-              ),
-            )
-          ],
-        ),
       ),
     );
   }
