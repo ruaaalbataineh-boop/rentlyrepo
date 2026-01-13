@@ -2,14 +2,33 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import 'package:flutter/foundation.dart';
+
 import '../models/rental_request.dart';
 
 class FirestoreService {
 
-  static final functions =
-  FirebaseFunctions.instanceFor(region: "us-central1");
+  static Future<List<RentalRequest>> getRenterRequestsByStatusesOnce(
+  String renterUid,
+  List<String> statuses,
+) async {
+  final snapshot = await FirebaseFirestore.instance
+      .collection("rentalRequests")
+      .where("renterUid", isEqualTo: renterUid)
+      .where("status", whereIn: statuses)
+      .orderBy("createdAt", descending: true)
+      .get();
 
-  static Future<void> submitUserForApproval(Map<String, dynamic> data) async {
+       return snapshot.docs
+      .map((doc) => RentalRequest.fromFirestore(doc.id, doc.data()))
+      .toList();
+    }
+
+
+    static final functions =
+    FirebaseFunctions.instanceFor(region: "us-central1");
+
+   static Future<void> submitUserForApproval(Map<String, dynamic> data) async {
     final callable = FirebaseFunctions.instance
         .httpsCallableFromUrl(
         "https://us-central1-p22rently.cloudfunctions.net/submitUserForApproval"
@@ -19,10 +38,22 @@ class FirestoreService {
   }
 
   static Future<void> submitItemForApproval(Map<String, dynamic> data) async {
-    await FirebaseFunctions.instance
+  try {
+    await FirebaseFunctions.instanceFor(region: "us-central1")
         .httpsCallable("submitItemForApproval")
         .call(data);
+  } on FirebaseFunctionsException catch (e) {
+    print("🔥 Functions error [submitItemForApproval]");
+    print("code: ${e.code}");
+    print("message: ${e.message}");
+    print("details: ${e.details}");
+    rethrow;
+  } catch (e) {
+    print("🔥 Unknown error [submitItemForApproval]: $e");
+    rethrow;
   }
+}
+
 
   static Future<void> createRentalRequest(Map<String, dynamic> data) async {
     await FirebaseFunctions.instance
@@ -273,30 +304,59 @@ class FirestoreService {
   }
 
   static Future<void> confirmPickup({
-    required String requestId,
-    required String qrToken,
-    bool force = false,
-  }) async {
-    await FirebaseFunctions.instance.httpsCallable("confirmPickup").call({
-      "requestId": requestId,
-      //"qrToken": qrToken,
-      "qrToken": qrToken,
-      "force": force,
+  required String requestId,
+  required String qrToken,
+  bool force = false,
+}) async {
+
+  // 🟢 DEV MODE (زر ⚡ فقط)
+  if (kDebugMode && force) {
+    await FirebaseFirestore.instance
+        .collection('rentalRequests')
+        .doc(requestId)
+        .update({
+      'status': 'active',
+      'activatedAt': FieldValue.serverTimestamp(),
     });
+    return;
   }
 
+  // 🔐 PROD MODE (QR حقيقي)
+  await FirebaseFunctions.instance
+      .httpsCallable("confirmPickup")
+      .call({
+    "requestId": requestId,
+    "qrToken": qrToken,
+  });
+}
+
+
   static Future<void> confirmReturn({
-    required String requestId,
-    required String qrToken,
-    bool force = false,
-  }) async {
-    await FirebaseFunctions.instance.httpsCallable("confirmReturn").call({
-      "requestId": requestId,
-      //"qrToken": qrToken,
-      "qrToken": qrToken,
-      "force": force,
+  required String requestId,
+  required String qrToken,
+  bool force = false,
+}) async {
+
+  // 🟢 DEV MODE (زر ⚡ فقط)
+  if (kDebugMode && force) {
+    await FirebaseFirestore.instance
+        .collection('rentalRequests')
+        .doc(requestId)
+        .update({
+      'status': 'ended',
+      'endedAt': FieldValue.serverTimestamp(),
     });
+    return;
   }
+
+  // 🔐 PROD MODE (QR حقيقي)
+  await FirebaseFunctions.instance
+      .httpsCallable("confirmReturn")
+      .call({
+    "requestId": requestId,
+    "qrToken": qrToken,
+  });
+}
 
   static Future<void> submitIssueReport({
     required String requestId,
