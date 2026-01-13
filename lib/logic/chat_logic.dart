@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:firebase_database/firebase_database.dart';
 import 'package:p2/fake_uid.dart';
 
@@ -21,15 +23,18 @@ class ChatLogic {
         : "$personUid-${LoginUID.uid}";
   }
 
-  void initialize() {
-    db.child("users/$personUid").onValue.listen((event) {
-      if (event.snapshot.value != null) {
-        personData = Map<String, dynamic>.from(event.snapshot.value as Map);
-      }
-    });
+  void initialize({VoidCallback? onUserUpdated}) {
+  db.child("users/$personUid").onValue.listen((event) {
+    if (event.snapshot.value != null) {
+      personData = Map<String, dynamic>.from(event.snapshot.value as Map);
 
-    db.child("chats/$chatId/unread/${LoginUID.uid}").remove();
-  }
+      
+      onUserUpdated?.call();
+    }
+  });
+
+  db.child("chats/$chatId/unread/${LoginUID.uid}").remove();
+}
 
   bool canEditOrDelete(Map<String, dynamic> msg) {
     if (msg["sender"] != LoginUID.uid) return false;
