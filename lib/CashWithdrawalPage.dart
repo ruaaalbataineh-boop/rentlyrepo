@@ -1,9 +1,15 @@
+import 'dart:convert';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:p2/services/firestore_service.dart';
 import 'package:p2/user_manager.dart';
 import 'package:p2/withdrawalReferencePage.dart';
 import 'logic/cash_withdrawal_logic.dart';
+import 'security/route_guard.dart';
+import 'security/secure_storage.dart';
+import 'security/error_handler.dart';
+import 'security/input_validator.dart';
 
 class CashWithdrawalPage extends StatefulWidget {
   const CashWithdrawalPage({super.key});
@@ -28,27 +34,98 @@ class _CashWithdrawalPageState extends State<CashWithdrawalPage> {
   String? selectedMethod;
   bool canSubmit = false;
   bool loading = false;
+  bool _securityInitialized = false;
 
   late CashWithdrawalLogic logic = CashWithdrawalLogic(currentBalance: 0);
-
   double currentBalance = 0.0;
+
+  // Security: Rate limiting (تعمل في الخلفية فقط)
+  DateTime? _lastSubmissionTime;
+  final Duration _minSubmissionInterval = const Duration(minutes: 1);
+  int _submissionAttempts = 0;
+  final int _maxSubmissionAttempts = 5;
 
   @override
   void initState() {
     super.initState();
-    logic = CashWithdrawalLogic(currentBalance: currentBalance);
+    _initializeSecurity();
+  }
 
-    amountController.addListener(_updateSubmitState);
-    ibanController.addListener(_updateSubmitState);
-    bankNameController.addListener(_updateSubmitState);
-    accountHolderNameController.addListener(_updateSubmitState);
+  Future<void> _initializeSecurity() async {
+    try {
+      if (!RouteGuard.isAuthenticated()) {
+        _redirectToLogin();
+        return;
+      }
 
-    pickupNameController.addListener(_updateSubmitState);
-    pickupPhoneController.addListener(_updateSubmitState);
-    pickupIdController.addListener(_updateSubmitState);
+      if (!_isValidUserId(UserManager.uid)) {
+        ErrorHandler.logError('CashWithdrawal Init', 'Invalid user ID');
+        _redirectToLogin();
+        return;
+      }
+
+      logic = CashWithdrawalLogic(currentBalance: currentBalance);
+
+      amountController.addListener(_updateSubmitState);
+      ibanController.addListener(_updateSubmitState);
+      bankNameController.addListener(_updateSubmitState);
+      accountHolderNameController.addListener(_updateSubmitState);
+      pickupNameController.addListener(_updateSubmitState);
+      pickupPhoneController.addListener(_updateSubmitState);
+      pickupIdController.addListener(_updateSubmitState);
+
+      await _loadSubmissionHistory();
+
+      setState(() {
+        _securityInitialized = true;
+      });
+
+    } catch (error) {
+      ErrorHandler.logError('CashWithdrawal Init', error);
+      _redirectToLogin();
+    }
+  }
+
+  bool _isValidUserId(String? userId) {
+    if (userId == null || userId.isEmpty) return false;
+    return RegExp(r'^[a-zA-Z0-9_-]+$').hasMatch(userId) && userId.length <= 128;
+  }
+
+  void _redirectToLogin() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/login',
+        (route) => false,
+      );
+    });
+  }
+
+  Future<void> _loadSubmissionHistory() async {
+    try {
+      final history = await SecureStorage.getData('withdrawal_history');
+      if (history != null) {
+        _submissionAttempts = int.tryParse(history) ?? 0;
+      }
+    } catch (error) {
+      ErrorHandler.logError('Load Submission History', error);
+    }
+  }
+
+  Future<void> _saveSubmissionHistory() async {
+    try {
+      await SecureStorage.saveData(
+        'withdrawal_history',
+        _submissionAttempts.toString(),
+      );
+    } catch (error) {
+      ErrorHandler.logError('Save Submission History', error);
+    }
   }
 
   void _updateSubmitState() {
+    if (!_securityInitialized) return;
+
     final amountValid = logic.validateAmount(amountController.text) == null;
 
     bool extraValid = false;
@@ -67,17 +144,101 @@ class _CashWithdrawalPageState extends State<CashWithdrawalPage> {
               logic.validatePickupId(pickupIdController.text) == null;
     }
 
+    // Security: Rate limiting check (في الخلفية فقط)
+    final canSubmitBasedOnRate = _checkRateLimit();
+
     setState(() {
-      canSubmit = selectedMethod != null && amountValid && extraValid;
+      canSubmit = selectedMethod != null && 
+                 amountValid && 
+                 extraValid && 
+                 canSubmitBasedOnRate &&
+                 !loading;
     });
+  }
+
+  bool _checkRateLimit() {
+    if (_submissionAttempts >= _maxSubmissionAttempts) {
+      // فقط تسجيل في الخلفية دون عرض رسالة
+      return false;
+    }
+
+    if (_lastSubmissionTime != null) {
+      final timeSinceLast = DateTime.now().difference(_lastSubmissionTime!);
+      if (timeSinceLast < _minSubmissionInterval) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  @override
+  void dispose() {
+    amountController.dispose();
+    ibanController.dispose();
+    bankNameController.dispose();
+    accountHolderNameController.dispose();
+    pickupNameController.dispose();
+    pickupPhoneController.dispose();
+    pickupIdController.dispose();
+    
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (!_securityInitialized) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text(
+            "Withdraw Money",
+            style: TextStyle(color: Colors.white),
+          ),
+          iconTheme: const IconThemeData(color: Colors.white),
+          flexibleSpace: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF1F0F46), Color(0xFF8A005D)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+          ),
+          elevation: 0,
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     return StreamBuilder<Map<String, double>>(
         stream: FirestoreService.combinedWalletStream(UserManager.uid!),
         builder: (context, snapshot) {
           final isLoading = snapshot.connectionState == ConnectionState.waiting;
+
+          if (snapshot.hasError) {
+            return Scaffold(
+              appBar: AppBar(
+                title: const Text(
+                  "Withdraw Money",
+                  style: TextStyle(color: Colors.white),
+                ),
+                flexibleSpace: Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xFF1F0F46), Color(0xFF8A005D)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                ),
+              ),
+              body: const Center(
+                child: Text("Unable to load balance"),
+              ),
+            );
+          }
 
           final balances = snapshot.data ?? {"userBalance": 0.0, "holdingBalance": 0.0};
           final currentBalance = balances["userBalance"] ?? 0.0;
@@ -102,6 +263,7 @@ class _CashWithdrawalPageState extends State<CashWithdrawalPage> {
                 ),
               ),
               elevation: 0,
+              systemOverlayStyle: SystemUiOverlayStyle.light,
             ),
 
             body: AbsorbPointer(
@@ -191,13 +353,13 @@ class _CashWithdrawalPageState extends State<CashWithdrawalPage> {
           ),
           const SizedBox(height: 6),
           Text(
-            "Holding: ${holdingBalance.toStringAsFixed(2)}JD",
+            "Holding: ${holdingBalance.toStringAsFixed(2)} JD",
             style: const TextStyle(
               color: Colors.white70,
               fontSize: 16,
               fontWeight: FontWeight.w500,
             ),
-          )
+          ),
         ],
       ),
     );
@@ -263,6 +425,10 @@ class _CashWithdrawalPageState extends State<CashWithdrawalPage> {
                   vertical: 20,
                 ),
               ),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}$')),
+                LengthLimitingTextInputFormatter(10),
+              ],
             ),
           ],
         ),
@@ -468,39 +634,70 @@ class _CashWithdrawalPageState extends State<CashWithdrawalPage> {
             ),
           ),
           onPressed: isEnabled ? _submit : null,
-          child: const Text(
-            "Submit Withdrawal",
-            style: TextStyle(fontSize: 18, color: Colors.white),
-          ),
+          child: loading
+              ? const CircularProgressIndicator(color: Colors.white)
+              : const Text(
+                  "Submit Withdrawal",
+                  style: TextStyle(fontSize: 18, color: Colors.white),
+                ),
         ),
       ),
     );
   }
 
-  // BUTTON ACTION
   Future<void> _submit() async {
-    if (!canSubmit) return;
+    if (!canSubmit || !_securityInitialized) return;
+
+    if (!_checkRateLimit()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Please wait before submitting another request"),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final amountError = logic.validateAmount(amountController.text);
+    if (amountError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(amountError), backgroundColor: Colors.red),
+      );
+      return;
+    }
 
     setState(() => loading = true);
 
     try {
+      _submissionAttempts++;
+      _lastSubmissionTime = DateTime.now();
+      await _saveSubmissionHistory();
+
+      final amount = double.parse(amountController.text);
+      final sanitizedIBAN = InputValidator.sanitizeInput(ibanController.text);
+      final sanitizedBankName = InputValidator.sanitizeInput(bankNameController.text);
+      final sanitizedAccountHolder = InputValidator.sanitizeInput(accountHolderNameController.text);
+      final sanitizedPickupName = InputValidator.sanitizeInput(pickupNameController.text);
+      final sanitizedPickupPhone = InputValidator.sanitizeInput(pickupPhoneController.text);
+      final sanitizedPickupId = InputValidator.sanitizeInput(pickupIdController.text);
+
       final response = await FirestoreService.createWithdrawalRequest(
-        amount: double.parse(amountController.text),
+        amount: amount,
         userId: UserManager.uid!,
         method: selectedMethod!,
-        iban: ibanController.text,
-        bankName: bankNameController.text,
-        accountHolderName: accountHolderNameController.text,
-        pickupName: pickupNameController.text,
-        pickupPhone: pickupPhoneController.text,
-        pickupIdNumber: pickupIdController.text,
+        iban: sanitizedIBAN,
+        bankName: sanitizedBankName,
+        accountHolderName: sanitizedAccountHolder,
+        pickupName: sanitizedPickupName,
+        pickupPhone: sanitizedPickupPhone,
+        pickupIdNumber: sanitizedPickupId,
       );
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text("Withdrawal request submitted successfully"),
+        const SnackBar(
+          content: Text("Withdrawal request submitted successfully"),
           backgroundColor: Colors.green,
-          duration: const Duration(seconds: 3),
+          duration: Duration(seconds: 3),
         ),
       );
 
@@ -516,7 +713,7 @@ class _CashWithdrawalPageState extends State<CashWithdrawalPage> {
           context,
           MaterialPageRoute(
             builder: (context) => WithdrawalReferencePage(
-              amount: double.parse(amountController.text),
+              amount: amount,
               reference: reference,
             ),
           ),
@@ -525,22 +722,23 @@ class _CashWithdrawalPageState extends State<CashWithdrawalPage> {
 
     } catch (e) {
       setState(() => loading = false);
-      print("WITHDRAW ERROR RAW: $e");
 
-      String message = "Withdrawal failed";
+      String message = "Withdrawal failed. Please try again.";
 
       try {
-        // Firebase callable functions wrap the error
         final err = e as FirebaseFunctionsException;
-        message = err.message ?? message;
-        print("WITHDRAW ERROR MESSAGE: ${err.message}");
-        print("WITHDRAW ERROR DETAILS: ${err.details}");
-        print("WITHDRAW ERROR CODE: ${err.code}");
-      } catch (_) {}
+        message = ErrorHandler.getSafeError(err.message ?? message);
+      } catch (_) {
+        ErrorHandler.logError('Withdrawal Submission', e);
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
       );
     }
   }
-
 }
