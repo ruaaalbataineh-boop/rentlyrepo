@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:p2/logic/personal_info_logic.dart';
-import 'package:p2/rate_product_page.dart';
-import 'package:p2/user_rate.dart';
 import 'package:p2/security/route_guard.dart';
 import 'package:p2/security/error_handler.dart';
 import 'package:p2/security/secure_storage.dart';

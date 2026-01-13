@@ -72,7 +72,7 @@ class _PaymentFailedPageState extends State<PaymentFailedPage> {
           style: TextStyle(
             color: Color(0xFF1F0F46),
             fontWeight: FontWeight.w600,
-            fontSize: 18, 
+            fontSize: 18,
           ),
         ),
         centerTitle: true,
@@ -86,23 +86,23 @@ class _PaymentFailedPageState extends State<PaymentFailedPage> {
       ),
 
       body: SafeArea(
-        child: ListView( 
-          padding: const EdgeInsets.only(bottom: 20), 
+        child: ListView(
+          padding: const EdgeInsets.only(bottom: 20),
           children: [
-            
+
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
               child: Column(
                 children: [
                   Container(
-                    width: 100, 
+                    width: 100,
                     height: 100,
                     decoration: BoxDecoration(
                       color: Colors.red.withOpacity(0.1),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(Icons.error_outline,
-                        size: 60, color: Colors.red), 
+                        size: 60, color: Colors.red),
                   ),
 
                   const SizedBox(height: 20),
@@ -122,7 +122,7 @@ class _PaymentFailedPageState extends State<PaymentFailedPage> {
                     _errorMessage ?? 'We couldn\'t process your payment',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                      fontSize: 16, 
+                      fontSize: 16,
                       color: Colors.grey,
                       height: 1.4,
                     ),
@@ -130,19 +130,19 @@ class _PaymentFailedPageState extends State<PaymentFailedPage> {
 
                   const SizedBox(height: 20),
 
-                  
+
                   _buildFailureDetailsBox(),
                 ],
               ),
             ),
 
-        
+
             Container(
-              margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10), 
-              padding: const EdgeInsets.all(15), 
+              margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              padding: const EdgeInsets.all(15),
               decoration: BoxDecoration(
                 color: Colors.grey[50],
-                borderRadius: BorderRadius.circular(12), 
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.grey[200]!),
               ),
               child: Column(
@@ -151,7 +151,7 @@ class _PaymentFailedPageState extends State<PaymentFailedPage> {
                   const Text(
                     'Helpful Tips:',
                     style: TextStyle(
-                      fontSize: 16, 
+                      fontSize: 16,
                       fontWeight: FontWeight.w600,
                       color: Color(0xFF1F0F46),
                     ),
@@ -166,13 +166,13 @@ class _PaymentFailedPageState extends State<PaymentFailedPage> {
               ),
             ),
 
-            
+
             const SizedBox(height: 80),
           ],
         ),
       ),
 
-      
+
       bottomNavigationBar: SafeArea(
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
@@ -183,28 +183,28 @@ class _PaymentFailedPageState extends State<PaymentFailedPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              
+
               SizedBox(
                 width: double.infinity,
-                height: 52, 
+                height: 52,
                 child: ElevatedButton(
                   onPressed: () => _goToHome(context),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF1F0F46),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)), 
+                        borderRadius: BorderRadius.circular(10)),
                     elevation: 0,
                   ),
                   child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.shopping_bag, size: 20), 
+                      Icon(Icons.shopping_bag, size: 20),
                       SizedBox(width: 10),
                       Text(
                         "Continue Shopping",
                         style: TextStyle(
-                          fontSize: 16, 
+                          fontSize: 16,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -215,7 +215,7 @@ class _PaymentFailedPageState extends State<PaymentFailedPage> {
 
               const SizedBox(height: 10),
 
-              
+
               SizedBox(
                 width: double.infinity,
                 height: 48,
@@ -245,7 +245,7 @@ class _PaymentFailedPageState extends State<PaymentFailedPage> {
                 ),
               ),
 
-             
+
               if (widget.returnTo == 'wallet') ...[
                 const SizedBox(height: 10),
                 SizedBox(
@@ -262,7 +262,7 @@ class _PaymentFailedPageState extends State<PaymentFailedPage> {
                     child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.account_balance_wallet, 
+                        Icon(Icons.account_balance_wallet,
                             color: Color(0xFF8A005D), size: 18),
                         SizedBox(width: 10),
                         Text(
@@ -278,8 +278,8 @@ class _PaymentFailedPageState extends State<PaymentFailedPage> {
                   ),
                 ),
               ],
-              
-              
+
+
               const SizedBox(height: 5),
             ],
           ),
@@ -291,7 +291,7 @@ class _PaymentFailedPageState extends State<PaymentFailedPage> {
   Widget _buildFailureDetailsBox() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16), 
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.grey[50],
         borderRadius: BorderRadius.circular(12),
@@ -303,7 +303,7 @@ class _PaymentFailedPageState extends State<PaymentFailedPage> {
           const Text(
             'Transaction Details:',
             style: TextStyle(
-              fontSize: 16, 
+              fontSize: 16,
               fontWeight: FontWeight.w600,
               color: Color(0xFF1F0F46),
             ),
@@ -329,7 +329,7 @@ class _PaymentFailedPageState extends State<PaymentFailedPage> {
             label,
             style: const TextStyle(
               color: Colors.grey,
-              fontSize: 14, 
+              fontSize: 14,
             ),
           ),
           Flexible(
@@ -356,7 +356,7 @@ class _PaymentFailedPageState extends State<PaymentFailedPage> {
         children: [
           Icon(
             Icons.check_circle,
-            size: 16, 
+            size: 16,
             color: Colors.green[600],
           ),
           const SizedBox(width: 8),
@@ -365,7 +365,7 @@ class _PaymentFailedPageState extends State<PaymentFailedPage> {
               text,
               style: TextStyle(
                 color: Colors.grey[700],
-                fontSize: 13, 
+                fontSize: 13,
                 height: 1.4,
               ),
             ),
@@ -395,13 +395,13 @@ class _PaymentFailedPageState extends State<PaymentFailedPage> {
     return '${ref.substring(0, 10)}...${ref.substring(ref.length - 6)}';
   }
 
-   
+
   void _goToHome(BuildContext context) {
     try {
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (context) => Categories_Page()),
-        (route) => false,
+        MaterialPageRoute(builder: (context) => CategoryPage()),
+            (route) => false,
       );
     } catch (e) {
       print('🔥 Error going to home: $e');
