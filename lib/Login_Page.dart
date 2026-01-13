@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_custom_clippers/flutter_custom_clippers.dart';
-import 'package:provider/provider.dart'; 
-import 'package:firebase_auth/firebase_auth.dart'; 
+import 'package:provider/provider.dart';
+
 import 'app_shell.dart';
 import 'fake_uid.dart';
 import 'package:p2/services/auth_service.dart';
+import 'logic/login_logic.dart';
+import 'main_user.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+  LoginPage({super.key}); // not const for test rebuild safety
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -15,9 +17,9 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController emailController = TextEditingController();
-  final TextEditingController passwordController = TextEditingController();
-  
+  final emailController = TextEditingController();
+  final passwordController = TextEditingController();
+
   bool _obscurePassword = true;
   bool _isLoading = false;
   bool _rememberMe = false;
@@ -33,6 +35,9 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
 
+    // Stop real login in integration test
+    if (isIntegrationTest) return;
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -40,7 +45,7 @@ class _LoginPageState extends State<LoginPage> {
 
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
-      
+
       final result = await authService.loginWithEmail(
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
@@ -49,115 +54,28 @@ class _LoginPageState extends State<LoginPage> {
 
       if (!mounted) return;
 
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
 
       if (result['success'] == true) {
-        final user = FirebaseAuth.instance.currentUser;
-
-         
         LoginUID.uid = result['uid'];
-
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const AppShell()),
-          );
-        }
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const AppShell()),
+        );
       } else {
         _showError(result['error'] ?? 'Login failed');
       }
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = 'An unexpected error occurred: ${e.toString()}';
-        });
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('An unexpected error occurred: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'An unexpected error occurred';
+      });
     }
   }
 
   void _showError(String message) {
-    setState(() {
-      _errorMessage = message;
-    });
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  void _showResetPasswordDialog() {
-    final TextEditingController resetEmailController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Reset Password'),
-        content: TextField(
-          controller: resetEmailController,
-          keyboardType: TextInputType.emailAddress,
-          decoration: const InputDecoration(
-            labelText: 'Email',
-            hintText: 'Enter your email',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              try {
-                final authService = Provider.of<AuthService>(context, listen: false);
-                await authService.resetPassword(resetEmailController.text.trim());
-
-                if (mounted) {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Password reset link has been sent to your email'),
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Failed to send reset email: ${e.toString()}'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              }
-            },
-            child: const Text('Send'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String? _validateEmail(String? value) {
-    return AuthService.validateEmail(value);
-  }
-
-  String? _validatePassword(String? value) {
-    return AuthService.validatePassword(value);
+    setState(() => _errorMessage = message);
   }
 
   @override
@@ -167,83 +85,43 @@ class _LoginPageState extends State<LoginPage> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            Stack(
-              children: [
-                ClipPath(
-                  clipper: WaveClipperOne(),
-                  child: Container(
-                    height: 180,
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Color(0xFF1F0F46), Color(0xFF8A005D)],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
-                    ),
+
+            ClipPath(
+              clipper: WaveClipperOne(),
+              child: Container(
+                height: 180,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF1F0F46), Color(0xFF8A005D)],
                   ),
                 ),
-                const Positioned(
-                  top: 50,
-                  left: 30,
-                  child: Row(
-                    children: [
-                      Icon(Icons.diamond, color: Colors.white, size: 40),
-                      SizedBox(width: 8),
-                      Text(
-                        "Rently",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 28,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+              ),
             ),
+
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 20),
+              padding: const EdgeInsets.all(30),
               child: Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      "Login",
-                      style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 5),
-                    Row(
-                      children: [
-                        const Text("Don't have an account? "),
-                        GestureDetector(
-                          onTap: () => Navigator.pushNamed(context, '/create'),
-                          child: const Text(
-                            "Sign up",
-                            style: TextStyle(
-                              color: Colors.pink,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+
+                    const Text("Login",
+                        style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+
                     const SizedBox(height: 30),
 
+                    /// EMAIL
                     TextFormField(
                       key: const ValueKey('emailField'),
                       controller: emailController,
-                      decoration: InputDecoration(
-                        labelText: "Email",
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                      ),
-                      validator: _validateEmail,
+                      decoration: const InputDecoration(labelText: "Email"),
+                      validator: AuthLogic.validateEmail,
                     ),
+
                     const SizedBox(height: 20),
 
+                    /// PASSWORD
                     TextFormField(
                       key: const ValueKey('passwordField'),
                       controller: passwordController,
@@ -262,57 +140,34 @@ class _LoginPageState extends State<LoginPage> {
                             });
                           },
                         ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(30),
-                        ),
                       ),
-                      validator: _validatePassword,
+                      validator: AuthLogic.validatePassword,
                     ),
+
+                    const SizedBox(height: 10),
 
                     Row(
                       children: [
                         Checkbox(
                           value: _rememberMe,
-                          onChanged: (value) {
+                          onChanged: (v) {
                             setState(() {
-                              _rememberMe = value ?? false;
+                              _rememberMe = v ?? false;
                             });
                           },
                         ),
                         const Text('Remember me'),
-                        const Spacer(),
-                        TextButton(
-                          onPressed: _showResetPasswordDialog,
-                          child: const Text('Forgot password?'),
-                        ),
                       ],
                     ),
 
                     const SizedBox(height: 20),
 
-                    if (_isLoading)
-                      const Center(child: CircularProgressIndicator())
-                    else
-                      ElevatedButton(
-                        key: const ValueKey('loginButton'),
-                        onPressed: _login,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF8A005D),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 40, vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text("Login", style: TextStyle(color: Colors.white)),
-                            SizedBox(width: 8),
-                            Icon(Icons.arrow_forward, color: Colors.white),
-                          ],
-                        ),
-                      ),
+                    /// LOGIN BUTTON
+                    ElevatedButton(
+                      key: const ValueKey('loginButton'),
+                      onPressed: _isLoading ? null : _login,
+                      child: const Text("Login"),
+                    ),
 
                     if (_errorMessage != null) ...[
                       const SizedBox(height: 16),

@@ -1,4 +1,3 @@
-// lib/logic/login_logic.dart
 class AuthLogic {
   static String? validateEmail(String? value) {
     if (value == null || value.trim().isEmpty) {

@@ -215,7 +215,7 @@ class _RentlyAppState extends State<RentlyApp> {
                     Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(
-                          builder: (_) => const LoginPage()),
+                          builder: (_) => LoginPage()),
                     );
                   },
                   child: const Text(
@@ -239,11 +239,11 @@ class _RentlyAppState extends State<RentlyApp> {
       theme: ThemeData(scaffoldBackgroundColor: Colors.white),
       initialRoute: _initialRoute ?? '/login',
       routes: {
-        '/login': (_) => const LoginPage(),
+        '/login': (_) => LoginPage(),
        
       },
       onUnknownRoute: (_) =>
-          MaterialPageRoute(builder: (_) => const LoginPage()),
+          MaterialPageRoute(builder: (_) => LoginPage()),
     );
   }
 
