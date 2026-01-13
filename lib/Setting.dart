@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:p2/AddItemPage%20.dart';
 import 'package:p2/Chats_Page.dart';
 import 'package:p2/WalletPage.dart';
+import 'package:p2/app_theme.dart';
 import 'Orders.dart';
 import 'Categories_Page.dart';
 import 'app_locale.dart';
@@ -25,15 +26,15 @@ class SettingPage extends StatefulWidget {
 class _SettingPageState extends State<SettingPage> {
   bool _isSyncing = false;
   bool _muteNotifications = false;
+
+  // ✅ ADDED: App Appearance state
   bool _appAppearance = false;
 
-  
   Future<void> _syncSettingsWithServer() async {
     setState(() {
       _isSyncing = true;
     });
 
-  
     await Future.delayed(const Duration(seconds: 2));
 
     setState(() {
@@ -48,19 +49,20 @@ class _SettingPageState extends State<SettingPage> {
     );
   }
 
-  
   Future<void> _handleToggleNotifications() async {
     setState(() {
       _muteNotifications = !_muteNotifications;
     });
   }
 
-  
-  Future<void> _handleToggleAppearance() async {
-    setState(() {
-      _appAppearance = !_appAppearance;
-    });
-  }
+  // ✅ ADDED: App Appearance toggle handler
+ Future<void> _handleToggleAppearance() async {
+  setState(() {
+    _appAppearance = !_appAppearance;
+  });
+
+  AppTheme.toggleTheme(_appAppearance);
+}
 
   Widget _buildHeader() {
     return ClipPath(
@@ -129,7 +131,8 @@ class _SettingPageState extends State<SettingPage> {
       valueListenable: AppLocale.locale,
       builder: (context, locale, child) {
         return Scaffold(
-          backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+
           body: Column(
             children: [
               _buildHeader(),
@@ -147,7 +150,9 @@ class _SettingPageState extends State<SettingPage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (context) => const PersonalInfoPage()),
+                            builder: (context) =>
+                                const PersonalInfoPage(),
+                          ),
                         );
                       },
                     ),
@@ -162,21 +167,26 @@ class _SettingPageState extends State<SettingPage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (context) => const WalletHomePage()),
+                            builder: (context) =>
+                                const WalletHomePage(),
+                          ),
                         );
                       },
                     ),
                     ListTile(
                       leading: CircleAvatar(
                         backgroundColor: Colors.grey[300],
-                        child: const Icon(Icons.favorite, color: Colors.black),
+                        child: const Icon(Icons.favorite,
+                            color: Colors.black),
                       ),
                       title: Text(AppLocale.t('favourite')),
                       onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (context) => const FavouritePage()),
+                            builder: (context) =>
+                                const FavouritePage(),
+                          ),
                         );
                       },
                     ),
@@ -191,21 +201,26 @@ class _SettingPageState extends State<SettingPage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (context) => const CouponsPage()),
+                            builder: (context) =>
+                                const CouponsPage(),
+                          ),
                         );
                       },
                     ),
                     ListTile(
                       leading: CircleAvatar(
                         backgroundColor: Colors.grey[300],
-                        child: const Icon(Icons.info, color: Colors.black),
+                        child:
+                            const Icon(Icons.info, color: Colors.black),
                       ),
                       title: Text(AppLocale.t('about_app')),
                       onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (context) => const AboutAppPage()),
+                            builder: (context) =>
+                                const AboutAppPage(),
+                          ),
                         );
                       },
                     ),
@@ -220,14 +235,17 @@ class _SettingPageState extends State<SettingPage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (context) => const SupportPage()),
+                            builder: (context) =>
+                                const SupportPage(),
+                          ),
                         );
                       },
                     ),
                     ListTile(
                       leading: CircleAvatar(
                         backgroundColor: Colors.grey[300],
-                        child: const Icon(Icons.language, color: Colors.black),
+                        child: const Icon(Icons.language,
+                            color: Colors.black),
                       ),
                       title: Text(AppLocale.t('app_language')),
                       onTap: () {
@@ -240,16 +258,19 @@ class _SettingPageState extends State<SettingPage> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   ListTile(
-                                    title: const Text("English"),
+                                    title:
+                                        const Text("English"),
                                     onTap: () {
-                                      AppLocale.setLocale(const Locale('en'));
+                                      AppLocale.setLocale(
+                                          const Locale('en'));
                                       Navigator.pop(context);
                                     },
                                   ),
                                   ListTile(
                                     title: const Text("عربي"),
                                     onTap: () {
-                                      AppLocale.setLocale(const Locale('ar'));
+                                      AppLocale.setLocale(
+                                          const Locale('ar'));
                                       Navigator.pop(context);
                                     },
                                   ),
@@ -262,58 +283,73 @@ class _SettingPageState extends State<SettingPage> {
                     ),
                     SwitchListTile(
                       value: _muteNotifications,
-                      onChanged: (val) => _handleToggleNotifications(),
-                      title: const Text("Mute Notifications"),
+                      onChanged: (val) =>
+                          _handleToggleNotifications(),
+                      title:
+                          const Text("Mute Notifications"),
                       secondary: CircleAvatar(
                         backgroundColor: Colors.grey[300],
-                        child: const Icon(Icons.notifications_off,
+                        child: const Icon(
+                            Icons.notifications_off,
                             color: Colors.black),
                       ),
                     ),
+
+                    // ✅ ADDED: App Appearance (SAFE)
                     SwitchListTile(
                       value: _appAppearance,
-                      onChanged: (val) => _handleToggleAppearance(),
+                      onChanged: (val) =>
+                          _handleToggleAppearance(),
                       title: const Text("App Appearance"),
                       secondary: CircleAvatar(
                         backgroundColor: Colors.grey[300],
-                        child: const Icon(Icons.brightness_4, color: Colors.black),
+                        child: const Icon(Icons.brightness_4,
+                            color: Colors.black),
                       ),
                     ),
+
                     ListTile(
                       leading: CircleAvatar(
                         backgroundColor: Colors.grey[300],
-                        child: const Icon(Icons.delete_forever, color: Colors.black),
+                        child: const Icon(Icons.delete_forever,
+                            color: Colors.black),
                       ),
-                      title: Text(AppLocale.t('remove_account')),
+                      title:
+                          Text(AppLocale.t('remove_account')),
                       onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (context) => const RemoveAccountPage()),
+                            builder: (context) =>
+                                const RemoveAccountPage(),
+                          ),
                         );
                       },
                     ),
                     ListTile(
                       leading: CircleAvatar(
                         backgroundColor: Colors.grey[300],
-                        child: const Icon(Icons.logout, color: Colors.black),
+                        child: const Icon(Icons.logout,
+                            color: Colors.black),
                       ),
                       title: Text(AppLocale.t('logout')),
                       onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (context) => const LogoutConfirmationPage()),
+                            builder: (context) =>
+                                const LogoutConfirmationPage(),
+                          ),
                         );
                       },
                     ),
-                  
-                   ],
+                  ],
                 ),
               ),
             ],
           ),
-          bottomNavigationBar: const SharedBottomNav(currentIndex: 0),
+          bottomNavigationBar:
+              const SharedBottomNav(currentIndex: 0),
         );
       },
     );
@@ -332,7 +368,8 @@ class SideCurveClipper extends CustomClipper<Path> {
       radius: Radius.circular(radius),
       clockwise: true,
     );
-    path.lineTo(size.width - radius, size.height - radius);
+    path.lineTo(size.width - radius,
+        size.height - radius);
     path.arcToPoint(
       Offset(size.width, size.height),
       radius: Radius.circular(radius),
@@ -344,5 +381,6 @@ class SideCurveClipper extends CustomClipper<Path> {
   }
 
   @override
-  bool shouldReclip(CustomClipper<Path> oldClipper) => false;
+  bool shouldReclip(CustomClipper<Path> oldClipper) =>
+      false;
 }
