@@ -1,15 +1,19 @@
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:p2/logic/orders_logic.dart';
 import 'package:p2/services/firestore_service.dart';
 import 'package:p2/user_manager.dart';
+import 'package:p2/logic/equipment_detail_logic.dart';
 import 'FavouriteManager.dart';
 import 'ChatScreen.dart';
 import 'AllReviewsPage.dart';
 import 'models/Item.dart';
+import 'package:p2/security/error_handler.dart';
 
 class EquipmentDetailPage extends StatefulWidget {
   static const routeName = '/product-details';
@@ -21,38 +25,29 @@ class EquipmentDetailPage extends StatefulWidget {
 
 class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
   int currentPage = 0;
-  String ownerName = "";
-  String? selectedPeriod;
-  DateTime? startDate;
-  DateTime? endDate;
-  TimeOfDay? startTime;
-  int count = 1;
-  String? pickupTime;
-
-  double insuranceAmount = 0.0;
-  double rentalPrice = 0.0;
-  double totalRequired = 0.0;
-  double totalPrice = 0.0; 
-  double renterWallet = 0.0;
-  bool hasSufficientBalance = false;
-  bool insuranceAccepted = false;
-  
-  Map<String, dynamic>? itemInsuranceInfo;
-  
-  List<Map<String, dynamic>> topReviews = [];
-  List<DateTimeRange> unavailableRanges = [];
-  bool loadingAvailability = false;
-  Item? _item;
   bool _loaded = false;
+  Item? _item;
+  
+  late EquipmentDetailLogic _logic;
+  
+  get stack => null;
 
-  double dailyPenaltyRate = 0.15;
-  double hourlyPenaltyRate = 0.05;
-  double maxPenaltyDays = 5;
-  double maxPenaltyHours = 24;
-  String penaltyMessage = "";
-  bool showPenaltyInfo = false;
+  @override
+  void initState() {
+    super.initState();
+    
+    _logic = EquipmentDetailLogic();
+    _initializeLogic();
+  }
 
-  bool get isOwner => _item != null && _item!.ownerId == UserManager.uid;
+  Future<void> _initializeLogic() async {
+    try {
+      await _logic.initialize();
+      setState(() {});
+    } catch (error) {
+      print('Error initializing logic: $error');
+    }
+  }
 
   @override
   void didChangeDependencies() {
@@ -61,266 +56,37 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
       final args = ModalRoute.of(context)?.settings.arguments;
       if (args is Item) {
         _item = args;
-        ownerName = _item!.ownerName;
-        loadTopReviews(_item!.id);
-        loadUnavailableRanges(_item!.id);
-        loadItemInsuranceInfo(_item!.id);
-        loadRenterWalletBalance();
+        _loadItemData();
       }
       _loaded = true;
     }
   }
 
-  Future<void> loadItemInsuranceInfo(String itemId) async {
+  Future<void> _loadItemData() async {
+    if (_item == null) return;
+    
     try {
-      final insurance = await FirestoreService.getItemInsurance(itemId);
-
-      if (!mounted) return;
-
-      if (insurance != null) {
-        final rawOriginal = insurance["itemOriginalPrice"];
-        final rawRate     = insurance["ratePercentage"];
-        final rawAmount   = insurance["insuranceAmount"];
-
-        final itemOriginalPrice =
-        (rawOriginal is num) ? rawOriginal.toDouble() : 0.0;
-        final ratePercentage =
-        (rawRate is num) ? rawRate.toDouble() : 0.0;
-        double amount =
-        (rawAmount is num) ? rawAmount.toDouble() : 0.0;
-
-        // calculate amount if firestore doesn't have it
-        if (amount <= 0 && itemOriginalPrice > 0 && ratePercentage > 0) {
-          amount = itemOriginalPrice * ratePercentage;
-        }
-
-        setState(() {
-          itemInsuranceInfo = {
-            "itemOriginalPrice": itemOriginalPrice,
-            "ratePercentage": ratePercentage,
-          };
-
-          insuranceAmount = amount;
-          calculateInsurance();
-        });
-      } else {
-        // fallback defaults
-        setState(() {
-          itemInsuranceInfo = {
-            "itemOriginalPrice": 0.0,
-            "ratePercentage": 0.0,
-          };
-          insuranceAmount = 0.0;
-          calculateInsurance();
-        });
-      }
-    } catch (e) {
-      debugPrint("Error loading insurance info from Firestore: $e");
-      if (!mounted) return;
-
-      // if something goes wrong
-      setState(() {
-        itemInsuranceInfo = {
-          "itemOriginalPrice": 0.0,
-          "ratePercentage": 0.0,
-        };
-        insuranceAmount = 0.0;
-        calculateInsurance();
-      });
-    }
-  }
-
-  Future<void> loadRenterWalletBalance() async {
-    try {
-      final snap = await FirebaseDatabase.instance
-          .ref("users/${UserManager.uid}/wallet/balance")
-          .get();
+      await _logic.setItem(_item!);
       
-      if (snap.exists) {
-        final balance = snap.value;
-        if (balance != null) {
-          setState(() {
-            renterWallet = double.tryParse(balance.toString()) ?? 0.0;
-            checkWalletBalance();
-          });
-        }
-      } else {
-        await FirebaseDatabase.instance
-            .ref("users/${UserManager.uid}/wallet")
-            .set({
-              "balance": 2000.0,
-              "currency": "JD",
-              "lastUpdated": DateTime.now().toIso8601String(),
-            });
-        
-        if (mounted) {
-          setState(() {
-            renterWallet = 2000.0;
-            checkWalletBalance();
-          });
-        }
+      await Future.wait([
+        _logic.loadOwnerName(_item!.ownerId),
+        _logic.loadItemInsuranceInfo(_item!.id),
+        _logic.loadRenterWalletBalance(),
+        _logic.loadTopReviews(_item!.id),
+        _logic.loadUnavailableRanges(_item!.id),
+      ]);
+      
+      if (mounted) {
+        setState(() {});
       }
-    } catch (e) {
-      debugPrint("Error loading wallet balance: $e");
-      setState(() {
-        renterWallet = 0.0;
-        checkWalletBalance();
-      });
-    }
-  }
-
-  Future<void> loadTopReviews(String itemId) async {
-    final snap = await FirebaseDatabase.instance
-        .ref("reviews/$itemId")
-        .limitToFirst(3)
-        .get();
-
-    if (!mounted) return;
-
-    if (snap.exists) {
-      setState(() {
-        topReviews = snap.children.map((c) {
-          return {
-            "rating": c.child("rating").value ?? 0,
-            "review": c.child("review").value ?? "",
-          };
-        }).toList();
-      });
-    } else {
-      setState(() => topReviews = []);
-    }
-  }
-
-  Future<void> loadUnavailableRanges(String itemId) async {
-    setState(() => loadingAvailability = true);
-
-    final rentals = await FirestoreService.getAcceptedRequestsForItem(itemId);
-
-    unavailableRanges = rentals.map((r) {
-      return DateTimeRange(
-        start: DateTime.parse(r["startDate"]),
-        end: DateTime.parse(r["endDate"]),
-      );
-    }).toList();
-
-    if (!mounted) return;
-    setState(() => loadingAvailability = false);
-  }
-
-  void calculateEndDate() {
-    if (selectedPeriod == null) {
-      endDate = null;
-      return;
-    }
-
-    final p = selectedPeriod!.toLowerCase();
-
-    if (p == "hourly") {
-      if (startDate == null || startTime == null) {
-        endDate = null;
-        return;
-      }
-
-      final startDateTime = DateTime(
-        startDate!.year,
-        startDate!.month,
-        startDate!.day,
-        startTime!.hour,
-        startTime!.minute,
-      );
-
-      endDate = startDateTime.add(Duration(hours: count));
-      calculateInsurance();
-      return;
-    }
-
-    if (startDate == null) {
-      endDate = null;
-      return;
-    }
-
-    int days = 0;
-    if (p == "daily") days = count;
-    if (p == "weekly") days = count * 7;
-    if (p == "monthly") days = count * 30;
-    if (p == "yearly") days = count * 365;
-
-    endDate = startDate!.add(Duration(days: days));
-    calculateInsurance();
-  }
-
-  double computeTotalPrice(Item item) {
-    if (selectedPeriod == null) return 0;
-    final base = double.tryParse("${item.rentalPeriods[selectedPeriod]}") ?? 0;
-    if (selectedPeriod!.toLowerCase() == "hourly") {
-      return base * count;
-    }
-    return base * count;
-  }
-
-  void calculatePenalties() {
-    if (_item == null || selectedPeriod == null || itemInsuranceInfo == null) {
-      setState(() {
-        penaltyMessage = "";
-        showPenaltyInfo = false;
-      });
-      return;
-    }
-
-    final isHourly = selectedPeriod!.toLowerCase() == "hourly";
-    final itemOriginalPrice = itemInsuranceInfo!['itemOriginalPrice'];
-    
-    String message = "";
-    
-    if (isHourly) {
-      final penaltyPerHour = itemOriginalPrice * hourlyPenaltyRate;
-      message = "⏰ Hourly rental: If late more than 24 hours:\n"
-          "• 5% penalty per late hour (JD ${penaltyPerHour.toStringAsFixed(2)}/hour)\n"
-          "• Deducted from insurance\n";
-         
-    } else {
-      final penaltyPerDay = itemOriginalPrice * dailyPenaltyRate;
-      message = "📅 Daily/Weekly/Monthly: If late more than 5 days:\n"
-          "• 15% penalty per late day (JD ${penaltyPerDay.toStringAsFixed(2)}/day)\n"
-          "• Deducted from insurance\n";
-        
-    }
-    
-    setState(() {
-      penaltyMessage = message;
-      showPenaltyInfo = true;
-    });
-  }
-
-  void calculateInsurance() {
-    if (_item == null || selectedPeriod == null || itemInsuranceInfo == null) return;
-    
-    rentalPrice = computeTotalPrice(_item!);
-    totalPrice = rentalPrice + insuranceAmount; 
-    totalRequired = totalPrice; 
-    
-    calculatePenalties();
-    
-    checkWalletBalance();
-    
-    setState(() {});
-  }
-
-  void checkWalletBalance() {
-    if (renterWallet >= totalRequired) {
-      setState(() {
-        hasSufficientBalance = true;
-      });
-    } else {
-      setState(() {
-        hasSufficientBalance = false;
-      });
+    } catch (error) {
+      print('Error loading item data: $error');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_item == null) {
+    if (_item == null || !_logic.isInitialized) {
       return const Scaffold(
         backgroundColor: Colors.white,
         body: SafeArea(
@@ -329,9 +95,10 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
       );
     }
 
-    final item = _item!;
-    final periods = item.rentalPeriods.keys.toList();
-
+    final item = _item!;////
+    final periods = item.rentalPeriods.keys
+    .where((p) => p.toLowerCase() != 'hourly')
+    .toList();
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -345,12 +112,12 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
               buildDescription(item),
               buildRatingSection(item),
 
-              if (!isOwner) ...[
+              if (!_logic.isOwner) ...[
                 buildRentalChips(periods, item),
-                buildRentalSelector(item),
+                buildRentalSelector(),
                 buildAvailabilityHint(),
                 buildEndDateDisplay(),
-                buildTotalPrice(item),
+                buildTotalPrice(),
                 buildInsuranceSection(),
                 buildPickupSelector(),
                 buildPenaltyInfoSection(),
@@ -378,7 +145,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                 ),
               ],
 
-              buildReviewsSection(item),
+              buildReviewsSection(),
               buildMapSection(item),
               const SizedBox(height: 40),
             ],
@@ -403,7 +170,10 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
         children: [
           IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+             // _logic.cleanupResources();
+              Navigator.pop(context);
+            },
           ),
           const Expanded(
             child: Text(
@@ -472,7 +242,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
               });
             },
           ),
-          if (!isOwner)
+          if (!_logic.isOwner)
             IconButton(
               icon: const Icon(Icons.chat, color: Color(0xFF8A005D), size: 28),
               onPressed: () {
@@ -481,7 +251,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                   MaterialPageRoute(
                     builder: (_) => ChatScreen(
                       personUid: item.ownerId,
-                      personName: ownerName,
+                      personName: _logic.ownerName,
                     ),
                   ),
                 );
@@ -499,7 +269,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
         children: [
           const Icon(Icons.person, color: Color(0xFF8A005D)),
           const SizedBox(width: 8),
-          Text("Owner: ${ownerName ?? 'Unknown'}"),
+          Text("Owner: ${_logic.ownerName}"),
         ],
       ),
     );
@@ -534,22 +304,22 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
         children: periods.map((p) {
           return ChoiceChip(
             label: Text("$p (JD ${item.rentalPeriods[p]})"),
-            selected: selectedPeriod == p,
+            selected: _logic.selectedPeriod == p,
             onSelected: (_) {
               setState(() {
-                selectedPeriod = p;
-                startDate = null;
-                endDate = null;
-                startTime = null;
-                count = 1;
-                pickupTime = null;
-                insuranceAccepted = false;
-                calculateInsurance();
+                _logic.selectedPeriod = p;
+                _logic.startDate = null;
+                _logic.endDate = null;
+                _logic.startTime = null;
+                _logic.count = 1;
+                _logic.pickupTime = null;
+                _logic.insuranceAccepted = false;
+                _logic.calculateInsurance();
               });
             },
             selectedColor: const Color(0xFF8A005D),
             labelStyle: TextStyle(
-              color: selectedPeriod == p ? Colors.white : Colors.black,
+              color: _logic.selectedPeriod == p ? Colors.white : Colors.black,
             ),
           );
         }).toList(),
@@ -557,9 +327,9 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  Widget buildRentalSelector(Item item) {
-    if (selectedPeriod == null) return const SizedBox.shrink();
-    final p = selectedPeriod!.toLowerCase();
+  Widget buildRentalSelector() {
+    if (_logic.selectedPeriod == null) return const SizedBox.shrink();
+    final p = _logic.selectedPeriod!.toLowerCase();
 
     if (p == "hourly") return buildHourlySelector();
     return buildDaySelector();
@@ -571,17 +341,17 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          buildDatePicker("Start Date", startDate, (d) {
+          buildDatePicker("Start Date", _logic.startDate, (d) {
             setState(() {
-              startDate = d;
-              calculateEndDate();
+              _logic.startDate = d;
+              _logic.calculateEndDate();
             });
           }),
           const SizedBox(height: 16),
-          buildTimePicker("Start Time", startTime, (t) {
+          buildTimePicker("Start Time", _logic.startTime, (t) {
             setState(() {
-              startTime = t;
-              calculateEndDate();
+              _logic.startTime = t;
+              _logic.calculateEndDate();
             });
           }),
           const SizedBox(height: 22),
@@ -601,10 +371,10 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
               children: [
                 GestureDetector(
                   onTap: () {
-                    if (count > 1) {
+                    if (_logic.count > 1) {
                       setState(() {
-                        count--;
-                        calculateEndDate();
+                        _logic.count--;
+                        _logic.calculateEndDate();
                       });
                     }
                   },
@@ -612,7 +382,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                       color: Color(0xFF8A005D), size: 26),
                 ),
                 Text(
-                  "$count Hours",
+                  "${_logic.count} Hours",
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
@@ -622,8 +392,8 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                 GestureDetector(
                   onTap: () {
                     setState(() {
-                      count++;
-                      calculateEndDate();
+                      _logic.count++;
+                      _logic.calculateEndDate();
                     });
                   },
                   child: const Icon(Icons.add,
@@ -638,26 +408,20 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
   }
 
   Widget buildDaySelector() {
-    String unitLabel = "Days";
-    final p = selectedPeriod?.toLowerCase();
-    if (p == "weekly") unitLabel = "Weeks";
-    if (p == "monthly") unitLabel = "Months";
-    if (p == "yearly") unitLabel = "Years";
-
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          buildDatePicker("Start Date", startDate, (d) {
+          buildDatePicker("Start Date", _logic.startDate, (d) {
             setState(() {
-              startDate = d;
-              calculateEndDate();
+              _logic.startDate = d;
+              _logic.calculateEndDate();
             });
           }),
           const SizedBox(height: 22),
           Text(
-            "Number of $unitLabel",
+            "Number of ${_logic.getUnitLabel()}",
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 10),
@@ -672,10 +436,10 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
               children: [
                 GestureDetector(
                   onTap: () {
-                    if (count > 1) {
+                    if (_logic.count > 1) {
                       setState(() {
-                        count--;
-                        calculateEndDate();
+                        _logic.count--;
+                        _logic.calculateEndDate();
                       });
                     }
                   },
@@ -683,7 +447,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                       color: Color(0xFF8A005D), size: 26),
                 ),
                 Text(
-                  "$count $unitLabel",
+                  "${_logic.count} ${_logic.getUnitLabel()}",
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
@@ -693,8 +457,8 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                 GestureDetector(
                   onTap: () {
                     setState(() {
-                      count++;
-                      calculateEndDate();
+                      _logic.count++;
+                      _logic.calculateEndDate();
                     });
                   },
                   child: const Icon(Icons.add, color: Color(0xFF8A005D), size: 26),
@@ -708,7 +472,9 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
   }
 
   Widget buildInsuranceSection() {
-    if (selectedPeriod == null || startDate == null || endDate == null) {
+    if (_logic.selectedPeriod == null || 
+        _logic.startDate == null || 
+        _logic.endDate == null) {
       return const SizedBox.shrink();
     }
 
@@ -724,7 +490,6 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-
               Row(
                 children: [
                   Icon(Icons.shield, color: Colors.blue[700], size: 24),
@@ -738,9 +503,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                   ),
                 ],
               ),
-
               const SizedBox(height: 12),
-
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -751,16 +514,16 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                   children: [
                     _buildDetailRow(
                       "Original Market Price:",
-                      "JD ${(itemInsuranceInfo?['itemOriginalPrice'] ?? 0).toStringAsFixed(2)}",
+                      "JD ${(_logic.itemInsuranceInfo?['itemOriginalPrice'] ?? 0).toStringAsFixed(2)}",
                     ),
                     _buildDetailRow(
                       "Insurance Rate:",
-                      "${((itemInsuranceInfo?['ratePercentage'] ?? 0) * 100).toInt()}%",
+                      "${((_logic.itemInsuranceInfo?['ratePercentage'] ?? 0) * 100).toInt()}%",
                     ),
                     const Divider(),
                     _buildDetailRow(
                       "Total Insurance:",
-                      "JD ${insuranceAmount.toStringAsFixed(2)}",
+                      "JD ${_logic.insuranceAmount.toStringAsFixed(2)}",
                       isBold: true,
                       color: Colors.blue[900],
                     ),
@@ -768,19 +531,17 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                 ),
               ),
               const SizedBox(height: 16),
-
               // CHECKBOX
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Checkbox(
-                    value: insuranceAccepted,
+                    value: _logic.insuranceAccepted,
                     onChanged: (value) {
-                      setState(() => insuranceAccepted = value ?? false);
+                      setState(() => _logic.insuranceAccepted = value ?? false);
                     },
                     activeColor: const Color(0xFF8A005D),
                   ),
-
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -796,7 +557,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                         Text(
                           "By checking this box, I agree to:\n"
                               "• Accept the insurance coverage required\n"
-                              "• Pay insurance amount of JD ${insuranceAmount.toStringAsFixed(2)}\n"
+                              "• Pay insurance amount of JD ${_logic.insuranceAmount.toStringAsFixed(2)}\n"
                               "• Report any damages immediately\n"
                               "• Insurance will be refunded if item returned safely",
                           style: TextStyle(
@@ -817,7 +578,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
   }
 
   Widget buildPenaltyInfoSection() {
-    if (!showPenaltyInfo || penaltyMessage.isEmpty) {
+    if (!_logic.showPenaltyInfo || _logic.penaltyMessage.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -840,7 +601,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  penaltyMessage,
+                  _logic.penaltyMessage,
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.grey[800],
@@ -881,42 +642,15 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  Widget _buildBalanceRow(String label, double amount, {bool isTotal = false, Color? color}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: isTotal ? 15 : 14,
-              color: isTotal ? Colors.black : Colors.grey[700],
-              fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
-            ),
-          ),
-          Text(
-            "JD ${amount.toStringAsFixed(2)}",
-            style: TextStyle(
-              fontSize: isTotal ? 17 : 14,
-              fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
-              color: color ?? (isTotal ? Color(0xFF8A005D) : Colors.black),
-            ),
-          ),
-        ],
-      )
-    );
-  }
-
   Widget buildAvailabilityHint() {
-    if (loadingAvailability) {
+    if (_logic.loadingAvailability) {
       return const Padding(
         padding: EdgeInsets.all(16),
         child: CircularProgressIndicator(),
       );
     }
 
-    if (unavailableRanges.isEmpty) {
+    if (_logic.unavailableRanges.isEmpty) {
       return Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
@@ -938,11 +672,11 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            "⚠️ Unavailable Periods",
+            " Unavailable Periods",
             style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange),
           ),
           const SizedBox(height: 8),
-          ...unavailableRanges.map((r) => Text(
+          ..._logic.unavailableRanges.map((r) => Text(
             "• ${DateFormat('MMM d, HH:mm').format(r.start)} → ${DateFormat('MMM d, HH:mm').format(r.end)}",
             style: const TextStyle(color: Colors.red, fontSize: 13),
           )),
@@ -1036,16 +770,12 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
   }
 
   Widget buildEndDateDisplay() {
-    if (endDate == null) return const SizedBox.shrink();
-
-    final isHourly = selectedPeriod?.toLowerCase() == "hourly";
+    if (_logic.endDate == null) return const SizedBox.shrink();
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
       child: Text(
-        isHourly
-            ? "End Date & Time: ${DateFormat('yyyy-MM-dd HH:mm').format(endDate!)}"
-            : "End Date: ${DateFormat('yyyy-MM-dd').format(endDate!)}",
+        "End: ${_logic.formatEndDate()}",
         style: const TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w600,
@@ -1055,10 +785,8 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  Widget buildTotalPrice(Item item) {
-    if (selectedPeriod == null) return const SizedBox.shrink();
-
-    final rentalPrice = computeTotalPrice(item);
+  Widget buildTotalPrice() {
+    if (_logic.selectedPeriod == null) return const SizedBox.shrink();
     
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -1079,7 +807,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                     style: TextStyle(fontSize: 16),
                   ),
                   Text(
-                    "JD ${rentalPrice.toStringAsFixed(2)}",
+                    "JD ${_logic.rentalPrice.toStringAsFixed(2)}",
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -1114,7 +842,9 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
               onPressed: () async {
                 final pick = await showTimePicker(
                     context: context, initialTime: TimeOfDay.now());
-                if (pick != null) setState(() => pickupTime = pick.format(context));
+                if (pick != null) {
+                  setState(() => _logic.pickupTime = pick.format(context));
+                }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF8A005D),
@@ -1124,7 +854,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                 ),
               ),
               child: Text(
-                pickupTime == null ? "Select Pickup Time" : pickupTime!,
+                _logic.pickupTime == null ? "Select Pickup Time" : _logic.pickupTime!,
                 style: const TextStyle(fontSize: 15, color: Colors.white),
               ),
             ),
@@ -1157,12 +887,9 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                
-                _buildSummaryRow("Rental Price:", rentalPrice),
-                _buildSummaryRow("Insurance:", insuranceAmount),
-                
+                _buildSummaryRow("Rental Price:", _logic.rentalPrice),
+                _buildSummaryRow("Insurance:", _logic.insuranceAmount),
                 const Divider(height: 20),
-                
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -1174,7 +901,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                       ),
                     ),
                     Text(
-                      "JD ${totalPrice.toStringAsFixed(2)}", 
+                      "JD ${_logic.totalPrice.toStringAsFixed(2)}", 
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -1183,9 +910,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                     ),
                   ],
                 ),
-                
                 const SizedBox(height: 6),
-                
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -1197,17 +922,16 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                       ),
                     ),
                     Text(
-                      "JD ${renterWallet.toStringAsFixed(2)}",
+                      "JD ${_logic.renterWallet.toStringAsFixed(2)}",
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
-                        color: hasSufficientBalance ? Colors.green : Colors.red,
+                        color: _logic.hasSufficientBalance ? Colors.green : Colors.red,
                       ),
                     ),
                   ],
                 ),
-                
-                if (!hasSufficientBalance)
+                if (!_logic.hasSufficientBalance)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: Container(
@@ -1222,7 +946,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              "You need JD ${(totalPrice - renterWallet).toStringAsFixed(2)} more",
+                              "You need JD ${(_logic.totalPrice - _logic.renterWallet).toStringAsFixed(2)} more",
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.orange[800],
@@ -1241,165 +965,23 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
           
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: _canRent() ? const Color(0xFF8A005D) : Colors.grey,
+              backgroundColor: _logic.canRent() ? const Color(0xFF8A005D) : Colors.grey,
               minimumSize: const Size(double.infinity, 55),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
-              elevation: _canRent() ? 3 : 0,
+              elevation: _logic.canRent() ? 3 : 0,
             ),
-            onPressed: _canRent() ? () async {
-              if (selectedPeriod == null ||
-                  startDate == null ||
-                  endDate == null ||
-                  pickupTime == null ||
-                  (selectedPeriod!.toLowerCase() == "hourly" && startTime == null)) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text("Please complete all required fields"),
-                    backgroundColor: Colors.orange,
-                  ),
-                );
-                return;
-              }
-              
-              if (!insuranceAccepted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text("You should accept the insurance terms and conditions"),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-                return;
-              }
-              
-              if (startDate != null && endDate != null) {
-                final hasConflict = checkDateConflict(
-                  startDate!,
-                  endDate!,
-                  unavailableRanges,
-                );
-                
-                if (hasConflict) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Selected dates are not available. Please choose different dates."),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                  return;
-                }
-              }
-              
-              if (!hasSufficientBalance) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text("Insufficient wallet balance. Please top up your wallet."),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-                return;
-              }
-              
-              calculateEndDate();
-              
-              final isHourly = selectedPeriod!.toLowerCase() == "hourly";
-              
-              final data = {
-                "itemId": item.id,
-                "itemTitle": item.name,
-
-                "itemOwnerUid": item.ownerId,
-                "ownerName": ownerName,
-
-                "renterUid": UserManager.uid,
-
-                "status": "pending",
-
-                "rentalType": selectedPeriod,
-                "rentalQuantity": count,
-
-                "startDate": startDate!.millisecondsSinceEpoch,
-                "endDate": endDate!.millisecondsSinceEpoch,
-
-                "startTime": isHourly ? startTime!.format(context) : null,
-                "endTime": isHourly
-                    ? TimeOfDay.fromDateTime(endDate!)
-                        .format(context)
-                    : null,
-                "pickupTime": pickupTime,
-
-                "rentalPrice": rentalPrice,
-                "totalPrice": totalPrice,
-
-                "insurance": {
-                  "itemOriginalPrice": itemInsuranceInfo!['itemOriginalPrice'],
-                  "ratePercentage": itemInsuranceInfo!['ratePercentage'],
-                  "amount": insuranceAmount,
-                  "accepted": insuranceAccepted,
-                },
-
-                "penalty": {
-                  "hourlyRate": hourlyPenaltyRate,
-                  "dailyRate": dailyPenaltyRate,
-                  "maxHours": maxPenaltyHours,
-                  "maxDays": maxPenaltyDays,
-                },
-
-                "createdAt": DateTime.now().toIso8601String(),
-              };
-              
-              final confirmed = await showConfirmationDialog(context, data, item);
-              if (!confirmed) return;
-              
-              try {
-                await FirestoreService.createRentalRequest(data);
-                
-                if (!mounted) return;
-                
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Text("✅ Rental request submitted successfully!"),
-                    backgroundColor: Colors.green[700],
-                    duration: const Duration(seconds: 3),
-                  ),
-                );
-                
-                await Future.delayed(const Duration(milliseconds: 1500));
-                
-                if (mounted) {
-                  Navigator.pushNamedAndRemoveUntil(
-                    context, 
-                    "/orders", 
-                    (route) => false
-                  );
-                }
-                
-              } on FirebaseFunctionsException catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(e.message ?? "Failed to submit rental request"),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-                
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text("Unexpected error. Please try again."),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-                debugPrint("Error creating rental request: $e");
-              }
+            onPressed: _logic.canRent() ? () async {
+              await _processRentalRequest(item);
             } : null,
             child: Text(
-              _getRentButtonText(),
+              _logic.getRentButtonText(),
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
             ),
           ),
           
-          if (!hasSufficientBalance) ...[
+          if (!_logic.hasSufficientBalance) ...[
             const SizedBox(height: 10),
             OutlinedButton(
               style: OutlinedButton.styleFrom(
@@ -1445,22 +1027,203 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  bool _canRent() {
-    return selectedPeriod != null &&
-           startDate != null &&
-           endDate != null &&
-           pickupTime != null &&
-           insuranceAccepted &&
-           hasSufficientBalance;
+  Future<void> _processRentalRequest(Item item) async {
+    try {
+      // Security: Check rental attempt limits
+      if (_logic.isLocked) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Too many rental attempts. Please try again later."),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      if (_logic.isOnCooldown) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Please wait ${_logic.getRemainingCooldown()} before trying again."),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
+      // Security: Validate all inputs
+      if (!_validateRentalInputs()) {
+        return;
+      }
+
+      _logic.calculateEndDate();
+      
+      final isHourly = _logic.selectedPeriod!.toLowerCase() == "hourly";
+      
+      final data = {
+        "itemId": item.id,
+        "itemTitle": item.name,
+        "itemOwnerUid": item.ownerId,
+        "ownerName": _logic.ownerName,
+        "renterUid": UserManager.uid,
+        "status": "pending",
+        "rentalType": _logic.selectedPeriod,
+        "rentalQuantity": _logic.count,
+        "startDate": _logic.startDate!.millisecondsSinceEpoch,
+        "endDate": _logic.endDate!.millisecondsSinceEpoch,
+        "startTime": isHourly ? _logic.startTime!.format(context) : null,
+        "endTime": isHourly
+            ? TimeOfDay.fromDateTime(_logic.endDate!).format(context)
+            : null,
+        "pickupTime": _logic.pickupTime,
+        "rentalPrice": _logic.rentalPrice,
+        "totalPrice": _logic.totalPrice,
+        "insurance": {
+          "itemOriginalPrice": _logic.itemInsuranceInfo!['itemOriginalPrice'],
+          "ratePercentage": _logic.itemInsuranceInfo!['ratePercentage'],
+          "amount": _logic.insuranceAmount,
+          "accepted": _logic.insuranceAccepted,
+        },
+        "penalty": {
+          "hourlyRate": _logic.hourlyPenaltyRate,
+          "dailyRate": _logic.dailyPenaltyRate,
+          "maxHours": _logic.maxPenaltyHours,
+          "maxDays": _logic.maxPenaltyDays,
+        },
+        "createdAt": DateTime.now().toIso8601String(),
+      };
+      
+      final confirmed = await showConfirmationDialog(context, data, item);
+      if (!confirmed) return;
+      
+      // Security: Submit through logic class
+      final result = await _logic.submitRentalRequest(data);      
+//new new new
+    if (result['success'] == true) {
+
+      
+      await FirestoreService.createRentalRequest(data);
+
+      
+      await OrdersLogic().clearCache();
+
+    
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(" Rental request submitted successfully!"),
+          backgroundColor: Colors.green[700],
+        ),
+      );
+
+      await Future.delayed(const Duration(milliseconds: 1200));
+
+      
+      if (mounted) {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          "/orders",
+          (route) => false,
+        );
+      }
+
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result['error'] ?? "Failed to submit rental request"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+
+
+
+      
+    } catch (error) {
+
+        debugPrint(" RENT ERROR: $error");
+        debugPrint(" STACK: $stack");
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Error: ${ErrorHandler.getSafeError(error)}"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
-  String _getRentButtonText() {
-    if (selectedPeriod == null) return "Select Rental Period";
-    if (startDate == null || endDate == null) return "Select Dates";
-    if (!insuranceAccepted) return "Accept Insurance Terms";
-    if (!hasSufficientBalance) return "Insufficient Wallet Balance";
-    if (pickupTime == null) return "Select Pickup Time";
-    return "Confirm & Proceed to payment";
+  bool _validateRentalInputs() {
+    // Security: Validate all inputs
+    if (_logic.selectedPeriod == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Please select a rental period"),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return false;
+    }
+
+    if (_logic.startDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Please select start date"),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return false;
+    }
+
+    if (_logic.selectedPeriod!.toLowerCase() == "hourly" && _logic.startTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Please select start time for hourly rental"),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return false;
+    }
+
+    if (!_logic.insuranceAccepted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("You should accept the insurance terms and conditions"),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return false;
+    }
+
+    if (_logic.pickupTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Please select pickup time"),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return false;
+    }
+
+    if (_logic.checkDateConflict()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Selected dates are not available. Please choose different dates."),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return false;
+    }
+
+    if (!_logic.hasSufficientBalance) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Insufficient wallet balance. Please top up your wallet."),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return false;
+    }
+
+    return true;
   }
   
   Future<bool> showConfirmationDialog(BuildContext context, Map<String, dynamic> data, Item item) async {
@@ -1476,7 +1239,6 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
             children: [
               const Text("Review your order details:"),
               const SizedBox(height: 16),
-              
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -1494,18 +1256,15 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    
-                    Text("Owner: $ownerName"),
-                    Text("Period: ${selectedPeriod!.toUpperCase()}"),
-                    Text("Duration: $count ${selectedPeriod!.toLowerCase() == 'hourly' ? 'hours' : selectedPeriod!.toLowerCase()}"),
-                    Text("Dates: ${DateFormat('MMM d, yyyy').format(startDate!)} - ${DateFormat('MMM d, yyyy').format(endDate!)}"),
-                    if (pickupTime != null) Text("Pickup: $pickupTime"),
+                    Text("Owner: ${_logic.ownerName}"),
+                    Text("Period: ${_logic.selectedPeriod!.toUpperCase()}"),
+                    Text("Duration: ${_logic.count} ${_logic.getUnitLabel().toLowerCase()}"),
+                    Text("Dates: ${DateFormat('MMM d, yyyy').format(_logic.startDate!)} - ${DateFormat('MMM d, yyyy').format(_logic.endDate!)}"),
+                    if (_logic.pickupTime != null) Text("Pickup: ${_logic.pickupTime}"),
                   ],
                 ),
               ),
-              
               const SizedBox(height: 12),
-              
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -1523,16 +1282,13 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    
-                    Text("Market Price: JD ${itemInsuranceInfo!['itemOriginalPrice']!.toStringAsFixed(2)}"),
-                    Text("Insurance Rate: ${(itemInsuranceInfo!['ratePercentage']! * 100).toInt()}%"),
-                    Text("Insurance: JD ${insuranceAmount.toStringAsFixed(2)}"),
+                    Text("Market Price: JD ${_logic.itemInsuranceInfo!['itemOriginalPrice']!.toStringAsFixed(2)}"),
+                    Text("Insurance Rate: ${(_logic.itemInsuranceInfo!['ratePercentage']! * 100).toInt()}%"),
+                    Text("Insurance: JD ${_logic.insuranceAmount.toStringAsFixed(2)}"),
                   ],
                 ),
               ),
-              
               const SizedBox(height: 12),
-              
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -1556,17 +1312,14 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    
                     Text(
-                      penaltyMessage,
+                      _logic.penaltyMessage,
                       style: const TextStyle(fontSize: 12),
                     ),
                   ],
                 ),
               ),
-              
               const SizedBox(height: 12),
-              
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -1584,14 +1337,13 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    
-                    _buildDialogRow("Rental Price:", rentalPrice),
-                    _buildDialogRow("Insurance:", insuranceAmount),
+                    _buildDialogRow("Rental Price:", _logic.rentalPrice),
+                    _buildDialogRow("Insurance:", _logic.insuranceAmount),
                     const Divider(),
-                    _buildDialogRow("Total Price:", totalPrice, isBold: true),
+                    _buildDialogRow("Total Price:", _logic.totalPrice, isBold: true),
                     const SizedBox(height: 4),
                     Text(
-                      "Current Wallet Balance: JD ${renterWallet.toStringAsFixed(2)}",
+                      "Current Wallet Balance: JD ${_logic.renterWallet.toStringAsFixed(2)}",
                       style: const TextStyle(
                         fontSize: 12,
                         color: Colors.grey,
@@ -1600,9 +1352,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                   ],
                 ),
               ),
-              
               const SizedBox(height: 16),
-              
               const Text(
                 "By confirming, you agree to:\n"
                 "• Rental terms and conditions\n"
@@ -1659,7 +1409,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
   }
 
-  Widget buildReviewsSection(Item item) {
+  Widget buildReviewsSection() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Column(
@@ -1670,7 +1420,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 10),
-          if (topReviews.isEmpty)
+          if (_logic.topReviews.isEmpty)
             const Text(
               "No reviews yet",
               style: TextStyle(fontSize: 14, color: Colors.black54),
@@ -1678,7 +1428,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
           else
             Column(
               crossAxisAlignment: CrossAxisAlignment.center,
-              children: topReviews.map((rev) {
+              children: _logic.topReviews.map((rev) {
                 return Container(
                   width: double.infinity,
                   margin: const EdgeInsets.only(bottom: 12),
@@ -1717,7 +1467,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => AllReviewsPage(itemId: item.id),
+                    builder: (_) => AllReviewsPage(itemId: _item!.id),
                   ),
                 );
               },
@@ -1740,42 +1490,29 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
         ),
         child: const Center(
           child: Text(
-            "📍 Location not provided",
+            " Location not provided",
             style: TextStyle(fontSize: 16, color: Colors.black54),
           ),
         ),
       );
     }
 
-    return Container(
-      height: 200,
-      margin: const EdgeInsets.all(20),
-      child: GoogleMap(
-        initialCameraPosition: CameraPosition(
-          target: LatLng(item.latitude!, item.longitude!),
-          zoom: 14,
-        ),
-        markers: {
-          Marker(
-            markerId: const MarkerId("itemLoc"),
-            position: LatLng(item.latitude!, item.longitude!),
-          )
-        },
-      ),
-    );
+   return Container(
+  height: 200,
+  margin: const EdgeInsets.all(20),
+  decoration: BoxDecoration(
+    color: Colors.grey[200],
+    borderRadius: BorderRadius.circular(16),
+  ),
+  child: const Center(
+    child: Text("Map disabled for testing"),
+  ),
+);
   }
-}
 
-bool checkDateConflict(
-  DateTime selectedStart,
-  DateTime selectedEnd,
-  List<DateTimeRange> unavailableRanges,
-) {
-  for (final range in unavailableRanges) {
-    if ((selectedStart.isBefore(range.end) || selectedStart.isAtSameMomentAs(range.end)) &&
-        (selectedEnd.isAfter(range.start) || selectedEnd.isAtSameMomentAs(range.start))) {
-      return true;
-    }
+  @override
+  void dispose() {
+    _logic.cleanupResources();
+    super.dispose();
   }
-  return false;
 }
