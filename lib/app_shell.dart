@@ -123,7 +123,6 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
     } catch (error) {
       ErrorHandler.logError('Notification Initialization', error);
-     l
     }
   }
 
