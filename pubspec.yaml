@@ -13,6 +13,9 @@ dependencies:
   firebase_messaging: ^15.0.0
   overlay_support: ^2.1.0
 
+  
+
+
   firebase_core: ^3.15.2
   firebase_auth: ^5.7.0
   cloud_firestore: ^5.6.12
@@ -39,7 +42,12 @@ dependencies:
   firebase_app_check: ^0.3.2+10
   cloud_functions: ^5.0.3
   flutter_stripe: ^12.1.1
-  
+  connectivity_plus: ^7.0.0
+  encrypt: ^5.0.3
+  flutter_secure_storage: ^10.0.0
+  dio: ^5.9.0
+  provider: ^6.1.5+1
+  js: ^0.6.7
   
 dev_dependencies:
   flutter_test:
@@ -54,3 +62,63 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+
+
+
+# name: p2
+# description: "A new Flutter project."
+# publish_to: 'none'
+# version: 0.1.0+1
+
+# environment:
+#   sdk: ">=3.3.0 <4.0.0"
+
+# dependencies:
+#   flutter:
+#     sdk: flutter
+#   another_flushbar: ^1.12.30
+#   firebase_messaging: ^15.0.0
+#   overlay_support: ^2.1.0
+
+#   firebase_core: ^3.15.2
+#   firebase_auth: ^5.7.0
+#   cloud_firestore: ^5.6.12
+#   firebase_database: 11.3.10
+#   chat_bubbles: ^1.7.0
+  
+#   go_router: ^17.0.0
+
+#   flutter_custom_clippers: ^2.1.0
+#   flutter_localizations:
+#     sdk: flutter
+#   font_awesome_flutter: ^10.6.0
+#   image_picker: ^1.0.8
+#   local_auth: ^2.1.0
+#   qr_flutter: ^4.1.0
+#   mobile_scanner: ^5.2.3
+#   google_maps_flutter: ^2.2.8
+#   geolocator: ^9.0.2
+#   permission_handler: ^11.3.1
+#   intl: ^0.20.2
+#   shared_preferences: ^2.1.1
+#   firebase_storage: ^12.4.10
+#   flutter_polyline_points: ^2.0.3
+#   firebase_app_check: ^0.3.2+10
+#   cloud_functions: ^5.0.3
+#   flutter_stripe: ^12.1.1
+  
+  
+# dev_dependencies:
+#   flutter_test:
+#     sdk: flutter
+
+#   integration_test:
+#     sdk: flutter
+
+#   mockito: ^5.4.0
+#   build_runner: ^2.4.7
+#   flutter_lints: ^3.0.1
+
+# flutter:
+#   uses-material-design: true
