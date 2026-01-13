@@ -1,17 +1,24 @@
-
 import 'package:flutter/material.dart';
 import 'package:p2/Categories_Page.dart';
 import 'package:p2/WalletPage.dart';
 import 'package:p2/logic/payment_success_logic.dart';
+import 'package:p2/security/route_guard.dart';
+import 'package:p2/security/error_handler.dart';
+import 'package:p2/security/secure_storage.dart';
+import 'package:p2/security/validation_exception.dart';
 
 class PaymentSuccessPage extends StatefulWidget {
   final double amount;
   final String? returnTo;
+  final String transactionId;
+  final String referenceNumber;
 
   const PaymentSuccessPage({
     super.key,
     required this.amount,
     this.returnTo = 'wallet',
+    required this.transactionId,
+    required this.referenceNumber,
   });
 
   @override
@@ -20,19 +27,110 @@ class PaymentSuccessPage extends StatefulWidget {
 
 class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
   late PaymentSuccessLogic _logic;
+  bool _isLoading = true;
+  bool _isAuthenticated = false;
+  bool _isDataValid = false;
+  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _logic = PaymentSuccessLogic(
-      amount: widget.amount,
-      returnTo: widget.returnTo,
-    );
-    _logic.setImmersiveMode();
+    _initializePage();
+  }
+
+  Future<void> _initializePage() async {
+    try {
+      
+      _isAuthenticated = RouteGuard.isAuthenticated();
+      
+      if (!_isAuthenticated) {
+        ErrorHandler.logSecurity('PaymentSuccessPage', 'Unauthorized access attempt');
+        return;
+      }
+
+      
+      _isDataValid = PaymentSuccessLogic.validatePaymentData(
+        transactionId: widget.transactionId,
+        referenceNumber: widget.referenceNumber,
+        amount: widget.amount,
+      );
+      
+      if (!_isDataValid) {
+        ErrorHandler.logSecurity('PaymentSuccessPage', 'Invalid payment success data');
+        _errorMessage = 'Invalid transaction data';
+        return;
+      }
+
+     
+      try {
+        _logic = PaymentSuccessLogic(
+          amount: widget.amount,
+          returnTo: widget.returnTo,
+          transactionId: widget.transactionId,
+          referenceNumber: widget.referenceNumber,
+        );
+      } on PaymentValidationException catch (e) {
+        _errorMessage = 'Validation error: ${e.message}';
+        ErrorHandler.logError('PaymentSuccessLogic Initialization', e);
+        return;
+      } catch (e) {
+        _errorMessage = 'Failed to initialize payment logic';
+        ErrorHandler.logError('PaymentSuccessLogic Initialization', e);
+        return;
+      }
+
+      
+      _logic.setImmersiveMode();
+
+      
+      await _logPaymentSuccess();
+
+    } catch (error) {
+      _errorMessage = ErrorHandler.getSafeError(error);
+      ErrorHandler.logError('Initialize PaymentSuccessPage', error);
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _logPaymentSuccess() async {
+    try {
+      final successData = {
+        'timestamp': DateTime.now().toIso8601String(),
+        'transactionId': widget.transactionId,
+        'referenceNumber': widget.referenceNumber,
+        'amount': widget.amount.toStringAsFixed(2),
+        'returnTo': widget.returnTo ?? 'wallet',
+      };
+
+      await SecureStorage.saveData(
+        'payment_success_${widget.transactionId}',
+        ErrorHandler.safeJsonEncode(successData),
+      );
+
+      ErrorHandler.logInfo('PaymentSuccessPage', 
+          'Payment success logged: ${widget.transactionId}');
+    } catch (e) {
+      ErrorHandler.logError('Log Payment Success', e);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return _buildMainContent();
+    }
+
+    if (_errorMessage != null) {
+      return _buildMainContentWithError();
+    }
+
+    return _buildMainContent();
+  }
+
+  Widget _buildMainContent() {
     return Scaffold(
       backgroundColor: Colors.white,
       extendBodyBehindAppBar: false,
@@ -80,7 +178,7 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
             ),
             const SizedBox(height: 30),
             Text(
-              'JD${_logic.amount.toStringAsFixed(2)}',
+              'JD${widget.amount.toStringAsFixed(2)}',
               style: const TextStyle(
                 fontSize: 48,
                 fontWeight: FontWeight.w700,
@@ -118,9 +216,12 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
                   ),
                   child: Column(
                     children: [
-                      _buildSuccessDetail('Transaction ID', _logic.transactionId),
-                      _buildSuccessDetail('Date', _logic.getFormattedDate()),
-                      _buildSuccessDetail('Time', _logic.getFormattedTime()),
+                      _buildSuccessDetail('Transaction ID', 
+                          _errorMessage != null ? 'N/A' : _logic.transactionId),
+                      _buildSuccessDetail('Date', 
+                          _errorMessage != null ? 'N/A' : _logic.getFormattedDate()),
+                      _buildSuccessDetail('Time', 
+                          _errorMessage != null ? 'N/A' : _logic.getFormattedTime()),
                       _buildSuccessDetail('Status', 'Completed', isSuccess: true),
                     ],
                   ),
@@ -128,75 +229,36 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
               ),
             ),
             
-            const SizedBox(height: 30),
-            
-            SizedBox(
-              width: double.infinity,
-              height: 60,
-              child: ElevatedButton(
-                onPressed: () => _handleContinueShopping(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1F0F46),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 4,
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange[200]!),
                 ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                child: Row(
                   children: [
-                    Icon(Icons.shopping_bag),
-                    SizedBox(width: 12),
-                    Text(
-                      'Continue Shopping',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
+                    const Icon(Icons.warning, color: Colors.orange, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        _errorMessage!,
+                        style:  TextStyle(
+                          color: Colors.orange[800],
+                          fontSize: 14,
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-            ),
+            ],
             
-            const SizedBox(height: 15),
+            const SizedBox(height: 30),
             
-            SizedBox(
-              width: double.infinity,
-              height: 55,
-              child: OutlinedButton(
-                onPressed: () => _handleBackToWallet(context),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Color(0xFF8A005D)),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: const Text(
-                  'View Wallet Details',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF8A005D),
-                  ),
-                ),
-              ),
-            ),
-            
-            const SizedBox(height: 15),
-            
-            TextButton(
-              onPressed: () => _showReceiptOptions(context),
-              child: const Text(
-                'View Receipt',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.blue,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
+            _buildActionButtons(),
             
             SizedBox(height: MediaQuery.of(context).viewInsets.bottom > 0 
                 ? MediaQuery.of(context).viewInsets.bottom 
@@ -204,6 +266,196 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildMainContentWithError() {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      extendBodyBehindAppBar: false,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          'Payment Successful',
+          style: TextStyle(
+            color: Color(0xFF1F0F46),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        centerTitle: true,
+        automaticallyImplyLeading: false,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.close, color: Color(0xFF1F0F46)),
+            onPressed: () => _handleContinueShopping(context),
+          ),
+        ],
+      ),
+      body: Container(
+        padding: EdgeInsets.only(
+          top: MediaQuery.of(context).padding.top + 20,
+          left: 20,
+          right: 20,
+          bottom: 0,
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.check_circle,
+                size: 80,
+                color: Colors.green,
+              ),
+            ),
+            const SizedBox(height: 30),
+            Text(
+              'JD${widget.amount.toStringAsFixed(2)}',
+              style: const TextStyle(
+                fontSize: 48,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF1F0F46),
+                letterSpacing: 1,
+              ),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'Payment Successful',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w600,
+                color: Colors.green,
+              ),
+            ),
+            const SizedBox(height: 15),
+            const Text(
+              'has been added to your wallet',
+              style: TextStyle(
+                fontSize: 18,
+                color: Colors.grey,
+              ),
+            ),
+            const SizedBox(height: 40),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.orange[50],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.orange[200]!),
+              ),
+              child: Column(
+                children: [
+                  const Icon(Icons.warning, color: Colors.orange, size: 40),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Note: ${_errorMessage ?? "Some data could not be validated"}',
+                    textAlign: TextAlign.center,
+                    style:  TextStyle(
+                      color: Colors.orange[800],
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Your payment was successful, but there was an issue with transaction details.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.grey,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 30),
+            _buildActionButtons(),
+            SizedBox(height: MediaQuery.of(context).viewInsets.bottom > 0 
+                ? MediaQuery.of(context).viewInsets.bottom 
+                : 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButtons() {
+    return Column(
+      children: [
+        SizedBox(
+          width: double.infinity,
+          height: 60,
+          child: ElevatedButton(
+            onPressed: () => _handleContinueShopping(context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1F0F46),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: 4,
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.shopping_bag),
+                SizedBox(width: 12),
+                Text(
+                  'Continue Shopping',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        
+        const SizedBox(height: 15),
+        
+        SizedBox(
+          width: double.infinity,
+          height: 55,
+          child: OutlinedButton(
+            onPressed: () => _handleBackToWallet(context),
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: Color(0xFF8A005D)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: const Text(
+              'View Wallet Details',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF8A005D),
+              ),
+            ),
+          ),
+        ),
+        
+        const SizedBox(height: 15),
+        
+        TextButton(
+          onPressed: () => _showReceiptOptions(context),
+          child: const Text(
+            'View Receipt',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.blue,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -233,22 +485,36 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
     );
   }
 
-  void _handleBackToWallet(BuildContext context) {
-    _logic.enableFullSystemUI();
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (context) => const WalletHomePage()),
-      (route) => false,
-    );
+  void _handleBackToWallet(BuildContext context) async {
+    try {
+      if (_logic != null) {
+        _logic.enableFullSystemUI();
+      }
+      
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const WalletHomePage()),
+        (route) => false,
+      );
+    } catch (error) {
+      ErrorHandler.logError('Handle Back to Wallet', error);
+    }
   }
 
-  void _handleContinueShopping(BuildContext context) {
-    _logic.enableFullSystemUI();
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (context) => const CategoryPage()),
-      (route) => false,
-    );
+  void _handleContinueShopping(BuildContext context) async {
+    try {
+      if (_logic != null) {
+        _logic.enableFullSystemUI();
+      }
+      
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const CategoryPage()),
+        (route) => false,
+      );
+    } catch (error) {
+      ErrorHandler.logError('Handle Continue Shopping', error);
+    }
   }
 
   void _showReceiptOptions(BuildContext context) {
@@ -257,50 +523,57 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
+      backgroundColor: Colors.white,
       builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Receipt Options',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
+        return SafeArea(
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Receipt Options',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1F0F46),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 20),
-              _buildReceiptOption(
-                context,
-                icon: Icons.picture_as_pdf,
-                title: 'Download PDF',
-                message: 'PDF receipt downloaded',
-              ),
-              _buildReceiptOption(
-                context,
-                icon: Icons.share,
-                title: 'Share Receipt',
-                message: 'Receipt shared',
-              ),
-              _buildReceiptOption(
-                context,
-                icon: Icons.print,
-                title: 'Print Receipt',
-                message: 'Printing receipt...',
-              ),
-              _buildReceiptOption(
-                context,
-                icon: Icons.email,
-                title: 'Email Receipt',
-                message: 'Receipt sent to your email',
-              ),
-              const SizedBox(height: 20),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-            ],
+                const SizedBox(height: 20),
+                _buildReceiptOption(
+                  context,
+                  icon: Icons.picture_as_pdf,
+                  title: 'Download PDF',
+                  message: 'PDF receipt downloaded',
+                ),
+                _buildReceiptOption(
+                  context,
+                  icon: Icons.share,
+                  title: 'Share Receipt',
+                  message: 'Receipt shared',
+                ),
+                _buildReceiptOption(
+                  context,
+                  icon: Icons.print,
+                  title: 'Print Receipt',
+                  message: 'Printing receipt...',
+                ),
+                _buildReceiptOption(
+                  context,
+                  icon: Icons.email,
+                  title: 'Email Receipt',
+                  message: 'Receipt sent to your email',
+                ),
+                const SizedBox(height: 20),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -324,24 +597,40 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
   }
 
   void _showSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          message,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w500,
+    try {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            message,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w500,
+            ),
           ),
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          backgroundColor: Colors.green,
+          showCloseIcon: true,
+          closeIconColor: Colors.white,
         ),
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
-        backgroundColor: Colors.green,
-        showCloseIcon: true,
-        closeIconColor: Colors.white,
-      ),
-    );
+      );
+    } catch (e) {
+      ErrorHandler.logError('Show SnackBar', e);
+    }
+  }
+
+  @override
+  void dispose() {
+    try {
+      if (_logic != null) {
+        _logic.enableFullSystemUI();
+      }
+    } catch (e) {
+      ErrorHandler.logError('Dispose PaymentSuccessPage', e);
+    }
+    super.dispose();
   }
 }
