@@ -18,10 +18,10 @@ class OwnerItemsPage extends StatefulWidget {
   const OwnerItemsPage({super.key});
 
   @override
-  State<OwnerItemsPage> createState() => _OwnerItemsPageState();
+  State<OwnerItemsPage> createState() => OwnerItemsPageState();
 }
 
-class _OwnerItemsPageState extends State<OwnerItemsPage> {
+class OwnerItemsPageState extends State<OwnerItemsPage> {
   int selectedTab = 0;
   bool _isLoading = true;
   bool _isAuthenticated = false;
@@ -44,14 +44,14 @@ class _OwnerItemsPageState extends State<OwnerItemsPage> {
   Future<void> _checkAuthentication() async {
     try {
 
-      // ===== TEST MODE =====
+      
       if (isIntegrationTest || RouteGuard.testAuthenticated) {
         _isAuthenticated = true;
         _isLoading = false;
         return;
       }
 
-      // ===== NORMAL MODE =====
+
       _isAuthenticated = RouteGuard.isAuthenticated();
 
       if (!_isAuthenticated) {
@@ -68,7 +68,7 @@ class _OwnerItemsPageState extends State<OwnerItemsPage> {
         return;
       }
 
-      // ===== AUTH OK =====
+    
       if (mounted) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _loadInitialData();
@@ -437,9 +437,9 @@ class _OwnerItemsPageState extends State<OwnerItemsPage> {
       final status = data["status"] ?? "pending";
       final itemTitle = data["itemTitle"]?.toString() ?? "Unknown Item";
       
-      // معالجة آمنة للبيانات الحساسة
-      final safeItemTitle = _sanitizeString(itemTitle);
-      final renterName = _sanitizeString(data["renterName"]?.toString() ?? "");
+      
+      final safeItemTitle = sanitizeString(itemTitle);
+      final renterName = sanitizeString(data["renterName"]?.toString() ?? "");
       
       return Card(
         margin: const EdgeInsets.only(bottom: 12),
@@ -606,10 +606,10 @@ class _OwnerItemsPageState extends State<OwnerItemsPage> {
   
   Widget _buildItemCard(Map<String, dynamic> data) {
     try {
-      final name = _sanitizeString(data["name"]?.toString() ?? "No name");
-      final category = _sanitizeString(data["category"]?.toString() ?? "");
-      final subCategory = _sanitizeString(data["subCategory"]?.toString() ?? "");
-      final description = _sanitizeString(data["description"]?.toString() ?? "");
+      final name = sanitizeString(data["name"]?.toString() ?? "No name");
+      final category = sanitizeString(data["category"]?.toString() ?? "");
+      final subCategory = sanitizeString(data["subCategory"]?.toString() ?? "");
+      final description = sanitizeString(data["description"]?.toString() ?? "");
       
       final images = List<String>.from(data["images"] ?? []);
       final rental = Map<String, dynamic>.from(data["rentalPeriods"] ?? {});
@@ -691,7 +691,7 @@ class _OwnerItemsPageState extends State<OwnerItemsPage> {
                     const SizedBox(height: 6),
                     ...rental.entries.map(
                       (entry) => Text(
-                        "• ${_sanitizeString(entry.key)}: JOD ${entry.value}",
+                        "• ${sanitizeString(entry.key)}: JOD ${entry.value}",
                         style: const TextStyle(fontSize: 14),
                       ),
                     ),
@@ -715,7 +715,7 @@ class _OwnerItemsPageState extends State<OwnerItemsPage> {
     }
   }
 
-  // ========== SECURE HANDLER METHODS ==========
+  
 
   Future<void> _handleAcceptRequest(String requestId) async {
     try {
@@ -906,7 +906,7 @@ class _OwnerItemsPageState extends State<OwnerItemsPage> {
     );
   }
 
-String _sanitizeString(String input) {
+String sanitizeString(String input) {
     return input
         .replaceAll('<', '')
         .replaceAll('>', '')
