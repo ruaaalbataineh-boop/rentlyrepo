@@ -30,7 +30,6 @@ class _ProductListPageState extends State<ProductListPage> {
   @override
   void initState() {
     super.initState();
-    _initializeSecurity();
     
   }
 
@@ -41,6 +40,7 @@ void didChangeDependencies() {
   if (_argsLoaded) return;
 
   _extractArguments();
+  _initializeSecurity();
   _argsLoaded = true;
 }
 

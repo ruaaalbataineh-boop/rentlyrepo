@@ -3,14 +3,16 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:p2/rate_product_page.dart';
-import 'package:p2/security/route_guard.dart';
 import 'package:p2/services/firestore_service.dart';
 import 'package:p2/security/error_handler.dart';
-import 'AddItemPage .dart';
+import 'AddItemPage.dart';
 import 'QrPage.dart';
 import 'QrScannerPage.dart';
+import 'Security/route_guard.dart';
 import 'UserProfilePage.dart';
 import 'bottom_nav.dart';
+import 'main_user.dart' as app;
+import 'main_user.dart';
 
 class OwnerItemsPage extends StatefulWidget {
   const OwnerItemsPage({super.key});
@@ -41,23 +43,46 @@ class _OwnerItemsPageState extends State<OwnerItemsPage> {
 
   Future<void> _checkAuthentication() async {
     try {
-      
-      _isAuthenticated = RouteGuard.isAuthenticated();
-      
-      if (!_isAuthenticated) {
-        ErrorHandler.logSecurity('OwnerItemsPage', 'Unauthorized access attempt');
-        await _redirectToLogin();
+
+      // ===== TEST MODE =====
+      if (isIntegrationTest || RouteGuard.testAuthenticated) {
+        _isAuthenticated = true;
+        _isLoading = false;
         return;
       }
 
-   
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        await _loadInitialData();
-      });
-      
+      // ===== NORMAL MODE =====
+      _isAuthenticated = RouteGuard.isAuthenticated();
+
+      if (!_isAuthenticated) {
+        ErrorHandler.logSecurity(
+          'OwnerItemsPage',
+          'Unauthorized access attempt',
+        );
+
+        if (mounted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _redirectToLogin();
+          });
+        }
+        return;
+      }
+
+      // ===== AUTH OK =====
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _loadInitialData();
+        });
+      }
+
     } catch (error) {
       ErrorHandler.logError('Authentication Check', error);
-      await _redirectToLogin();
+
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _redirectToLogin();
+        });
+      }
     }
   }
 
@@ -78,12 +103,13 @@ class _OwnerItemsPageState extends State<OwnerItemsPage> {
     }
   }
 
-  Future<void> _redirectToLogin() async {
-    if (mounted) {
-      Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
-    }
+  void _redirectToLogin() {
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      '/login',
+          (route) => false,
+    );
   }
-
 
   Widget myItemsCounter() {
     if (ownerUid == null) return const SizedBox();
@@ -234,12 +260,13 @@ class _OwnerItemsPageState extends State<OwnerItemsPage> {
               ),
             ),
             IconButton(
+              key: const ValueKey('addItemButton'),
               icon: Icon(Icons.add,
                   color: Colors.white, size: isSmall ? 24 : 28),
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const AddItemPage()),
+                  MaterialPageRoute(builder: (_) => const AddItemPage(key: ValueKey('addItemPage'))),
                 );
               },
             ),

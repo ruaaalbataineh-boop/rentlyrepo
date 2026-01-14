@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:p2/AddItemPage%20.dart';
+import 'package:p2/AddItemPage.dart';
 import 'package:p2/Chats_Page.dart';
 import 'package:p2/WalletPage.dart';
 import 'package:p2/app_theme.dart';
@@ -27,7 +27,7 @@ class _SettingPageState extends State<SettingPage> {
   bool _isSyncing = false;
   bool _muteNotifications = false;
 
-  // ✅ ADDED: App Appearance state
+  // App Appearance state
   bool _appAppearance = false;
 
   Future<void> _syncSettingsWithServer() async {
@@ -55,7 +55,7 @@ class _SettingPageState extends State<SettingPage> {
     });
   }
 
-  // ✅ ADDED: App Appearance toggle handler
+  // App Appearance toggle handler
  Future<void> _handleToggleAppearance() async {
   setState(() {
     _appAppearance = !_appAppearance;
@@ -295,7 +295,7 @@ class _SettingPageState extends State<SettingPage> {
                       ),
                     ),
 
-                    // ✅ ADDED: App Appearance (SAFE)
+                    // App Appearance
                     SwitchListTile(
                       value: _appAppearance,
                       onChanged: (val) =>
@@ -327,6 +327,7 @@ class _SettingPageState extends State<SettingPage> {
                       },
                     ),
                     ListTile(
+                      key: const ValueKey('settingsLogoutTile'),
                       leading: CircleAvatar(
                         backgroundColor: Colors.grey[300],
                         child: const Icon(Icons.logout,

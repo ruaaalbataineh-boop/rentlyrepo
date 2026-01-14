@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:p2/AddItemPage .dart';
+import 'package:p2/AddItemPage.dart';
 import 'package:p2/sub_category_page.dart';
 import 'bottom_nav.dart';
 

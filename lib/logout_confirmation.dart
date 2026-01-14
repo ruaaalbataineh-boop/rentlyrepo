@@ -91,6 +91,7 @@ class _LogoutConfirmationPageState extends State<LogoutConfirmationPage> {
 
             // Logout from current device only
             GestureDetector(
+              key: const ValueKey('logoutNormalOption'),
               onTap: () => _selectOption('normal'),
               child: Container(
                 padding: const EdgeInsets.all(15),
@@ -147,16 +148,13 @@ class _LogoutConfirmationPageState extends State<LogoutConfirmationPage> {
               ),
             ),
 
-            
-            
-            
             const Spacer(),
-
             
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
+                    key: const ValueKey('logoutCancelButton'),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 15),
                       side: BorderSide(color: Colors.grey.shade300),
@@ -171,6 +169,7 @@ class _LogoutConfirmationPageState extends State<LogoutConfirmationPage> {
                 const SizedBox(width: 15),
                 Expanded(
                   child: ElevatedButton(
+                    key: const ValueKey('logoutConfirmButton'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _selectedOption.isEmpty
                           ? Colors.grey

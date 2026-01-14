@@ -12,6 +12,8 @@ import 'package:firebase_app_check/firebase_app_check.dart';
 
 import 'package:flutter_stripe/flutter_stripe.dart';
 
+import 'Equipment_Detail_Page.dart';
+import 'ProductListPage.dart';
 import 'firebase_options.dart';
 import 'fake_uid.dart';
 import 'Login_Page.dart';
@@ -27,7 +29,7 @@ import 'package:p2/services/auth_service.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
-bool isIntegrationTest = false;
+bool isIntegrationTest = const bool.fromEnvironment('INTEGRATION_TEST');
 
 Future<void> main({bool testMode = false}) async {
   isIntegrationTest = testMode;
@@ -95,6 +97,8 @@ class MyApp extends StatelessWidget {
             '/setting': (_) => const SettingPage(),
             '/category': (_) => const CategoryPage(),
             '/favorites': (_) => const FavouritePage(),
+            ProductListPage.routeName: (context) => const ProductListPage(),
+            EquipmentDetailPage.routeName: (context) => const EquipmentDetailPage(),
           },
         );
       },

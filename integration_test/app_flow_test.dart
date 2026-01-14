@@ -8,7 +8,7 @@ import 'package:p2/main_user.dart' show navigatorKey;
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  /// Wait until login page widgets appear
+  // Wait until login page widgets appear
   Future<void> waitForLogin(WidgetTester tester) async {
     for (int i = 0; i < 30; i++) {
       await tester.pump(const Duration(milliseconds: 500));
@@ -20,11 +20,11 @@ void main() {
   }
 
   testWidgets('Full login validation flow', (tester) async {
-    /// START APP
+    // START APP
     app.main(testMode: true);
     await tester.pumpAndSettle(const Duration(seconds: 8));
 
-    /// FORCE NAVIGATION TO LOGIN
+    // FORCE NAVIGATION TO LOGIN
     await tester.runAsync(() async {
       navigatorKey.currentState?.pushReplacementNamed('/login');
     });
@@ -33,18 +33,15 @@ void main() {
 
     await waitForLogin(tester);
 
-    /// ------------------------
-    /// EMPTY LOGIN
-    /// ------------------------
+// EMPTY LOGIN
+
     await tester.tap(find.byKey(const ValueKey('loginButton')));
     await tester.pumpAndSettle();
 
     expect(find.text('Email is required'), findsOneWidget);
     expect(find.text('Password is required'), findsOneWidget);
 
-    /// ------------------------
-    /// INVALID EMAIL
-    /// ------------------------
+    // INVALID EMAIL
     await tester.enterText(find.byKey(const ValueKey('emailField')), 'abc');
     await tester.enterText(find.byKey(const ValueKey('passwordField')), '123456');
 
@@ -53,9 +50,7 @@ void main() {
 
     expect(find.text('Enter a valid email'), findsOneWidget);
 
-    /// ------------------------
-    /// VALID FORMAT
-    /// ------------------------
+    // VALID FORMAT
     await tester.enterText(find.byKey(const ValueKey('emailField')), 'test@test.com');
     await tester.enterText(find.byKey(const ValueKey('passwordField')), '123456');
 
