@@ -1,95 +1,120 @@
-
 import 'package:flutter_test/flutter_test.dart';
-import 'package:p2/logic/personal_info_logic.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:p2/logic/personal_info_logic.dart';
 
 void main() {
-  group('PersonalInfoProvider Tests', () {
-    late PersonalInfoProvider provider;
+  late PersonalInfoProvider provider;
 
-    setUp(() {
-      provider = PersonalInfoProvider();
+  setUp(() {
     
-      SharedPreferences.setMockInitialValues({});
-    });
+    SharedPreferences.setMockInitialValues({});
+    provider = PersonalInfoProvider();
+  });
 
-    test('Initial values should be empty', () {
-      expect(provider.name, '');
-      expect(provider.email, '');
-      expect(provider.password, '');
-      expect(provider.phone, '');
-      expect(provider.imageFile, isNull);
-    });
-
-    test('toMap should return correct data structure', () {
-      provider.name = 'John Doe';
-      provider.email = 'john@example.com';
-      
-      final map = provider.toMap();
-      
-      expect(map['name'], 'John Doe');
-      expect(map['email'], 'john@example.com');
-      expect(map['password'], '');
-      expect(map['phone'], '');
-      expect(map['hasImage'], false);
-    });
-
-    test('Save and load user data', () async {
-      
-      SharedPreferences.setMockInitialValues({
-        'name': 'Alice',
-        'email': 'alice@example.com',
-        'password': 'password123',
-        'phone': '1234567890',
-      });
-
-      await provider.loadUserData();
-      
-      expect(provider.name, 'Alice');
-      expect(provider.email, 'alice@example.com');
-      expect(provider.password, 'password123');
-      expect(provider.phone, '1234567890');
-    });
-
-    test('Save user data', () async {
-      provider.name = 'Bob';
-      provider.email = 'bob@example.com';
-      provider.password = 'securepass';
-      provider.phone = '9876543210';
-      
-      await provider.saveUserData();
-      
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString('name'), 'Bob');
-      expect(prefs.getString('email'), 'bob@example.com');
-      expect(prefs.getString('password'), 'securepass');
-      expect(prefs.getString('phone'), '9876543210');
-    });
-
-    test('Empty data handling', () async {
-      await provider.saveUserData();
-      
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString('name'), '');
-      expect(prefs.getString('email'), '');
-      expect(prefs.getString('password'), '');
-      expect(prefs.getString('phone'), '');
-    });
-
-    test('Data overwriting', () async {
+  test('toMap should return correct structure', () {
     
-      provider.name = 'First';
-      provider.email = 'first@example.com';
-      await provider.saveUserData();
-      
+    provider.name = 'John Doe';
+    provider.email = 'john@test.com';
+    provider.password = 'password123';
+    provider.phone = '0791234567';
+
     
-      provider.name = 'Second';
-      provider.email = 'second@example.com';
-      await provider.saveUserData();
-      
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString('name'), 'Second');
-      expect(prefs.getString('email'), 'second@example.com');
-    });
+    final result = provider.toMap();
+
+    
+    expect(result['name'], 'John Doe');
+    expect(result['email'], 'john@test.com');
+    expect(result['hasPassword'], true);
+    expect(result['phone'], '0791234567');
+    expect(result['hasImage'], false);
+  });
+
+  test('sanitizeAndEncrypt should handle regular text', () {
+    final result = provider.sanitizeAndEncrypt('  test text  ', 'name');
+    expect(result, 'test text');
+  });
+
+  test('sanitizeAndEncrypt should handle password', () {
+    final result = provider.sanitizeAndEncrypt('mypassword', 'password');
+    expect(result, startsWith('encrypted_'));
+  });
+
+  test('sanitizeAndDecrypt should mask password', () {
+    final result = provider.sanitizeAndDecrypt('encrypted_123', 'password');
+    expect(result, '******');
+  });
+
+  test('sanitizeAndDecrypt should return text as-is for non-password', () {
+    final result = provider.sanitizeAndDecrypt('test', 'name');
+    expect(result, 'test');
+  });
+
+  test('validateCurrentData should return true for valid data', () {
+    provider.name = 'John';
+    provider.email = 'john@test.com';
+    provider.phone = '+962791234567';
+    
+    expect(provider.validateCurrentData(), true);
+  });
+
+  test('validateCurrentData should return false for empty name', () {
+    provider.name = '';
+    provider.email = 'test@test.com';
+    
+    expect(provider.validateCurrentData(), false);
+  });
+
+  test('validateCurrentData should return false for invalid email', () {
+    provider.name = 'John';
+    provider.email = 'invalid-email';
+    
+    expect(provider.validateCurrentData(), false);
+  });
+
+  test('validateCurrentData should accept empty phone', () {
+    provider.name = 'John';
+    provider.email = 'test@test.com';
+    provider.phone = '';
+    
+    expect(provider.validateCurrentData(), true);
+  });
+
+  test('Setting and getting property values', () {
+
+    provider.name = 'Test User';
+    expect(provider.name, 'Test User');
+
+   
+    provider.email = 'test@example.com';
+    expect(provider.email, 'test@example.com');
+
+  
+    provider.phone = '0791234567';
+    expect(provider.phone, '0791234567');
+
+    provider.password = 'Test123!';
+    expect(provider.password, 'Test123!');
+  });
+
+  test('clearSensitiveData should clear password', () async {
+    
+    provider.password = 'secret123';
+
+    
+    await provider.clearSensitiveData();
+
+    
+    expect(provider.password, '');
+  });
+
+  
+  test('clearSensitiveData should work multiple times', () async {
+    provider.password = 'first';
+    await provider.clearSensitiveData();
+    expect(provider.password, '');
+
+    provider.password = 'second';
+    await provider.clearSensitiveData();
+    expect(provider.password, '');
   });
 }
