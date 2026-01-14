@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:p2/logic/profile_logic_page.dart';
 import 'package:p2/security/error_handler.dart';
 import 'package:p2/security/input_validator.dart';
+
 class ProfilePage extends StatefulWidget {
   final String name;
   final String email;
@@ -40,7 +41,10 @@ class _ProfilePageState extends State<ProfilePage> {
       location: widget.location,
       bank: widget.bank,
     );
-    _validateInitialData();
+   
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _validateInitialData();
+    });
   }
 
   Future<void> _validateInitialData() async {
@@ -62,18 +66,17 @@ class _ProfilePageState extends State<ProfilePage> {
 
       if (picked != null) {
         final imageFile = File(picked.path);
-        
-      
+
         final isSafe = await _logic.validateImageSafety(imageFile);
-        
+
         if (isSafe) {
           setState(() {
             _logic.profileImage = imageFile;
           });
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Image is not valid. Please choose another.'),
+            const SnackBar(
+              content: Text('Image is not valid. Please choose another.'),
               backgroundColor: Colors.red,
             ),
           );
@@ -99,13 +102,13 @@ class _ProfilePageState extends State<ProfilePage> {
 
       if (_formKey.currentState!.validate()) {
         _formKey.currentState!.save();
-        
+
         final validationResult = await _logic.validateForm(
-          _logic.fullName, 
-          _logic.email, 
-          _logic.phone
+          _logic.fullName,
+          _logic.email,
+          _logic.phone,
         );
-        
+
         if (validationResult) {
           final updateSuccess = await _logic.updateProfile(
             name: _logic.fullName,
@@ -113,7 +116,7 @@ class _ProfilePageState extends State<ProfilePage> {
             phone: _logic.phone,
             image: _logic.profileImage,
           );
-          
+
           if (updateSuccess) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -143,7 +146,7 @@ class _ProfilePageState extends State<ProfilePage> {
       setState(() {
         _errorMessage = ErrorHandler.getSafeError(error);
       });
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(_errorMessage),
@@ -167,8 +170,8 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget _buildSecureTextField({
     required String label,
     required String initialValue,
+    required void Function(String?) onSaved,
     required IconData icon,
-    required Function(String?) onSaved,
     bool isEmail = false,
     bool isPhone = false,
   }) {
@@ -183,24 +186,19 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ),
         validator: (value) {
-          if (value == null || value.isEmpty) {
+          final safeValue = value?.trim() ?? '';
+          if (safeValue.isEmpty) {
             return 'This field is required';
           }
-          
-          final safeValue = value.trim();
-          
           if (isEmail && !InputValidator.isValidEmail(safeValue)) {
             return 'Please enter a valid email';
           }
-          
           if (isPhone && !InputValidator.isValidPhone(safeValue)) {
             return 'Please enter a valid phone number';
           }
-          
           if (!InputValidator.hasNoMaliciousCode(safeValue)) {
             return 'Invalid characters detected';
           }
-          
           return null;
         },
         onSaved: onSaved,
