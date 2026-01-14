@@ -118,7 +118,7 @@ void main() {
           startTime: null,
           endTime: null,
         );
-        expect(hours, 72.0); // 3 أيام × 24 ساعة
+        expect(hours, 72.0); 
       });
     });
 
@@ -138,20 +138,20 @@ void main() {
   final isValid = RentalCalculator.isValidRentalTypeForDuration(
     rentalType: RentalType.hourly,
     startDate: today,
-    endDate: tomorrow, // يومين مختلفين
+    endDate: tomorrow, 
     startTime: TimeOfDay(hour: 9, minute: 0),
-    endTime: TimeOfDay(hour: 10, minute: 0), // 25 ساعة
+    endTime: TimeOfDay(hour: 10, minute: 0), 
   );
-  expect(isValid, false); // Hourly لأيام مختلفة = false
+  expect(isValid, false); 
 });
 
 test('hourly - same day 8 hours should be valid', () {
   final isValid = RentalCalculator.isValidRentalTypeForDuration(
     rentalType: RentalType.hourly,
     startDate: today,
-    endDate: today, // نفس اليوم
+    endDate: today, 
     startTime: TimeOfDay(hour: 9, minute: 0),
-    endTime: TimeOfDay(hour: 17, minute: 0), // 8 ساعات
+    endTime: TimeOfDay(hour: 17, minute: 0), 
   );
   expect(isValid, true);
 });
