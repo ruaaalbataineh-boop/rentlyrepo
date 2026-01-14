@@ -9,7 +9,7 @@ import 'package:p2/services/firestore_service.dart';
 import 'package:p2/services/storage_service.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-// Add security imports
+
 import 'main_user.dart';
 import 'security/input_validator.dart';
 import 'security/secure_storage.dart';
@@ -23,10 +23,10 @@ class AddItemPage extends StatefulWidget {
   final Map<String, dynamic>? existingItem;
 
   @override
-  _AddItemPageState createState() => _AddItemPageState();
+  AddItemPageState createState() => AddItemPageState();
 }
 
-class _AddItemPageState extends State<AddItemPage> {
+class AddItemPageState extends State<AddItemPage> {
   final TextEditingController nameController = TextEditingController();
   final TextEditingController descController = TextEditingController();
   final TextEditingController priceController = TextEditingController();
@@ -81,7 +81,7 @@ class _AddItemPageState extends State<AddItemPage> {
     "Yearly"
   ];
 
-  // Security variables
+  
   bool _isLoading = false;
   int _imageUploadAttempts = 0;
   final int _maxImageUploadAttempts = 3;
@@ -90,7 +90,7 @@ class _AddItemPageState extends State<AddItemPage> {
   void initState() {
     super.initState();
     
-    // Security check
+    
     _checkAuthentication();
     
     if (widget.existingItem != null) {
@@ -109,7 +109,7 @@ class _AddItemPageState extends State<AddItemPage> {
     }
   }
 
-  // Security: Check if user is authenticated
+
   void _checkAuthentication() {
     if (RouteGuard.testAuthenticated) return;
 
@@ -159,7 +159,7 @@ class _AddItemPageState extends State<AddItemPage> {
     }
   }
   
-  // Secure image picking with validation
+
   Future<void> pickImages() async {
     try {
       if (!RouteGuard.isAuthenticated()) {
@@ -167,7 +167,7 @@ class _AddItemPageState extends State<AddItemPage> {
         return;
       }
 
-      // Check number of images (security limit)
+    
       if (pickedImages.length + existingImageUrls.length >= 10) {
         showError("Maximum 10 images allowed");
         return;
@@ -180,18 +180,18 @@ class _AddItemPageState extends State<AddItemPage> {
       );
       
       if (images != null) {
-        // Validate each image
+    
         for (final image in images) {
           final file = File(image.path);
           
-          // Check file size (max 5MB)
+      
           final fileSize = await file.length();
           if (fileSize > 5 * 1024 * 1024) {
             showError("Image too large (max 5MB): ${image.name}");
             continue;
           }
 
-          // Check file type
+         
           final extension = image.path.split('.').last.toLowerCase();
           if (!['jpg', 'jpeg', 'png', 'gif'].contains(extension)) {
             showError("Invalid image format: ${image.name}");
@@ -216,8 +216,7 @@ class _AddItemPageState extends State<AddItemPage> {
   void removeExistingImage(String url) {
     setState(() => existingImageUrls.remove(url));
   }
-  
-  // Secure rental period addition with validation
+ 
   void addRentalPeriod() {
     try {
       if (newRentalPeriod == null || priceController.text.isEmpty) {
@@ -225,7 +224,7 @@ class _AddItemPageState extends State<AddItemPage> {
         return;
       }
 
-      // Input validation
+   
       if (!InputValidator.hasNoMaliciousCode(priceController.text)) {
         showError("Invalid price format");
         return;
@@ -238,7 +237,6 @@ class _AddItemPageState extends State<AddItemPage> {
         return;
       }
 
-      // Price range validation
       if (rentalPrice > 10000) {
         showError("Price cannot exceed 10,000 JD");
         return;
@@ -254,7 +252,7 @@ class _AddItemPageState extends State<AddItemPage> {
     }
   }
   
-  // Secure location picking
+  
   Future<void> pickLocation() async {
     try {
       if (!RouteGuard.isAuthenticated()) {
@@ -279,7 +277,6 @@ class _AddItemPageState extends State<AddItemPage> {
     }
   }
 
-  // Secure save item with all validations
   Future<void> saveItem() async {
     if (isIntegrationTest) {
       showSuccess("TEST: Item submission simulated");
@@ -292,7 +289,6 @@ class _AddItemPageState extends State<AddItemPage> {
       return;
     }
 
-    // Input validation
     if (nameController.text.isEmpty) {
       showError("Enter item name");
       return;
@@ -340,7 +336,7 @@ class _AddItemPageState extends State<AddItemPage> {
       return;
     }
 
-    // Location validation
+    
     if (latitude == null || longitude == null) {
       showError("Please select a location");
       return;
@@ -352,7 +348,7 @@ class _AddItemPageState extends State<AddItemPage> {
       final user = FirebaseAuth.instance.currentUser!;
       final ownerId = user.uid;
 
-      // Secure image upload with retry logic
+      
       List<String> uploadedUrls = [];
       for (int i = 0; i < pickedImages.length; i++) {
         _imageUploadAttempts = 0;
@@ -383,7 +379,7 @@ class _AddItemPageState extends State<AddItemPage> {
 
       final allImages = [...existingImageUrls, ...uploadedUrls];
 
-      // Validate image count
+      
       if (allImages.isEmpty) {
         showError("Please add at least one image");
         return;
@@ -394,7 +390,7 @@ class _AddItemPageState extends State<AddItemPage> {
         return;
       }
 
-      // Insurance calculation
+
       final insuranceRate = getInsuranceRate(originalPrice);
       final insuranceAmount = calculateInsuranceAmount();
 
@@ -404,7 +400,7 @@ class _AddItemPageState extends State<AddItemPage> {
         "insuranceAmount": insuranceAmount,
       };
 
-      // Build secure payload
+      
       final payload = {
         "ownerId": ownerId,
         "name": InputValidator.sanitizeInput(nameController.text.trim()),
@@ -416,23 +412,21 @@ class _AddItemPageState extends State<AddItemPage> {
         "insurance": insuranceData,
         "latitude": latitude,
         "longitude": longitude,
-        //"createdAt": FieldValue.serverTimestamp(), // Secure timestamp
-        //"updatedAt": FieldValue.serverTimestamp(),
+        
         "createdAt": DateTime.now().millisecondsSinceEpoch,
         "updatedAt": DateTime.now().millisecondsSinceEpoch,
-        "status": "pending", // Security: default status
+        "status": "pending", 
       };
 
-      // Store item data securely for audit trail
       await SecureStorage.saveData(
         'last_item_attempt',
         '${DateTime.now()}: ${nameController.text}',
       );
 
-      // Secure API call
+    
       await FirestoreService.submitItemForApproval(payload);
 
-      // Clear sensitive data from memory
+    
       nameController.clear();
       descController.clear();
       OriginalPriceController.clear();
@@ -440,7 +434,7 @@ class _AddItemPageState extends State<AddItemPage> {
 
       showSuccess("Item submitted for approval");
       
-      // Secure navigation back
+  
       if (Navigator.canPop(context)) {
         Navigator.pop(context);
       }
@@ -481,7 +475,7 @@ class _AddItemPageState extends State<AddItemPage> {
 
   @override
   void dispose() {
-    // Clear controllers
+    
     nameController.dispose();
     descController.dispose();
     priceController.dispose();
@@ -545,7 +539,7 @@ class _AddItemPageState extends State<AddItemPage> {
           IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.white),
             onPressed: () {
-              // Secure navigation back
+            
               if (Navigator.canPop(context)) {
                 Navigator.pop(context);
               }
