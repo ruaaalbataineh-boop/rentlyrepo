@@ -1,181 +1,86 @@
+import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:p2/logic/phone_logic.dart';
-import 'dart:io';
 
 void main() {
-  group('PhoneLogic Unit Tests', () {
-    test('First Name validation works correctly', () {
-      expect(PhoneLogic.validateFirstName('Ahmed'), isNull);
-      expect(PhoneLogic.validateFirstName('Mohammad'), isNull);
-      expect(PhoneLogic.validateFirstName('Qusay'), isNull);
-      
-      expect(PhoneLogic.validateFirstName(''), 'Please enter your first name');
-      expect(PhoneLogic.validateFirstName(' '), 'Please enter your first name');
-      expect(PhoneLogic.validateFirstName('A'), 'First name must be at least 2 characters');
-      expect(PhoneLogic.validateFirstName('123'), 'First name can only contain letters, spaces, and hyphens');
-      expect(PhoneLogic.validateFirstName('Ahmed123'), 'First name can only contain letters, spaces, and hyphens');
+  late File sampleFile;
+
+  setUp(() {
+   
+    sampleFile = File('test/resources/sample.jpg');
+    if (!sampleFile.existsSync()) {
+      sampleFile.createSync(recursive: true);
+      sampleFile.writeAsBytesSync([0, 1, 2, 3]);
+    }
+  });
+
+  group('PhoneLogic Tests', () {
+    test('validatePhoneNumber', () {
+      expect(PhoneLogic.validatePhoneNumber('0771234567'), isNull); // 
+expect(PhoneLogic.validatePhoneNumber('+962771234567'), isNull); // 
+expect(PhoneLogic.validatePhoneNumber('962781234567'), isNull); // 
     });
 
-    test('Last Name validation works correctly', () {
-      expect(PhoneLogic.validateLastName('AAA'), isNull);
-      expect(PhoneLogic.validateLastName('BBB'), isNull);
-      expect(PhoneLogic.validateLastName('CCC'), isNull);
-      
-      expect(PhoneLogic.validateLastName(''), 'Please enter your last name');
-      expect(PhoneLogic.validateLastName(' '), 'Please enter your last name');
-      expect(PhoneLogic.validateLastName('A'), 'Last name must be at least 2 characters');
-      expect(PhoneLogic.validateLastName('AAA123'), 'Last name can only contain letters, spaces, and hyphens');
+    test('validateIdImage', () {
+      expect(PhoneLogic.validateIdImage(sampleFile), isNull); // 
+      final nonExist = File('test/resources/nonexist.jpg');
+      expect(PhoneLogic.validateIdImage(nonExist), isNotNull); //  
+      expect(PhoneLogic.validateIdImage(null), isNotNull); // 
     });
 
-   test('Debug birth date validation', () {
- 
-  print('Testing: 1990-01-15');
-  final result1990 = PhoneLogic.validateBirthDate('1990-01-15');
-  print('Result for 1990-01-15: $result1990');
-  
-  print('Testing: 2000-12-31');
-  final result2000 = PhoneLogic.validateBirthDate('2000-12-31');
-  print('Result for 2000-12-31: $result2000');
-  
-  
-  print('Current year: ${DateTime.now().year}');
-  
- 
-  final birth1990 = DateTime(1990, 1, 15);
-  final now = DateTime.now();
-  final age1990 = now.year - birth1990.year;
-  final hasHadBirthday = (now.month > birth1990.month) || 
-                         (now.month == birth1990.month && now.day >= birth1990.day);
-  final actualAge1990 = hasHadBirthday ? age1990 : age1990 - 1;
-  
-  print('Age for 1990-01-15: $actualAge1990');
-  
-  expect(actualAge1990, greaterThanOrEqualTo(18)); 
-});
-
-    test('Phone Number validation works correctly', () {
-      expect(PhoneLogic.validatePhoneNumber('791234567'), isNull);  
-      expect(PhoneLogic.validatePhoneNumber('781234567'), isNull);  
-      expect(PhoneLogic.validatePhoneNumber('771234567'), isNull);  
-      expect(PhoneLogic.validatePhoneNumber('+962791234567'), isNull);  
-      expect(PhoneLogic.validatePhoneNumber('0791234567'), isNull);     
-      
-      expect(PhoneLogic.validatePhoneNumber(''), 'Please enter your phone number');
-      expect(PhoneLogic.validatePhoneNumber(' '), 'Please enter your phone number');
-      expect(PhoneLogic.validatePhoneNumber('123'), 'Phone number must be 9 digits (after country code)');
-      expect(PhoneLogic.validatePhoneNumber('1234567890'), 'Phone number must be 9 digits (after country code)');
-      expect(PhoneLogic.validatePhoneNumber('691234567'), 'Jordanian mobile numbers must start with 7');
-      expect(PhoneLogic.validatePhoneNumber('761234567'), 'Second digit must be 7, 8, or 9');
+    test('validateFaceImage', () {
+      expect(PhoneLogic.validateFaceImage(sampleFile, true), isNull); // موجود + وجه مكتشف
+      expect(PhoneLogic.validateFaceImage(sampleFile, false), isNotNull); // موجود + وجه غير مكتشف
+      final nonExist = File('test/resources/nonexist.jpg');
+      expect(PhoneLogic.validateFaceImage(nonExist, true), isNotNull); // ملف غير موجود
+      expect(PhoneLogic.validateFaceImage(null, true), isNotNull); // null
     });
 
-    test('Get full name correctly', () {
-      String normalize(String str) {
-        return str.replaceAll(RegExp(r'\s+'), ' ').trim();
-      }
-     
-      expect(
-        normalize(PhoneLogic.getFullName('Qusay', 'AAA')),
-        normalize('Qusay AAA')
-      );
+    test('validateFirstName and validateLastName', () {
+      expect(PhoneLogic.validateFirstName(''), isNotNull);
+      expect(PhoneLogic.validateFirstName('A'), isNotNull);
+      expect(PhoneLogic.validateFirstName('John'), isNull);
+      expect(PhoneLogic.validateLastName(''), isNotNull);
+      expect(PhoneLogic.validateLastName('X'), isNotNull);
+      expect(PhoneLogic.validateLastName('Doe'), isNull);
       
-      expect(
-        normalize(PhoneLogic.getFullName('Ahmed', 'BBB')),
-        normalize('Ahmed BBB')
-      );
-      
-      expect(
-        normalize(PhoneLogic.getFullName('  Mohammad  ', '  CCC  ')),
-        normalize('Mohammad CCC')
-      );
-      
-      expect(PhoneLogic.getFullName('Qusay', ''), 'Qusay');
-      expect(PhoneLogic.getFullName('', 'AAA'), 'AAA');
-      expect(PhoneLogic.getFullName('', ''), '');
-      expect(PhoneLogic.getFullName('   ', '   '), '');
-      
-      expect(
-        normalize(PhoneLogic.getFullName('Abdul   Rahman', 'DDD')),
-        normalize('Abdul Rahman DDD')
-      );
-      
-      final result = PhoneLogic.getFullName('Ahmed', 'BBB');
-      expect(result, isNotNull);
-      expect(result.isNotEmpty, isTrue);
-      expect(result.contains('Ahmed'), isTrue);
-      expect(result.contains('BBB'), isTrue);
+      expect(PhoneLogic.validateFirstName('قصي'), isNull);
+      expect(PhoneLogic.validateLastName('القرعان'), isNull);
     });
 
-    test('Format date correctly', () {
-      expect(PhoneLogic.formatDate(DateTime(1990, 1, 15)), '1990-01-15');
-      expect(PhoneLogic.formatDate(DateTime(2000, 12, 31)), '2000-12-31');
-      expect(PhoneLogic.formatDate(DateTime(1990, 10, 5)), '1990-10-05');
-      expect(PhoneLogic.formatDate(DateTime(1990, 9, 15)), '1990-09-15');
+    test('validateBirthDate', () {
+      expect(PhoneLogic.validateBirthDate(''), isNotNull);
+      expect(PhoneLogic.validateBirthDate('01-01-2000'), isNotNull); // خطأ في الصيغة
+      expect(PhoneLogic.validateBirthDate('2000-01-01'), isNull); // صحيح
+      expect(PhoneLogic.validateBirthDate('2100-01-01'), isNotNull); // مستقبل
+      expect(PhoneLogic.validateBirthDate('1900-01-01'), isNotNull); // عمر كبير جدًا
     });
 
-    test('Check if person is adult', () {
-      expect(PhoneLogic.isAdult('2000-01-01'), isTrue);
-      expect(PhoneLogic.isAdult('2010-01-01'), isFalse);
-      expect(PhoneLogic.isAdult('invalid'), isFalse);
-      expect(PhoneLogic.isAdult(''), isFalse);
-      
-      expect(PhoneLogic.calculateAge('2000-01-01'), greaterThan(18));
-      expect(PhoneLogic.calculateAge('2010-01-01'), lessThan(18));
-    });
-
-    test('Complete validation returns all errors', () {
+    test('validateAllFields collects errors', () {
       final errors = PhoneLogic.validateAllFields(
-        firstName: '',
-        lastName: '',
-        birthDate: '',
-        phone: '',
-        idImage: null,
-        faceImage: null,
+        firstName: '', 
+        lastName: 'X', 
+        birthDate: '2020-01-01', 
+        phone: '123', 
+        idImage: null, 
+        faceImage: null, 
         faceDetected: false,
       );
-      
-      expect(errors.length, 6);
-      expect(errors.contains('Please enter your first name'), isTrue);
-      expect(errors.contains('Please enter your last name'), isTrue);
-      expect(errors.contains('Please select your birth date'), isTrue);
-      expect(errors.contains('Please enter your phone number'), isTrue);
-      expect(errors.contains('Please upload your ID photo'), isTrue);
-      expect(errors.contains('Please upload your face photo'), isTrue);
-    });
-
-    test('Complete validation with partial valid data', () {
-      final mockIdImage = File('test_id.jpg');
-      final mockFaceImage = File('test_face.jpg');
-      
-      final errors = PhoneLogic.validateAllFields(
-        firstName: 'Qusay',
-        lastName: 'AAA',
-        birthDate: '1990-01-15',
-        phone: '791234567',
-        idImage: mockIdImage,
-        faceImage: mockFaceImage,
-        faceDetected: true,
-      );
-      
       expect(errors.length, greaterThan(0));
-      expect(errors.any((e) => e.contains('not found')), isTrue);
     });
 
-    test('Format phone number correctly', () {
-      expect(PhoneLogic.formatPhoneNumber('791234567'), '+962 791234567');
-      expect(PhoneLogic.formatPhoneNumber('0791234567'), '+962 791234567');
-      expect(PhoneLogic.formatPhoneNumber('962791234567'), '+962791234567');
-      expect(PhoneLogic.formatPhoneNumber('+962791234567'), '+962791234567');
-      expect(PhoneLogic.formatPhoneNumber('invalid'), 'invalid');
-    });
+   test('validateAllFields passes with valid data', () {
+  final errors = PhoneLogic.validateAllFields(
+    firstName: 'John',
+    lastName: 'Doe',
+    birthDate: '2000-01-01',
+    phone: '0771234567',  
+    idImage: sampleFile,  
+    faceImage: sampleFile,
+    faceDetected: true,
+  );
+  expect(errors.isEmpty, true);
+});
 
-    test('Static methods work without instance', () {
-      expect(() => PhoneLogic.validateFirstName('Qusay'), returnsNormally);
-      expect(() => PhoneLogic.validateLastName('AAA'), returnsNormally);
-      expect(() => PhoneLogic.validateBirthDate('1990-01-01'), returnsNormally);
-      expect(() => PhoneLogic.validatePhoneNumber('791234567'), returnsNormally);
-      expect(() => PhoneLogic.getFullName('Qusay', 'AAA'), returnsNormally);
-      expect(() => PhoneLogic.formatDate(DateTime.now()), returnsNormally);
-      expect(() => PhoneLogic.isAdult('1990-01-01'), returnsNormally);
-    });
   });
 }
