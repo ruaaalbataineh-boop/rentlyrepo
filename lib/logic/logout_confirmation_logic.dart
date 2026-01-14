@@ -1,3 +1,4 @@
+
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:p2/security/secure_storage.dart';
@@ -7,34 +8,145 @@ import 'package:p2/security/route_guard.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 
+
+abstract class SecureStorageInterface {
+  Future<void> saveData(String key, String value);
+  Future<String?> getData(String key);
+  Future<void> clearAll();
+}
+
+abstract class RouteGuardInterface {
+  bool isAuthenticated();
+}
+
+abstract class AuthInterface {
+  UserInterface? get currentUser;
+  Future<void> signOut();
+}
+
+abstract class UserInterface {
+  String get uid;
+}
+
+abstract class DatabaseInterface {
+  DatabaseReferenceInterface ref(String path);
+}
+
+abstract class DatabaseReferenceInterface {
+  Future<void> update(Map<String, dynamic> data);
+}
+
+
+class RealSecureStorage implements SecureStorageInterface {
+  @override
+  Future<void> saveData(String key, String value) async {
+    return SecureStorage.saveData(key, value);
+  }
+
+  @override
+  Future<String?> getData(String key) async {
+    return SecureStorage.getData(key);
+  }
+
+  @override
+  Future<void> clearAll() async {
+    return SecureStorage.clearAll();
+  }
+}
+
+class RealRouteGuard implements RouteGuardInterface {
+  @override
+  bool isAuthenticated() {
+    return RouteGuard.isAuthenticated();
+  }
+}
+
+class RealAuth implements AuthInterface {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  @override
+  UserInterface? get currentUser {
+    final user = _auth.currentUser;
+    return user != null ? RealUser(user) : null;
+  }
+
+  @override
+  Future<void> signOut() async {
+    await _auth.signOut();
+  }
+}
+
+class RealUser implements UserInterface {
+  final User _user;
+
+  RealUser(this._user);
+
+  @override
+  String get uid => _user.uid;
+}
+
+class RealDatabase implements DatabaseInterface {
+  final FirebaseDatabase _database = FirebaseDatabase.instance;
+
+  @override
+  DatabaseReferenceInterface ref(String path) {
+    return RealDatabaseReference(_database.ref(path));
+  }
+}
+
+class RealDatabaseReference implements DatabaseReferenceInterface {
+  final DatabaseReference _ref;
+
+  RealDatabaseReference(this._ref);
+
+  @override
+  Future<void> update(Map<String, dynamic> data) {
+    return _ref.update(data);
+  }
+}
+
 class LogoutConfirmationLogic {
   String selectedOption = "";
   bool _isInitialized = false;
+  
   DateTime? _lastLogoutAttempt;
   final Duration _logoutCooldown = const Duration(seconds: 30);
   int _logoutAttempts = 0;
   final int _maxLogoutAttempts = 3;
   String? _currentUserId;
 
-  // Firebase instances
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseDatabase _database = FirebaseDatabase.instance;
+
+  final AuthInterface auth;
+  final DatabaseInterface database;
+  final SecureStorageInterface storage;
+  final RouteGuardInterface routeGuard;
+
+  
+  LogoutConfirmationLogic({
+    AuthInterface? auth,
+    DatabaseInterface? database,
+    SecureStorageInterface? storage,
+    RouteGuardInterface? routeGuard,
+  })  : auth = auth ?? RealAuth(),
+        database = database ?? RealDatabase(),
+        storage = storage ?? RealSecureStorage(),
+        routeGuard = routeGuard ?? RealRouteGuard();
 
   Future<void> initialize() async {
     try {
-      // Security: Validate that user is authenticated
-      if (!RouteGuard.isAuthenticated()) {
+  
+      if (!routeGuard.isAuthenticated()) {
         throw Exception('User not authenticated');
       }
 
-      // Get current user ID
-      final user = _auth.currentUser;
+      
+      final user = auth.currentUser;
       if (user == null) {
         throw Exception('No user logged in');
       }
       _currentUserId = user.uid;
 
-      // Load logout history
+    
       await _loadLogoutHistory();
       
       _isInitialized = true;
@@ -47,16 +159,16 @@ class LogoutConfirmationLogic {
 
   Future<void> _loadLogoutHistory() async {
     try {
-      final history = await SecureStorage.getData('logout_attempts_$_currentUserId');
+      final history = await storage.getData('logout_attempts_$_currentUserId');
       if (history != null) {
         _logoutAttempts = int.tryParse(history) ?? 0;
       }
       
-      final lastAttempt = await SecureStorage.getData('last_logout_attempt_$_currentUserId');
+      final lastAttempt = await storage.getData('last_logout_attempt_$_currentUserId');
       if (lastAttempt != null) {
         _lastLogoutAttempt = DateTime.parse(lastAttempt);
         
-        // Reset if cooldown period has passed
+      
         if (_lastLogoutAttempt != null && 
             DateTime.now().difference(_lastLogoutAttempt!) > _logoutCooldown) {
           _logoutAttempts = 0;
@@ -70,12 +182,12 @@ class LogoutConfirmationLogic {
 
   Future<void> _saveLogoutHistory() async {
     try {
-      await SecureStorage.saveData(
+      await storage.saveData(
         'logout_attempts_$_currentUserId',
         _logoutAttempts.toString(),
       );
       if (_lastLogoutAttempt != null) {
-        await SecureStorage.saveData(
+        await storage.saveData(
           'last_logout_attempt_$_currentUserId',
           _lastLogoutAttempt!.toIso8601String(),
         );
@@ -108,7 +220,7 @@ class LogoutConfirmationLogic {
 
   void selectOption(String option) {
     try {
-      // Security: Validate option
+      
       if (!['cancel', 'logout'].contains(option)) {
         ErrorHandler.logError('Select Option', 'Invalid option: $option');
         return;
@@ -189,7 +301,7 @@ class LogoutConfirmationLogic {
 
   Color getButtonBackgroundColor(String buttonType, String currentSelection) {
     try {
-      // Security: Validate inputs
+      
       if (!['cancel', 'logout'].contains(buttonType)) {
         return Colors.grey[200]!;
       }
@@ -209,7 +321,7 @@ class LogoutConfirmationLogic {
 
   Color getButtonTextColor(String buttonType, String currentSelection) {
     try {
-      // Security: Validate inputs
+      
       if (!['cancel', 'logout'].contains(buttonType)) {
         return Colors.red;
       }
@@ -227,7 +339,7 @@ class LogoutConfirmationLogic {
     }
   }
 
-  // Security: Perform secure logout
+  
   Future<Map<String, dynamic>> performSecureLogout() async {
     try {
       if (!_isInitialized) {
@@ -242,34 +354,34 @@ class LogoutConfirmationLogic {
         throw Exception('Please wait $remainingCooldown before logging out again.');
       }
 
-      final user = _auth.currentUser;
+      final user = auth.currentUser;
       if (user == null) {
         throw Exception('No user logged in');
       }
 
-      // Record logout attempt
+      
       await _recordLogoutAttempt();
 
-      // Update user status in database
+      
       try {
-        final userRef = _database.ref("users/${user.uid}");
+        final userRef = database.ref("users/${user.uid}");
         await userRef.update({
           "status": "offline",
           "lastSeen": DateTime.now().millisecondsSinceEpoch,
           "lastLogout": DateTime.now().millisecondsSinceEpoch,
-        }).timeout(const Duration(seconds: 10));
+        });
       } catch (e) {
         ErrorHandler.logError('Update User Status', e);
-        // Continue even if database update fails
+  
       }
 
-      // Clear secure storage
-      await SecureStorage.clearAll();
+      
+      await storage.clearAll();
 
-      // Sign out from Firebase
-      await _auth.signOut();
+  
+      await auth.signOut();
 
-      // Reset local state
+    
       selectedOption = "";
       _logoutAttempts = 0;
       _lastLogoutAttempt = null;
@@ -289,13 +401,13 @@ class LogoutConfirmationLogic {
       ErrorHandler.logError('Perform Secure Logout', error);
       return {
         'success': false,
-        'error': ErrorHandler.getSafeError(error),
+        'error': error.toString(),
         'timestamp': DateTime.now().toIso8601String(),
       };
     }
   }
 
-  // Security: Get logout attempt status
+
   Future<Map<String, dynamic>> getLogoutAttemptStatus() async {
     try {
       return {
@@ -321,7 +433,7 @@ class LogoutConfirmationLogic {
     }
   }
 
-  // Security: Check if logout is allowed
+  
   bool isLogoutAllowed() {
     try {
       if (!_isInitialized) return false;
@@ -334,7 +446,6 @@ class LogoutConfirmationLogic {
     }
   }
 
-  // Security: Reset logout attempts (for admin or manual override)
   Future<void> resetLogoutAttempts() async {
     try {
       _logoutAttempts = 0;
@@ -348,7 +459,7 @@ class LogoutConfirmationLogic {
     }
   }
 
-  // Security: Cleanup resources
+  
   void cleanupResources() {
     try {
       selectedOption = "";
