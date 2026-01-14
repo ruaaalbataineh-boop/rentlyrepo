@@ -339,38 +339,20 @@ class OrdersLogic {
   }
 
   RentalRequest _sanitizeRequest(RentalRequest request) {
-    try {
-      return RentalRequest(
-        id: request.id,
-        itemId: request.itemId,
-        itemTitle: InputValidator.sanitizeInput(request.itemTitle),
-        itemOwnerUid: request.itemOwnerUid,
-        ownerName: InputValidator.sanitizeInput(request.ownerName ?? ''),
-        renterUid: request.renterUid,
-        status: request.status,
-        rentalType: InputValidator.sanitizeInput(request.rentalType),
-        rentalQuantity: request.rentalQuantity,
-        startDate: request.startDate,
-        endDate: request.endDate,
-        startTime: request.startTime != null 
-            ? InputValidator.sanitizeInput(request.startTime!)
-            : null,
-        endTime: request.endTime != null 
-            ? InputValidator.sanitizeInput(request.endTime!)
-            : null,
-        pickupTime: request.pickupTime != null 
-            ? InputValidator.sanitizeInput(request.pickupTime!)
-            : null,
-        rentalPrice: request.rentalPrice,
-        totalPrice: request.totalPrice,
-        insurance: request.insurance,
-        penalty: request.penalty,
-        createdAt: request.createdAt, renterName: '', paymentStatus: '',
-      );
-    } catch (e) {
-      ErrorHandler.logError('Sanitize Request', e);
-      return request; // Return original on error
-    }
+    return request.copyWith(
+      itemTitle: InputValidator.sanitizeInput(request.itemTitle),
+      ownerName: InputValidator.sanitizeInput(request.ownerName ?? ''),
+      rentalType: InputValidator.sanitizeInput(request.rentalType),
+      startTime: request.startTime != null
+          ? InputValidator.sanitizeInput(request.startTime!)
+          : null,
+      endTime: request.endTime != null
+          ? InputValidator.sanitizeInput(request.endTime!)
+          : null,
+      pickupTime: request.pickupTime != null
+          ? InputValidator.sanitizeInput(request.pickupTime!)
+          : null,
+    );
   }
 
   Future<void> _cacheRequestsToStorage(int tabIndex, List<RentalRequest> requests) async {
