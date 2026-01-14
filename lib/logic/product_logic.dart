@@ -21,7 +21,7 @@ class ProductLogic {
           final title = (data["name"] ?? "").toString().toLowerCase();
           final safeTitle = InputValidator.sanitizeInput(title);
           
-          // التحقق من أن المنتج آمن
+          
           if (!_validateProductSafety(data)) {
             ErrorHandler.logSecurity('Product Filter', 'Unsafe product detected: ${doc.id}');
             return false;
@@ -45,7 +45,7 @@ class ProductLogic {
 
   static bool _validateProductSafety(Map<String, dynamic> data) {
     try {
-      // التحقق من الحقول الأساسية
+     
       final requiredFields = ['name', 'category', 'subCategory', 'ownerId'];
       for (var field in requiredFields) {
         if (data[field] == null || data[field].toString().isEmpty) {
@@ -53,7 +53,7 @@ class ProductLogic {
         }
       }
 
-      // التحقق من عدم وجود محتوى ضار
+     
       final contentFields = ['name', 'description', 'category', 'subCategory'];
       for (var field in contentFields) {
         if (data[field] != null && !InputValidator.hasNoMaliciousCode(data[field].toString())) {
@@ -61,10 +61,10 @@ class ProductLogic {
         }
       }
 
-      // التحقق من الصور
+     
       if (data['images'] is List) {
         for (var img in data['images'] as List) {
-          if (img is String && !_isValidImageUrl(img)) {
+          if (img is String && !isValidImageUrl(img)) {
             return false;
           }
         }
@@ -85,7 +85,7 @@ class ProductLogic {
       final safeCategory = InputValidator.sanitizeInput(category);
       final safeSubCategory = InputValidator.sanitizeInput(subCategory);
       
-      // تقييد الطول للحماية من overflow
+      
       final maxLength = 50;
       final formatted = "$safeCategory - $safeSubCategory";
       
@@ -100,12 +100,12 @@ class ProductLogic {
 
   static Item secureConvertToItem(String id, Map<String, dynamic> data) {
     try {
-      // التحقق من الهوية أولاً
+     
       if (!_isValidId(id)) {
         throw Exception('Invalid item ID');
       }
 
-      // تنظيف جميع البيانات قبل التحويل
+     
       final safeName = InputValidator.sanitizeInput(data["name"]?.toString() ?? "");
       final safeDescription = InputValidator.sanitizeInput(data["description"]?.toString() ?? "");
       final safeCategory = InputValidator.sanitizeInput(data["category"]?.toString() ?? "");
@@ -114,32 +114,31 @@ class ProductLogic {
       final safeOwnerName = InputValidator.sanitizeInput(data["ownerName"]?.toString() ?? "");
       final safeStatus = InputValidator.sanitizeInput(data["status"]?.toString() ?? "approved");
 
-      // التحقق من الحقول الإجبارية
+    
       if (safeName.isEmpty || safeCategory.isEmpty || safeSubCategory.isEmpty) {
         throw Exception('Missing required fields');
       }
 
-      // تنظيف قائمة الصور مع التحقق
+     
       final List<String> safeImages = [];
       if (data["images"] is List) {
         for (var img in data["images"] as List) {
           if (img is String) {
             final safeImg = InputValidator.sanitizeInput(img);
-            if (safeImg.isNotEmpty && _isValidImageUrl(safeImg)) {
+            if (safeImg.isNotEmpty && isValidImageUrl(safeImg)) {
               safeImages.add(safeImg);
             }
           }
         }
       }
 
-      // تنظيف فترات الإيجار مع التحقق
       final Map<String, dynamic> safeRental = {};
       if (data["rentalPeriods"] is Map) {
         final rental = data["rentalPeriods"] as Map<String, dynamic>;
         rental.forEach((key, value) {
           final safeKey = InputValidator.sanitizeInput(key);
           if (safeKey.isNotEmpty && (value is num || value is String)) {
-            // التحقق من أن السعر رقم موجب
+          
             final price = double.tryParse(value.toString());
             if (price != null && price >= 0) {
               safeRental[safeKey] = price;
@@ -148,14 +147,14 @@ class ProductLogic {
         });
       }
 
-      // التحقق من الإحداثيات
+     
       double? safeLatitude;
       double? safeLongitude;
       if (data["latitude"] != null && data["longitude"] != null) {
         final lat = (data["latitude"] as num?)?.toDouble();
         final lng = (data["longitude"] as num?)?.toDouble();
         
-        // التحقق من أن الإحداثيات ضمن النطاق الطبيعي
+
         if (lat != null && lng != null && 
             lat >= -90 && lat <= 90 && 
             lng >= -180 && lng <= 180) {
@@ -164,7 +163,7 @@ class ProductLogic {
         }
       }
 
-      // استخدام constructor المنظف للـ Item
+      
       return Item.sanitized(
         id: id,
         name: safeName,
@@ -186,7 +185,7 @@ class ProductLogic {
       );
     } catch (error) {
       ErrorHandler.logError('Secure Convert To Item', error);
-      // إرجاع عنصر آمن افتراضي باستخدام constructor المنظف
+      
       return Item.sanitized(
         id: 'error_${DateTime.now().millisecondsSinceEpoch}',
         name: "Invalid Product",
@@ -215,7 +214,7 @@ class ProductLogic {
         return "No rental price";
       }
       
-      // إيجاد أقل سعر
+      
       double? minPrice;
       String? minPeriod;
       
@@ -258,7 +257,7 @@ class ProductLogic {
 
   static bool validateItemData(Map<String, dynamic> data) {
     try {
-      // التحقق من الحقول الأساسية
+     
       final requiredFields = ['name', 'category', 'subCategory', 'ownerId'];
       for (var field in requiredFields) {
         if (data[field] == null || data[field].toString().isEmpty) {
@@ -266,7 +265,7 @@ class ProductLogic {
         }
       }
 
-      // التحقق من عدم وجود أحرف خطيرة
+    
       final contentFields = ['name', 'category', 'subCategory', 'description'];
       for (var field in contentFields) {
         if (data[field] != null && !InputValidator.hasNoMaliciousCode(data[field].toString())) {
@@ -274,16 +273,15 @@ class ProductLogic {
         }
       }
 
-      // التحقق من حالة المنتج
       final status = data["status"]?.toString();
       if (status != null && status != "approved") {
         return false;
       }
 
-      // التحقق من الصور
+     
       if (data['images'] is List) {
         for (var img in data['images'] as List) {
-          if (img is String && !_isValidImageUrl(img)) {
+          if (img is String && !isValidImageUrl(img)) {
             return false;
           }
         }
@@ -306,7 +304,7 @@ class ProductLogic {
       
       final filtered = products.where((product) {
         try {
-          // التحقق من أمان المنتج
+      
           if (!validateItemData(product)) {
             return false;
           }
@@ -329,21 +327,21 @@ class ProductLogic {
     }
   }
 
-  static bool _isValidImageUrl(String url) {
+  static bool isValidImageUrl(String url) {
     try {
       if (url.isEmpty) return false;
       
       final uri = Uri.tryParse(url);
       if (uri == null) return false;
       
-      // التحقق من المخطط والهوست
+     
       if (uri.scheme != 'http' && uri.scheme != 'https') return false;
       if (uri.host.isEmpty) return false;
       
-      // التحقق من عدم وجود محتوى ضار
+      
       if (!InputValidator.hasNoMaliciousCode(url)) return false;
       
-      // التحقق من أن الرابط لا يحتوي على إشارات خطيرة
+   
       final lowerUrl = url.toLowerCase();
       if (lowerUrl.contains('javascript:') || 
           lowerUrl.contains('data:') ||
@@ -363,7 +361,7 @@ class ProductLogic {
     try {
       final safeOwnerId = InputValidator.sanitizeInput(ownerId);
       
-      // التحقق من أن الـ ID صالح
+      
       if (!_isValidId(safeOwnerId)) {
         return [];
       }
@@ -373,7 +371,7 @@ class ProductLogic {
           final data = doc.data() as Map<String, dynamic>;
           final docOwnerId = data["ownerId"]?.toString() ?? "";
           
-          // التحقق من أمان المنتج أولاً
+         
           if (!_validateProductSafety(data)) {
             return false;
           }
@@ -399,7 +397,7 @@ class ProductLogic {
           final dataA = a.data() as Map<String, dynamic>;
           final dataB = b.data() as Map<String, dynamic>;
           
-          // التحقق من أمان البيانات
+          
           if (!_validateProductSafety(dataA) || !_validateProductSafety(dataB)) {
             return 0;
           }
@@ -477,7 +475,7 @@ class ProductLogic {
     }
   }
 
-  // دالة جديدة للتحقق من أمان المنتج قبل العرض
+  
   static Future<bool> checkProductSafety(String itemId) async {
     try {
       final token = await SecureStorage.getToken();
@@ -497,7 +495,7 @@ class ProductLogic {
     }
   }
 
-  // دالة مساعدة لإنشاء Item من Firestore مباشرة
+  
   static Item createItemFromDoc(QueryDocumentSnapshot doc) {
     try {
       final data = doc.data() as Map<String, dynamic>;
