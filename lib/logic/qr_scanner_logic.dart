@@ -14,24 +14,24 @@ class QrLogic {
         return false;
       }
 
-      // تنظيف الـ QR token
+      
       final safeToken = InputValidator.sanitizeInput(qrToken);
       final safeRequestId = InputValidator.sanitizeInput(requestId);
 
-      // التحقق من تنسيق الـ QR token
-      if (!_isValidQrFormat(safeToken)) {
+   
+      if (!isValidQrFormat(safeToken)) {
         ErrorHandler.logSecurity('QR Validation', 'Invalid QR format: $safeToken');
         return false;
       }
 
-      // التحقق من أن الـ QR token يطابق الـ requestId
+   
       if (!safeToken.contains(safeRequestId)) {
         ErrorHandler.logSecurity('QR Validation', 
             'QR token mismatch: $safeToken for request: $safeRequestId');
         return false;
       }
 
-      // التحقق من عدم وجود محتوى ضار
+      
       if (!InputValidator.hasNoMaliciousCode(safeToken)) {
         ErrorHandler.logSecurity('QR Validation', 'Malicious content in QR token');
         return false;
@@ -44,22 +44,22 @@ class QrLogic {
     }
   }
 
-  static bool _isValidQrFormat(String qrToken) {
-    // تنسيق متوقع: requestId_timestamp
+  static bool isValidQrFormat(String qrToken) {
+    
     final parts = qrToken.split('_');
     if (parts.length != 2) return false;
 
     final requestId = parts[0];
     final timestamp = parts[1];
 
-    // التحقق من أن الـ requestId ليس فارغاً
+   
     if (requestId.isEmpty) return false;
 
-    // التحقق من أن timestamp هو رقم
+    
     final timestampNum = int.tryParse(timestamp);
     if (timestampNum == null) return false;
 
-    // التحقق من أن timestamp ليس في المستقبل
+    
     final now = DateTime.now().millisecondsSinceEpoch;
     if (timestampNum > now) return false;
 
