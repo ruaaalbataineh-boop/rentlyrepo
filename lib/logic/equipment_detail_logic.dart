@@ -1,4 +1,4 @@
-// lib/logic/equipment_detail_logic.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
@@ -16,6 +16,7 @@ import 'package:p2/security/input_validator.dart';
 import 'package:p2/security/route_guard.dart';
 
 class EquipmentDetailLogic {
+  
   late Item? _item;
   String ownerName = "Loading...";
   double renterWallet = 0.0;
@@ -85,7 +86,7 @@ class EquipmentDetailLogic {
       await _loadRentalHistory();
       
       // Security: Validate user
-      if (userId == null || !_isValidUserId(userId!)) {
+      if (userId == null || !isValidUserId(userId!)) {
         throw Exception('Invalid user ID');
       }
       
@@ -98,7 +99,7 @@ class EquipmentDetailLogic {
     }
   }
 
-  bool _isValidUserId(String userId) {
+  bool isValidUserId(String userId) {
     if (userId.isEmpty || userId.length > 128) return false;
     return RegExp(r'^[a-zA-Z0-9_-]+$').hasMatch(userId);
   }
@@ -153,7 +154,7 @@ class EquipmentDetailLogic {
       if (item.id.isEmpty || item.id.length > 100) return false;
       if (item.name.isEmpty || item.name.length > 200) return false;
       if (item.description.length > 1000) return false;
-      if (item.ownerId.isEmpty || !_isValidUserId(item.ownerId)) return false;
+      if (item.ownerId.isEmpty || !isValidUserId(item.ownerId)) return false;
       
       // Validate price ranges
       for (var price in item.rentalPeriods.values) {
@@ -208,7 +209,7 @@ class EquipmentDetailLogic {
 
   Future<void> loadOwnerName(String uid) async {
     try {
-      if (!_isValidUserId(uid)) {
+      if (!isValidUserId(uid)) {
         ownerName = "Owner";
         return;
       }
@@ -268,7 +269,7 @@ class EquipmentDetailLogic {
           'ratePercentage': rate,
         };
         
-        _calculateInsuranceAmount();
+        calculateInsuranceAmount();
       } else {
         // Default values with security limits
         itemInsuranceInfo = {
@@ -371,7 +372,7 @@ class EquipmentDetailLogic {
     final uid = userId ?? UserManager.uid;
     if (uid == null || uid.isEmpty) {
       renterWallet = 0.0;
-      _checkWalletBalance();
+      checkWalletBalance();
       return;
     }
 
@@ -381,11 +382,11 @@ class EquipmentDetailLogic {
 
     renterWallet = snapshot['userBalance'] ?? 0.0;
 
-    _checkWalletBalance();
+    checkWalletBalance();
   } catch (e) {
     ErrorHandler.logError('Load Wallet Balance (EQ)', e);
     renterWallet = 0.0;
-    _checkWalletBalance();
+    checkWalletBalance();
   }
 }
 
@@ -558,17 +559,17 @@ class EquipmentDetailLogic {
       if (_item == null || selectedPeriod == null || itemInsuranceInfo == null) return;
       
       rentalPrice = computeTotalPrice();
-      _calculateInsuranceAmount();
+      calculateInsuranceAmount();
       totalPrice = rentalPrice + insuranceAmount;
       totalRequired = totalPrice;
-      _calculatePenalties();
-      _checkWalletBalance();
+      calculatePenalties();
+      checkWalletBalance();
     } catch (error) {
       ErrorHandler.logError('Calculate Insurance', error);
     }
   }
 
-  void _calculateInsuranceAmount() {
+  void calculateInsuranceAmount() {
     try {
       if (itemInsuranceInfo == null) return;
       
@@ -588,7 +589,7 @@ class EquipmentDetailLogic {
     }
   }
 
-  void _calculatePenalties() {
+  void calculatePenalties() {
     try {
       if (_item == null || selectedPeriod == null || itemInsuranceInfo == null) {
         penaltyMessage = "";
@@ -622,7 +623,7 @@ class EquipmentDetailLogic {
     }
   }
 
-  void _checkWalletBalance() {
+  void checkWalletBalance() {
     try {
       hasSufficientBalance = renterWallet >= totalRequired;
     } catch (error) {
@@ -659,10 +660,10 @@ class EquipmentDetailLogic {
     
     try {
       // Security: Validate all inputs
-      if (selectedPeriod == null || !_isValidPeriod(selectedPeriod!)) return false;
+      if (selectedPeriod == null || !isValidPeriod(selectedPeriod!)) return false;
       if (startDate == null || !_isValidDate(startDate!)) return false;
       if (endDate == null || !_isValidDate(endDate!)) return false;
-      if (pickupTime == null || !_isValidPickupTime(pickupTime!)) return false;
+      if (pickupTime == null || !isValidPickupTime(pickupTime!)) return false;
       
       return insuranceAccepted &&
              hasSufficientBalance &&
@@ -673,7 +674,7 @@ class EquipmentDetailLogic {
     }
   }
 
-  bool _isValidPeriod(String period) {
+  bool isValidPeriod(String period) {
     final validPeriods = ['daily', 'weekly', 'monthly', 'yearly'];
     final sanitized = InputValidator.sanitizeInput(period.toLowerCase());
     return validPeriods.contains(sanitized);
@@ -689,7 +690,7 @@ class EquipmentDetailLogic {
     }
   }
 
-  bool _isValidPickupTime(String time) {
+  bool isValidPickupTime(String time) {
     try {
       if (time.isEmpty || time.length > 20) return false;
       return InputValidator.hasNoMaliciousCode(time);
