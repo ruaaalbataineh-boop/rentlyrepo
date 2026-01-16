@@ -57,7 +57,9 @@ export const approveItem = onCall(async (request) => {
         body: "Your item has been approved ",
       },
       data: {
-        type: "ITEM_APPROVED",
+        type: "admin_item_approved",
+        title: "Item approved",
+        message: "Your item has been approved and is now live",
         itemId: itemId,
       },
     });
