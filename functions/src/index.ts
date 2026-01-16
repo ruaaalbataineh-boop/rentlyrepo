@@ -16,6 +16,9 @@ export { submitItemForApproval } from "./items/submitItemForApproval";
 export { approveItem } from "./items/approveItem";
 export { rejectItem } from "./items/rejectItem";
 
+export { notifyUserOnRentalDecision } from "./notifications/notifyUserOnRentalDecision";
+
+
 export { createRentalRequest } from "./rentals/createRentalRequest";
 export { updateRentalRequestStatus } from "./rentals/updateRentalRequestStatus";
 export { confirmPickup } from "./rentals/confirmPickup";
@@ -96,14 +99,17 @@ export const notifyOwnerOnNewRentalRequest = onDocumentCreated(
       },
       data: {
         type: "rental_request",
+        title: "New rental request",
+        message: `Request for "${itemTitle}"`,
         requestId: requestId,
-        tab: "1",
       },
     });
 
     console.log("Rental request notification sent to owner:", ownerUid);
   }
 );
+
+
 
 
 
@@ -124,6 +130,16 @@ export const testOnNewMessage = onValueCreated(
         if (!message) return;
 
         const senderId = message.sender;
+        // 🔹 get sender name from Realtime Database
+const senderSnap = await admin
+  .database()
+  .ref(`users/${senderId}/name`)
+  .get();
+
+const senderName = senderSnap.exists()
+  ? senderSnap.val()
+  : "";
+
         const text = message.text ?? "New message";
 
         // chatId = user1-user2
@@ -144,18 +160,20 @@ export const testOnNewMessage = onValueCreated(
 
         const fcmToken = tokenSnap.val();
 
-        await admin.messaging().send({
-            token: fcmToken,
-            notification: {
-                title: "New Message",
-                body: text,
-            },
-            data: {
-                type: "chat",          // ✅ ADDED
-                chatId: chatId,
-                senderUid: senderId,   // ✅ RENAMED (was senderId)
-            },
+       await admin.messaging().send({
+        token: fcmToken,
+        android: {
+         priority: "high",
+        },
+        data: {
+            type: "chat",
+            chatId: chatId,
+            senderUid: senderId,
+            senderName: senderName, // ✅ مهم
+            messageText: text,                         // ✅ أهم سطر
+        },
         });
+
 
         console.log(" Notification sent to:", receiverId);
     }
