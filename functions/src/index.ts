@@ -160,19 +160,27 @@ const senderName = senderSnap.exists()
 
         const fcmToken = tokenSnap.val();
 
-       await admin.messaging().send({
-        token: fcmToken,
-        android: {
-         priority: "high",
-        },
-        data: {
-            type: "chat",
-            chatId: chatId,
-            senderUid: senderId,
-            senderName: senderName, // ✅ مهم
-            messageText: text,                         // ✅ أهم سطر
-        },
-        });
+   await admin.messaging().send({
+  token: fcmToken,
+  android: {
+    priority: "high",
+  },
+  notification: {
+    title: senderName && senderName.trim() !== "" 
+      ? senderName 
+      : "New message",
+    body: text,
+  },
+  data: {
+    type: "chat",
+    chatId: chatId,
+    senderUid: senderId,
+    senderName: senderName,
+    messageText: text,
+  },
+});
+
+
 
 
         console.log(" Notification sent to:", receiverId);
