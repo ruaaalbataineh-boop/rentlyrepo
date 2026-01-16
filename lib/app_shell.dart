@@ -1,7 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; 
+import 'package:flutter/services.dart';
+import 'package:p2/notifications/in_app_notification.dart'; 
 
 import 'security/route_guard.dart';
 import 'security/secure_storage.dart';
@@ -28,8 +29,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     
-    
-    WidgetsBinding.instance.addObserver(this);
+   WidgetsBinding.instance.addObserver(this);
     
     _initializeApp();
   }
