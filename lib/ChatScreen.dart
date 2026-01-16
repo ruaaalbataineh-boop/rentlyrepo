@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:p2/fake_uid.dart';
 import 'package:p2/logic/chat_logic.dart';
+import 'package:p2/notifications/active_chat_tracker.dart';
+import 'package:p2/notifications/chat_id_utils.dart';
 
 
 class ChatScreen extends StatefulWidget {
@@ -26,6 +28,11 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    ActiveChatTracker.activeChatId =
+    normalizeChatId(LoginUID.uid, widget.personUid);
+
+
+
     logic = ChatLogic(
       personName: widget.personName,
       personUid: widget.personUid,
@@ -401,4 +408,12 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
     );
   }
+ @override
+void dispose() {
+  ActiveChatTracker.activeChatId = null;
+  messageController.dispose();
+  _scrollController.dispose();
+  super.dispose();
+}
+
 }
