@@ -18,6 +18,9 @@ import 'Setting.dart';
 import 'owner_listings.dart';
 import 'fake_uid.dart';
 
+// ✅ إضافة فقط
+import 'package:p2/notifications/active_chat_tracker.dart';
+
 class SharedBottomNav extends StatefulWidget {
   final int currentIndex;
   final Function(int)? onTabChanged;
@@ -42,6 +45,9 @@ class _SharedBottomNavState extends State<SharedBottomNav> {
   bool _isListening = false;
   int _maxUnreadCount = 99;
   Timer? _securityTimer;
+
+  // ✅ إضافة فقط
+  int _unreadChatsCount = 0;
 
   @override
   void initState() {
@@ -109,9 +115,39 @@ class _SharedBottomNavState extends State<SharedBottomNav> {
     _isListening = true;
   }
 
+  
   void _listenToChatsChanges() {
-    _chatsSub = FirebaseDatabase.instance.ref("chats").onValue.listen((_) {});
-  }
+  _chatsSub = FirebaseDatabase.instance.ref("chats").onValue.listen((event) {
+    // إذا داخل الشات → لا تعد
+    if (ActiveChatTracker.isOnChatPage ||
+        ActiveChatTracker.activeChatId != null) {
+      if (mounted) setState(() => _unreadChatsCount = 0);
+      return;
+    }
+
+    int unread = 0;
+    final data = event.snapshot.value;
+    if (data is! Map) return;
+
+    data.forEach((_, chatData) {
+      if (chatData is! Map) return;
+
+      final unreadMap = chatData['unread'];
+      if (unreadMap is! Map) return;
+
+      if (unreadMap[LoginUID.uid] == true) {
+        unread++;
+      }
+    });
+
+    if (mounted) {
+      setState(() {
+        _unreadChatsCount =
+            unread > _maxUnreadCount ? _maxUnreadCount : unread;
+      });
+    }
+  });
+}
 
   void _navigate(BuildContext context, int index) {
     if (widget.onTabChanged != null) {
@@ -133,7 +169,7 @@ class _SharedBottomNavState extends State<SharedBottomNav> {
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (_) => destination),
-          (route) => false,
+      (route) => false,
     );
   }
 
@@ -153,10 +189,48 @@ class _SharedBottomNavState extends State<SharedBottomNav> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildIcon(Icons.settings, 0, context, key: const ValueKey('navSettings')),
-          _buildIcon(Icons.shopping_bag_outlined, 1, context, key: const ValueKey('navOrders')),
-          _buildIcon(Icons.home_outlined, 2, context, key: const ValueKey('navHome')),
-          _buildChatIcon(context),
+          _buildIcon(Icons.settings, 0, context,
+              key: const ValueKey('navSettings')),
+          _buildIcon(Icons.shopping_bag_outlined, 1, context,
+              key: const ValueKey('navOrders')),
+          _buildIcon(Icons.home_outlined, 2, context,
+              key: const ValueKey('navHome')),
+
+          // ✅ لفّ أيقونة الشات فقط
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              _buildChatIcon(context),
+              if (_unreadChatsCount > 0 &&
+                  !ActiveChatTracker.isOnChatPage &&
+                  ActiveChatTracker.activeChatId == null)
+                Positioned(
+                  top: -6,
+                  right: -10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 6, vertical: 2),
+                    constraints:
+                        const BoxConstraints(minWidth: 20, minHeight: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.redAccent,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      _unreadChatsCount > 99
+                          ? '99+'
+                          : _unreadChatsCount.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+
           _buildMyItemsIcon(context),
         ],
       ),
@@ -177,16 +251,23 @@ class _SharedBottomNavState extends State<SharedBottomNav> {
 
   IconData _getIconForIndex(int index) {
     switch (index) {
-      case 0: return Icons.settings;
-      case 1: return Icons.shopping_bag_outlined;
-      case 2: return Icons.home_outlined;
-      case 3: return Icons.chat_bubble_outline;
-      case 4: return Icons.storage_rounded;
-      default: return Icons.error;
+      case 0:
+        return Icons.settings;
+      case 1:
+        return Icons.shopping_bag_outlined;
+      case 2:
+        return Icons.home_outlined;
+      case 3:
+        return Icons.chat_bubble_outline;
+      case 4:
+        return Icons.storage_rounded;
+      default:
+        return Icons.error;
     }
   }
 
-  Widget _buildIcon(IconData icon, int index, BuildContext context, {Key? key}) {
+  Widget _buildIcon(IconData icon, int index, BuildContext context,
+      {Key? key}) {
     final active = index == widget.currentIndex;
 
     return GestureDetector(
@@ -204,7 +285,8 @@ class _SharedBottomNavState extends State<SharedBottomNav> {
     return GestureDetector(
       key: const ValueKey('navChats'),
       onTap: () => _navigate(context, 3),
-      child: const Icon(Icons.chat_bubble_outline, color: Colors.white70),
+      child:
+          const Icon(Icons.chat_bubble_outline, color: Colors.white70),
     );
   }
 
@@ -212,7 +294,8 @@ class _SharedBottomNavState extends State<SharedBottomNav> {
     return GestureDetector(
       key: const ValueKey('navOwner'),
       onTap: () => _navigate(context, 4),
-      child: const Icon(Icons.storage_rounded, color: Colors.white70),
+      child:
+          const Icon(Icons.storage_rounded, color: Colors.white70),
     );
   }
 }
