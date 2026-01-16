@@ -1,5 +1,6 @@
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
+import 'package:p2/notifications/active_chat_tracker.dart';
 import 'ChatScreen.dart';
 import 'Categories_Page.dart';
 import 'Orders.dart';
@@ -15,7 +16,22 @@ class ChatsPage extends StatefulWidget {
 }
 
 class _ChatsPageState extends State<ChatsPage> {
-  int selectedBottom = 3;
+  
+  @override
+void initState() {
+  super.initState();
+  // ✅ المستخدم داخل Chat Page
+  ActiveChatTracker.isOnChatPage = true;
+}
+
+@override
+void dispose() {
+  // ✅ المستخدم طلع من Chat Page
+  ActiveChatTracker.isOnChatPage = false;
+  super.dispose();
+}
+
+int selectedBottom = 3;
 
   String formatTime(int timestamp) {
     final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
@@ -25,6 +41,9 @@ class _ChatsPageState extends State<ChatsPage> {
     hour = hour % 12;
     if (hour == 0) hour = 12;
     return "$hour:${minute.toString().padLeft(2, '0')} $ampm";
+
+                      
+
   }
 
   @override
