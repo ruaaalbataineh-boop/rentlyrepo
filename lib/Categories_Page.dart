@@ -47,26 +47,6 @@ class CategoryPage extends StatefulWidget {
 class _CategoryPageState extends State<CategoryPage> {
   String searchQuery = "";
 
-/*  @override
-  void initState() {
-    super.initState();
-    if (!widget.testMode && widget.enableFirebase)  {
-      saveFcmToken();
-    }
-  }
-
-  //  FCM Token
-  Future<void> saveFcmToken() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    final token = await FirebaseMessaging.instance.getToken();
-    if (token == null) return;
-
-    await FirebaseDatabase.instance
-        .ref("users/${user.uid}/fcmToken")
-        .set(token);
-  }*/
 
   @override
   Widget build(BuildContext context) {
