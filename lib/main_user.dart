@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:overlay_support/overlay_support.dart';
+import 'package:p2/admin_ui/Pages/ChatsPage_admin.dart';
+import 'package:p2/app_shell.dart';
+import 'package:p2/owner_listings.dart';
 import 'package:provider/provider.dart';
 
 import 'package:firebase_core/firebase_core.dart';
@@ -76,6 +79,7 @@ class MyApp extends StatelessWidget {
       builder: (context, locale, _) {
         return MaterialApp(
           navigatorKey: navigatorKey,
+          
           debugShowCheckedModeBanner: false,
           locale: locale,
           supportedLocales: const [
@@ -97,6 +101,8 @@ class MyApp extends StatelessWidget {
             '/setting': (_) => const SettingPage(),
             '/category': (_) => const CategoryPage(),
             '/favorites': (_) => const FavouritePage(),
+            '/ownerItems': (_) => const OwnerItemsPage(),
+            '/chats': (_) => const ChatsPage(),
             ProductListPage.routeName: (context) => const ProductListPage(),
             EquipmentDetailPage.routeName: (context) => const EquipmentDetailPage(),
           },
@@ -122,7 +128,7 @@ class MainPage extends StatelessWidget {
 
     if (user != null && user.uid.isNotEmpty) {
       LoginUID.uid = user.uid;
-      return const CategoryPage();
+      return const AppShell();
     }
 
     return LoginPage();
