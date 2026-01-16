@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../controllers/psp_auth_controller.dart';
+
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -11,6 +13,9 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final _email = TextEditingController();
   final _password = TextEditingController();
+
+  final _controller = PspAuthController();
+
   bool _loading = false;
   String? _error;
 
@@ -21,12 +26,10 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: _email.text.trim(),
-        password: _password.text.trim(),
+      await _controller.login(
+        _email.text.trim(),
+        _password.text.trim(),
       );
-    } on FirebaseAuthException catch (e) {
-      setState(() => _error = e.message);
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {
@@ -54,12 +57,16 @@ class _LoginPageState extends State<LoginPage> {
                     'PSP Simulator Login',
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
+
                   const SizedBox(height: 16),
+
                   TextField(
                     controller: _email,
                     decoration: const InputDecoration(labelText: 'Email'),
                   ),
+
                   const SizedBox(height: 12),
+
                   TextField(
                     controller: _password,
                     decoration: const InputDecoration(labelText: 'Password'),
@@ -71,7 +78,9 @@ class _LoginPageState extends State<LoginPage> {
                       _error!,
                       style: const TextStyle(color: Colors.red),
                     ),
+
                   const SizedBox(height: 8),
+
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(

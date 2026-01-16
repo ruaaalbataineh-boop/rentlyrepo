@@ -1,15 +1,15 @@
 import 'package:go_router/go_router.dart';
-import 'package:p2/admin_ui/Pages/AdminDashboard.dart';
-import 'package:p2/admin_ui/Pages/ChatsPage_admin.dart';
-import 'package:p2/admin_ui/Pages/issueReportsPage.dart';
-import 'package:p2/admin_ui/Pages/systemWallet.dart';
-import 'package:p2/admin_ui/Pages/ItemManagementPage.dart';
-import 'package:p2/admin_ui/Pages/LoginPage_admin.dart';
-import 'package:p2/admin_ui/Pages/NotificationsPage.dart';
-import 'package:p2/admin_ui/Pages/ReportsPage.dart';
-import 'package:p2/admin_ui/Pages/TransactionsPage.dart';
-import 'package:p2/admin_ui/Pages/UserManagement.dart';
-//import 'package:p2/admin_ui/Pages/item_notification.dart';
+import 'package:p2/admin_ui/views/AdminDashboard.dart';
+import 'package:p2/admin_ui/views/ChatsPage_admin.dart';
+import 'package:p2/admin_ui/views/issueReportsPage.dart';
+import 'package:p2/admin_ui/views/systemWallet.dart';
+import 'package:p2/admin_ui/views/ItemManagementPage.dart';
+import 'package:p2/admin_ui/views/LoginPage_admin.dart';
+import 'package:p2/admin_ui/views/NotificationsPage.dart';
+import 'package:p2/admin_ui/views/ReportsPage.dart';
+import 'package:p2/admin_ui/views/TransactionsPage.dart';
+import 'package:p2/admin_ui/views/UserManagement.dart';
+//import 'package:p2/admin_ui/views/item_notification.dart';
 import 'layout/admin_layout.dart';
 
 final GoRouter adminRouter = GoRouter(

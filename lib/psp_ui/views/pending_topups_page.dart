@@ -2,37 +2,24 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 
-class PendingWithdrawalsPage extends StatelessWidget {
-  const PendingWithdrawalsPage({super.key});
+import '../controllers/psp_dashboard_controller.dart';
 
-  Future<void> _approve(String id) async {
-    await FirebaseFunctions.instance
-        .httpsCallable('approveWithdrawal')
-        .call({'withdrawalId': id});
-  }
-
-  Future<void> _reject(String id) async {
-    await FirebaseFunctions.instance
-        .httpsCallable('rejectWithdrawal')
-        .call({'withdrawalId': id});
-  }
+class PendingTopupsPage extends StatelessWidget {
+  const PendingTopupsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final controller = PspDashboardController();
+
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance
-          .collection('withdrawalRequests')
-          .where('status', isEqualTo: 'pending')
-          .where('expiresAt', isGreaterThan: Timestamp.now())
-          .orderBy('expiresAt')
-          .snapshots(),
+      stream: controller.getTopups(),
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
 
         if (!snap.hasData || snap.data!.docs.isEmpty) {
-          return const Center(child: Text('No pending withdrawals'));
+          return const Center(child: Text('No pending top-ups'));
         }
 
         final docs = snap.data!.docs;
@@ -45,26 +32,17 @@ class PendingWithdrawalsPage extends StatelessWidget {
 
             final amount = data['amount'] ?? 0;
             final method = data['method'] ?? '';
+            final ref = data['referenceNumber'] ?? '';
             final expiresAt = (data['expiresAt'] as Timestamp?)?.toDate();
-
-            Widget info;
-            if (method == 'bank') {
-              info = Text(
-                  '${data['bankName'] ?? ''}\nIBAN: ${data['iban'] ?? ''}',
-                  style: const TextStyle(fontSize: 13));
-            } else {
-              info = Text('Exchange Ref: ${data['referenceNumber'] ?? ''}',
-                  style: const TextStyle(fontSize: 13));
-            }
 
             return Card(
               margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               child: ListTile(
-                title: Text('JD $amount • $method'),
+                title: Text('$amount JD • $method'),
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    info,
+                    Text('Ref: $ref'),
                     if (expiresAt != null)
                       Text('Expires: $expiresAt',
                           style: const TextStyle(fontSize: 12)),
@@ -76,12 +54,12 @@ class PendingWithdrawalsPage extends StatelessWidget {
                     IconButton(
                       icon: const Icon(Icons.check, color: Colors.green),
                       tooltip: 'Approve',
-                      onPressed: () => _approve(doc.id),
+                      onPressed: () => controller.approveTopup(doc.id),
                     ),
                     IconButton(
                       icon: const Icon(Icons.close, color: Colors.red),
                       tooltip: 'Reject',
-                      onPressed: () => _reject(doc.id),
+                      onPressed: () => controller.rejectTopup(doc.id),
                     ),
                   ],
                 ),

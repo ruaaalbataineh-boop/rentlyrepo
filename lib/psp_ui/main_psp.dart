@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../firebase_options.dart';
-import 'pages/login_page.dart';
-import 'pages/dashboard_page.dart';
+import 'views/login_page.dart';
+import 'views/dashboard_page.dart';
+import 'controllers/psp_auth_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,18 +35,20 @@ class AuthGate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final authController = PspAuthController();
+
     return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
-      builder: (_, snap) {
+      stream: authController.authState(),
+      builder: (context, snap) {
         if (!snap.hasData) {
           return const LoginPage();
         }
 
         final user = snap.data!;
         // Check custom claims for psp_simulator role
-        return FutureBuilder(
+        return FutureBuilder <IdTokenResult>(
           future: user.getIdTokenResult(true),
-          builder: (_, tokenSnap) {
+          builder: (context, tokenSnap) {
             if (!tokenSnap.hasData) {
               return const Scaffold(
                 body: Center(child: CircularProgressIndicator()),
@@ -59,6 +62,7 @@ class AuthGate extends StatelessWidget {
               return const DashboardPage();
             }
 
+            // Access denied
             return Scaffold(
               body: Center(
                 child: Column(
@@ -67,7 +71,7 @@ class AuthGate extends StatelessWidget {
                     const Text('Access denied: not a PSP simulator user'),
                     const SizedBox(height: 12),
                     ElevatedButton(
-                      onPressed: () => FirebaseAuth.instance.signOut(),
+                      onPressed: authController.logout,
                       child: const Text('Sign out'),
                     ),
                   ],

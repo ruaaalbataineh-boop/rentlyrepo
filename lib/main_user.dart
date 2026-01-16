@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:overlay_support/overlay_support.dart';
-import 'package:p2/admin_ui/Pages/ChatsPage_admin.dart';
+import 'package:p2/admin_ui/views/ChatsPage_admin.dart';
 import 'package:p2/app_shell.dart';
 import 'package:p2/owner_listings.dart';
 import 'package:provider/provider.dart';
