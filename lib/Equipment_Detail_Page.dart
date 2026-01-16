@@ -1561,17 +1561,30 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
       );
     }
 
-   return Container(
+  return Container(
   height: 200,
   margin: const EdgeInsets.all(20),
   decoration: BoxDecoration(
-    color: Colors.grey[200],
     borderRadius: BorderRadius.circular(16),
   ),
-  child: const Center(
-    child: Text("Map disabled for testing"),
+  clipBehavior: Clip.hardEdge,
+  child: GoogleMap(
+    initialCameraPosition: CameraPosition(
+      target: LatLng(item.latitude!, item.longitude!),
+      zoom: 14,
+    ),
+    markers: {
+      Marker(
+        markerId: const MarkerId("item_location"),
+        position: LatLng(item.latitude!, item.longitude!),
+      ),
+    },
+    myLocationEnabled: false,
+    zoomControlsEnabled: false,
+    mapToolbarEnabled: false,
   ),
 );
+
   }
 
   @override
