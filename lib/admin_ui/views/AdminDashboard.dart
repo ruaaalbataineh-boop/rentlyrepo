@@ -67,7 +67,6 @@ class AdminDashboard extends StatelessWidget {
                   _buildDashboardCard(context, "Complaints", Icons.report_problem, '/complaints'),
                   _buildDashboardCard(context, "Reports", Icons.bar_chart, '/reports'),
                   _buildDashboardCard(context, "Notify Users", Icons.notifications, '/notifications'),
-                  _buildDashboardCard(context, "Chats", Icons.chat, '/chats'),
                   _buildDashboardCard(context, "Logout", Icons.logout, '/adminLogin'),
                 ],
               ),
