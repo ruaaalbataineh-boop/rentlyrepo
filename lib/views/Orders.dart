@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:p2/WalletPage.dart';
 import 'package:p2/models/rental_request.dart';
-import 'package:p2/rate_product_page.dart';
+import 'package:p2/views/rate_product_page.dart';
 import 'package:p2/services/auth_service.dart';
 import 'package:provider/provider.dart';
-import '../QrPage.dart';
-import '../QrScannerPage.dart';
+import 'QrPage.dart';
+import 'QrScannerPage.dart';
 import '../controllers/orders_controller.dart';
 import '../services/app_locale.dart';
 import '../widgets/bottom_nav.dart';

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'services/auth_service.dart';
-import 'security/error_handler.dart';  
+import '../services/auth_service.dart';
+import '../security/error_handler.dart';
 
 class AboutAppPage extends StatefulWidget {  
   const AboutAppPage({super.key});

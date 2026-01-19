@@ -9,7 +9,7 @@ import 'package:p2/services/equipment_detail_service.dart';
 import 'package:provider/provider.dart';
 import 'ChatScreen.dart';
 import 'AllReviewsPage.dart';
-import '../UserProfilePage.dart';
+import 'UserProfilePage.dart';
 import '../WalletRechargePage.dart';
 import '../controllers/equipment_detail_controller.dart';
 import '../controllers/favourite_controller.dart';

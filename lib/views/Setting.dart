@@ -10,7 +10,7 @@ import '../Support_and_Help.dart';
 import '../logout_confirmation.dart';
 import '../Personal Information.dart';
 import 'Favourite.dart';
-import '../about_app.dart';
+import 'about_app.dart';
 import '../Remove Account.dart';
 import '../widgets/bottom_nav.dart';
 import 'package:p2/services/auth_service.dart'; 

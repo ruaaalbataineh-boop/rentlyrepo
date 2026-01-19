@@ -9,8 +9,8 @@ import 'package:p2/services/storage_service.dart';
 import 'package:p2/security/error_handler.dart';
 import 'package:p2/security/input_validator.dart';
 import 'package:p2/security/secure_storage.dart';
-import 'views/Orders.dart';
-import 'config/dev_config.dart';
+import 'Orders.dart';
+import '../config/dev_config.dart';
 import 'package:p2/logic/qr_scanner_logic.dart';
 class QrScannerPage extends StatefulWidget {
   final String requestId;

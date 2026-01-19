@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
  import 'package:p2/logic/qr_scanner_logic.dart';
 import 'package:p2/security/error_handler.dart';
-import 'config/dev_config.dart';
+import '../config/dev_config.dart';
 import 'package:p2/security/secure_storage.dart';
 
 class QrPage extends StatefulWidget {
