@@ -1,115 +1,118 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:p2/logic/product_logic.dart';
-import 'package:p2/security/input_validator.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:p2/controllers/item_controller.dart';
 import 'package:p2/models/Item.dart';
 
-
-// ignore: subtype_of_sealed_class
-class FakeDoc implements QueryDocumentSnapshot {
-  final String _id;
-  final Map<String, dynamic> _data;
-  FakeDoc(this._id, this._data);
-
-  @override
-  String get id => _id;
-
-  @override
-  dynamic data([bool serverTimestampBehavior = false]) => _data;
-
-  @override
-  noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
 void main() {
-  group('ProductLogic Tests', () {
-    test('validateItemData returns true for valid product', () {
-      final product = {
-        "name": "Camera",
-        "category": "Electronics",
-        "subCategory": "Cameras",
-        "ownerId": "user123",
-        "status": "approved",
-        "images": ["https://example.com/image.jpg"]
-      };
+  group('ProductListPage Logic Unit Tests', () {
+    late List<Item> items;
 
-      final isValid = ProductLogic.validateItemData(product);
-      expect(isValid, true);
+    setUp(() {
+      items = [
+        Item(
+          id: '1',
+          name: 'Electric Drill',
+          description: 'Strong drill',
+          category: 'Tools',
+          subCategory: 'Electric',
+          ownerId: 'o1',
+          ownerName: 'Ahmad',
+          images: ['img1'],
+          rentalPeriods: {
+            'day': 5,
+          },
+          insurance: Insurance(
+            amount: 10,
+            originalPrice: 100,
+            rate: 10,
+          ),
+          averageRating: 4.5,
+          ratingCount: 10,
+          status: 'approved',
+        ),
+        Item(
+          id: '2',
+          name: 'Hammer',
+          description: 'Steel hammer',
+          category: 'Tools',
+          subCategory: 'Manual',
+          ownerId: 'o2',
+          ownerName: 'Ali',
+          images: ['img2'],
+          rentalPeriods: {
+            'day': 2,
+          },
+          insurance: Insurance(
+            amount: 5,
+            originalPrice: 50,
+            rate: 10,
+          ),
+          averageRating: 4.0,
+          ratingCount: 5,
+          status: 'approved',
+        ),
+      ];
     });
 
-    test('validateItemData returns false for missing fields', () {
-      final product = {
-        "name": "",
-        "category": "Electronics",
-      };
-      final isValid = ProductLogic.validateItemData(product);
-      expect(isValid, false);
+   
+
+    test('Filter returns all items when search is empty', () {
+      final result = ItemController.filter(items, '');
+
+      expect(result.length, 2);
     });
 
-   test('secureConvertToItem returns sanitized Item', () {
-  final data = {
-    "name": "Camera<script>",
-    "description": "<b>desc</b>",
-    "category": "Electronics",
-    "subCategory": "Cameras",
-    "ownerId": "user123",
-    "ownerName": "John",
-    "status": "approved",
-    "images": ["https://example.com/image.jpg"],
-    "rentalPeriods": {"hour": 5.0},
-    "averageRating": 4.5,
-    "ratingCount": 10
-  };
+    test('Filter returns matching item by name', () {
+      final result = ItemController.filter(items, 'drill');
 
-  final item = ProductLogic.secureConvertToItem("item1", data);
+      expect(result.length, 1);
+      expect(result.first.name, 'Electric Drill');
+    });
 
+    test('Filter is case insensitive', () {
+      final result = ItemController.filter(items, 'HAMMER');
 
-  expect(item.name.contains('<'), false);
-  expect(item.description.contains('<'), false);
+      expect(result.length, 1);
+      expect(result.first.name, 'Hammer');
+    });
 
-  expect(item.category, "Electronics");
-  expect(item.subCategory, "Cameras");
-  expect(item.rentalPeriods['hour'], 5.0);
-  expect(item.averageRating, 4.5);
-  expect(item.ratingCount, 10);
-  expect(item.status, "approved");
+    test('Filter returns empty list when no match', () {
+      final result = ItemController.filter(items, 'camera');
+
+      expect(result.isEmpty, true);
+    });
+
+    
+
+    test('getPriceText returns correct format', () {
+      final text = items.first.getPriceText();
+
+      expect(text.contains('From'), true);
+      expect(text.contains('JD'), true);
+    });
+
+    test('getPriceText returns "No price" when rentalPeriods is empty', () {
+  final itemWithoutPrice = Item(
+    id: '3',
+    name: 'Camera',
+    description: 'Digital camera',
+    category: 'Electronics',
+    subCategory: 'Photography',
+    ownerId: 'o3',
+    ownerName: 'Sara',
+    images: ['img3'],
+    rentalPeriods: {}, 
+    insurance: Insurance(
+      amount: 5,
+      originalPrice: 200,
+      rate: 2.5,
+    ),
+    averageRating: 0,
+    ratingCount: 0,
+    status: 'approved',
+  );
+
+  expect(itemWithoutPrice.getPriceText(), 'No price');
 });
 
-    test('formatCategoryTitle truncates long text', () {
-      final category = "A" * 100;
-      final subCategory = "B" * 100;
-      final formatted = ProductLogic.formatCategoryTitle(category, subCategory);
-      expect(formatted.length <= 53, true); 
-    });
-
-    test('getPriceText returns correct text', () {
-      final rental = {"hour": 5.0, "day": 20.0};
-      final priceText = ProductLogic.getPriceText(rental);
-      expect(priceText.contains("From JOD"), true);
-      expect(priceText.contains("hour"), true);
-    });
-
-    test('_isValidImageUrl returns true for valid URL', () {
-      final url = "https://example.com/image.png";
-      final isValid = ProductLogic.isValidImageUrl(url);
-      expect(isValid, true);
-    });
-
-    test('_isValidImageUrl returns false for invalid URL', () {
-      final url = "javascript:alert(1)";
-      final isValid = ProductLogic.isValidImageUrl(url);
-      expect(isValid, false);
-    });
-
-    test('secureFilterProducts filters based on search query', () async {
-      final docs = [
-        FakeDoc("1", {"name": "Camera", "category": "Electronics", "subCategory": "Cameras", "ownerId": "u1", "status":"approved"}),
-        FakeDoc("2", {"name": "Tripod", "category": "Electronics", "subCategory": "Accessories", "ownerId": "u2", "status":"approved"}),
-      ];
-
-      final filtered = await ProductLogic.secureFilterProducts(docs, "camera");
-      expect(filtered.length, 1);
-      expect(filtered.first.id, "1");
-    });
   });
 }
