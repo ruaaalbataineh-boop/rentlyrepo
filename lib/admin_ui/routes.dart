@@ -1,6 +1,5 @@
 import 'package:go_router/go_router.dart';
 import 'package:p2/admin_ui/views/AdminDashboard.dart';
-import 'package:p2/admin_ui/views/ChatsPage_admin.dart';
 import 'package:p2/admin_ui/views/issueReportsPage.dart';
 import 'package:p2/admin_ui/views/systemWallet.dart';
 import 'package:p2/admin_ui/views/ItemManagementPage.dart';
@@ -64,10 +63,6 @@ final GoRouter adminRouter = GoRouter(
         ),
          */
 
-        GoRoute(
-          path: '/chats',
-          builder: (context, state) => const ChatsPage(),
-        ),
         GoRoute(
           path: '/wallet',
           builder: (context, state) => const SystemWalletPage(),
