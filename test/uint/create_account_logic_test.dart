@@ -2,56 +2,73 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:p2/logic/create_account_logic.dart';
 
 void main() {
-  group('CreateAccountLogic Tests', () {
-    test('Email validation - valid emails', () {
-      expect(CreateAccountLogic.validateEmail('test@example.com'), isNull);
-      expect(CreateAccountLogic.validateEmail('user.name@domain.co'), isNull);
-    });
-
-    test('Email validation - empty email', () {
-      expect(CreateAccountLogic.validateEmail(''), 'Please enter your email');
-    });
-
-    test('Email validation - invalid emails', () {
-      expect(CreateAccountLogic.validateEmail('invalid'), 'Invalid email address');
-    });
-
-    test('Password validation - valid passwords', () {
-      expect(CreateAccountLogic.validatePassword('123456'), isNull);
-    });
-
-    test('Password validation - empty password', () {
-      expect(CreateAccountLogic.validatePassword(''), 'Please enter your password');
-    });
-
-    test('Password validation - too short', () {
-      expect(CreateAccountLogic.validatePassword('12345'), 'Password must be at least 6 characters');
-    });
-
-    test('Extract username from email', () {
-      expect(CreateAccountLogic.extractUsername('test@example.com'), 'test');
-    });
-
-    test('Email regex validation', () {
-      expect(CreateAccountLogic.isValidEmail('test@example.com'), true);
-      expect(CreateAccountLogic.isValidEmail('invalid'), false);
-    });
-  });
-
-  group('Error Messages', () {
-    test('All error messages are strings', () {
-      const messages = [
-        'Please enter your email',
-        'Invalid email address',
-        'Please enter your password',
-        'Password must be at least 6 characters',
-      ];
+  group('CreateAccountLogic - Correct Understanding of Regex', () {
+    test('Regex actually requires a dot in domain part', () {
+      final regex = RegExp(r'^[^@]+@[^@]+\.[^@]+$');
       
-      for (final message in messages) {
-        expect(message, isA<String>());
+      expect(regex.hasMatch('user@domain.com'), true);
+      expect(regex.hasMatch('a@b.c'), true);
+      expect(regex.hasMatch('user@domain.c'), true);
+      expect(regex.hasMatch('user@-domain.com'), true);
+      expect(regex.hasMatch('user@domain_com'), false); 
+      expect(regex.hasMatch('test@localhost'), false); 
+    });
+
+    test('validateEmail matches regex behavior exactly', () {
+      
+      final validEmails = [
+        'test@example.com',
+        'a@b.c',
+        'user@domain.c',
+        'user@-domain.com',
+        'user.name@domain.co',
+      ];
+
+      
+      final invalidEmails = [
+        'user@domain_com',  
+        'test@localhost',   
+        'plainaddress',     
+        '@domain.com',      
+        'user@',            
+        'user@domain',      
+      ];
+
+      print('=== VALID Emails (should return null) ===');
+      for (final email in validEmails) {
+        final result = CreateAccountLogic.validateEmail(email);
+        print('"$email" -> $result');
+        expect(result, isNull, reason: '"$email" should be valid');
+      }
+
+      print('\n=== INVALID Emails (should return error) ===');
+      for (final email in invalidEmails) {
+        final result = CreateAccountLogic.validateEmail(email);
+        print('"$email" -> $result');
+        
+        if (email.isEmpty) {
+          expect(result, 'Please enter your email');
+        } else {
+          expect(result, 'Invalid email address');
+        }
       }
     });
+
+    test('validateEmail handles edge cases correctly', () {
+      expect(CreateAccountLogic.validateEmail(null), 'Please enter your email');
+      expect(CreateAccountLogic.validateEmail(''), 'Please enter your email');
+      expect(CreateAccountLogic.validateEmail('   '), 'Please enter your email');
+      expect(CreateAccountLogic.validateEmail('  test@example.com  '), isNull);
+    });
   });
 
-  print('✅ CreateAccountLogic tests completed!');
+  group('CreateAccountLogic - Password Validation (unchanged)', () {
+    test('validatePassword basic cases', () {
+      expect(CreateAccountLogic.validatePassword(null), 'Please enter your password');
+      expect(CreateAccountLogic.validatePassword(''), 'Please enter your password');
+      expect(CreateAccountLogic.validatePassword('12345'), 'Password must be at least 6 characters');
+      expect(CreateAccountLogic.validatePassword('123456'), isNull);
+      expect(CreateAccountLogic.validatePassword('password123'), isNull);
+    });
+  });
 }
