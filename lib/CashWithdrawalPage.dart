@@ -54,15 +54,9 @@ class _CashWithdrawalPageState extends State<CashWithdrawalPage> {
 
   Future<void> _initializeSecurity() async {
     try {
-      if (!RouteGuard.isAuthenticated()) {
-        _redirectToLogin();
-        return;
-      }
+      final auth = context.read<AuthService>();
 
-      final userId = context.read<AuthService>().currentUid;
-
-      if (!_isValidUserId(userId)) {
-        ErrorHandler.logError('CashWithdrawal Init', 'Invalid user ID');
+      if (auth.currentUid == null) {
         _redirectToLogin();
         return;
       }

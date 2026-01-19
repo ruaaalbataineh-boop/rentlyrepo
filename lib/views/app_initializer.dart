@@ -42,6 +42,8 @@ class _AppInitializerState extends State<AppInitializer> {
       return;
     }
 
+    await AppInitService.initialize();
+
     // approved + authenticated
     if (mounted) {
       setState(() => _loading = false);

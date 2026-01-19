@@ -12,6 +12,7 @@ import '../controllers/owner_listings_controller.dart';
 import '../models/Item.dart';
 import '../models/rental_request.dart';
 import 'AddItemPage.dart';
+import 'ChatScreen.dart';
 import 'QrPage.dart';
 import 'QrScannerPage.dart';
 import 'UserProfilePage.dart';
@@ -443,6 +444,25 @@ class OwnerItemsPageState extends State<OwnerItemsPage> {
                 Text("Total Price: ${req.totalPrice}JD"),
               ],
             ),
+          ),
+        ),
+        // CHAT BUTTON
+        Align(
+          alignment: Alignment.centerRight,
+          child: IconButton(
+            icon: const Icon(Icons.chat, color: Color(0xFF8A005D), size: 26),
+            tooltip: "Chat with renter",
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ChatScreen(
+                    personUid: req.renterUid,
+                    personName: req.renterName,
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ],

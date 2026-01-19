@@ -37,6 +37,16 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
   bool _isSameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
+  DateTime _firstAvailableDate(List<DateTime> blocked) {
+    DateTime d = DateTime.now();
+
+    while (blocked.any((b) => _isSameDay(b, d))) {
+      d = d.add(const Duration(days: 1));
+    }
+
+    return d;
+  }
+
   get stack => null;
 
   @override
@@ -670,9 +680,11 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
             onPressed: () async {
               final blocked = EquipmentDetailController.buildBlockedDays(_controller.unavailableRanges);
 
+              final firstValid = _firstAvailableDate(blocked);
+
               final pick = await showDatePicker(
                 context: context,
-                initialDate: DateTime.now(),
+                initialDate: firstValid,
                 firstDate: DateTime.now(),
                 lastDate: DateTime(2030),
                 selectableDayPredicate: (day) {

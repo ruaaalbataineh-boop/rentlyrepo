@@ -45,24 +45,30 @@ class EquipmentDetailController extends ChangeNotifier {
     required Item item,
     required String currentUserId,
   }) async {
-    this.item = item;
-    this.currentUserId = currentUserId;
+    try {
+      this.item = item;
+      this.currentUserId = currentUserId;
 
-    isLoading = true;
-    notifyListeners();
+      isLoading = true;
+      notifyListeners();
 
-    ownerName = await _service.getOwnerName(item.ownerId);
-    renterWallet = await _service.getWalletBalance(currentUserId);
-    isRentalBlockedUser = await _service.isUserRentalBlocked(currentUserId);
-    insuranceInfo = await _service.getItemInsurance(item.id);
-    topReviews = await _service.getTopReviews(item.id);
-    final raw = await _service.getUnavailableRanges(item.id);
-    unavailableRanges = _applyBuffer(raw);
+      ownerName = await _service.getOwnerName(item.ownerId);
+      renterWallet = await _service.getWalletBalance(currentUserId);
+      isRentalBlockedUser = await _service.isUserRentalBlocked(currentUserId);
+      insuranceInfo = await _service.getItemInsurance(item.id);
+      topReviews = await _service.getTopReviews(item.id);
 
-    _recalculate();
+      final raw = await _service.getUnavailableRanges(item.id);
+      unavailableRanges = _applyBuffer(raw);
 
-    isLoading = false;
-    notifyListeners();
+      _recalculate();
+    } catch (e) {
+      debugPrint("Equipment load failed: $e");
+      unavailableRanges = [];
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
   }
 
   List<DateTimeRange> _applyBuffer(List<DateTimeRange> raw) {
@@ -78,8 +84,8 @@ class EquipmentDetailController extends ChangeNotifier {
     final blocked = <DateTime>[];
 
     for (final r in rentals) {
-      final start = r.start.subtract(const Duration(days: bufferDays));
-      final end = r.end.add(const Duration(days: bufferDays));
+      final start = r.start;
+      final end = r.end;
 
       DateTime d = start;
       while (!d.isAfter(end)) {

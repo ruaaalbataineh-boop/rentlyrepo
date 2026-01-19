@@ -57,8 +57,8 @@ class EquipmentDetailService {
     final rentals = await FirestoreService.getAcceptedRequestsForItem(itemId);
 
     return rentals.map((r) {
-      final start = DateTime.parse(r["startDate"].toString());
-      final end = DateTime.parse(r["endDate"].toString());
+      final start = _parseDate(r["startDate"]);
+      final end = _parseDate(r["endDate"]);
       return DateTimeRange(start: start, end: end);
     }).toList();
   }
@@ -73,6 +73,13 @@ class EquipmentDetailService {
     final snap = await _db.collection("users").doc(uid).get();
     final data = snap.data() ?? {};
     return (data["rentalBlocked"] == true);
+  }
+
+  DateTime _parseDate(dynamic value) {
+    if (value is Timestamp) return value.toDate();
+    if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+    if (value is String) return DateTime.parse(value);
+    throw Exception("Invalid date format: $value");
   }
 
 }
