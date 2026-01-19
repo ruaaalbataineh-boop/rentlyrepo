@@ -8,17 +8,16 @@ import 'package:p2/services/firestore_service.dart';
 import 'package:p2/security/error_handler.dart';
 import 'package:p2/views/Equipment_Detail_Page.dart';
 import 'package:provider/provider.dart';
-import 'controllers/owner_listings_controller.dart';
-import 'models/Item.dart';
-import 'models/rental_request.dart';
-import 'views/AddItemPage.dart';
-import 'QrPage.dart';
-import 'QrScannerPage.dart';
-import 'Security/route_guard.dart';
-import 'UserProfilePage.dart';
-import 'widgets/bottom_nav.dart';
-import 'main_user.dart' as app;
-import 'main_user.dart';
+import '../controllers/owner_listings_controller.dart';
+import '../models/Item.dart';
+import '../models/rental_request.dart';
+import 'AddItemPage.dart';
+import '../QrPage.dart';
+import '../QrScannerPage.dart';
+import '../UserProfilePage.dart';
+import '../widgets/bottom_nav.dart';
+import '../main_user.dart' as app;
+import '../main_user.dart';
 
 class OwnerItemsPage extends StatefulWidget {
   const OwnerItemsPage({super.key});

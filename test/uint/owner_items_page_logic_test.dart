@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:p2/owner_listings.dart';
+import 'package:p2/views/owner_listings.dart';
 
 void main() {
   group('OwnerItemsPage Security - sanitizeString', () {

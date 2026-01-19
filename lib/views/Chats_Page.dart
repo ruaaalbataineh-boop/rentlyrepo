@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'ChatScreen.dart';
-import 'notifications/active_chat_tracker.dart';
-import 'services/auth_service.dart';
+import '../notifications/active_chat_tracker.dart';
+import '../services/auth_service.dart';
 
 class ChatsPage extends StatefulWidget {
   const ChatsPage({super.key});

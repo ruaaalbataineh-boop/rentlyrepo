@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:p2/EfawateercomPaymentPage.dart';
 import 'package:p2/CreditCardPaymentPage.dart';
+import 'package:p2/services/auth_service.dart';
 import 'package:p2/services/firestore_service.dart';
-import 'package:p2/user_manager.dart';
 import 'package:p2/logic/wallet_recharge_logic.dart';
+import 'package:provider/provider.dart';
 
 class WalletRechargePage extends StatefulWidget {
   static const routeName = '/wallet-recharge';
@@ -65,7 +66,7 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
       );
     }
 
-    final userId = UserManager.uid;
+    final userId = context.watch<AuthService>().currentUid;
 
     if (userId == null) {
       return const Scaffold(
@@ -658,13 +659,13 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
 
       if (selectedMethod == "credit_card") {
         response = await FirestoreService.createStripeTopUp(
-          amount: amount, 
-          userId: UserManager.uid!
+          amount: amount,
+            userId: context.read<AuthService>().currentUid!
         );
       } else {
         response = await FirestoreService.createEfawateerkomTopUp(
-          amount: amount, 
-          userId: UserManager.uid!
+          amount: amount,
+            userId: context.read<AuthService>().currentUid!
         );
       }
 

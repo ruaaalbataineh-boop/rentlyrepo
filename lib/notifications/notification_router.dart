@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:p2/main_user.dart';
-import 'package:p2/ChatScreen.dart';
+import 'package:p2/views/ChatScreen.dart';
 import 'package:p2/notifications/active_chat_tracker.dart';
 import 'package:p2/notifications/chat_id_utils.dart';
 

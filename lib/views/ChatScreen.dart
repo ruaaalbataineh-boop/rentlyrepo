@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_database/firebase_database.dart';
 
-import 'logic/chat_logic.dart';
-import 'notifications/active_chat_tracker.dart';
-import 'notifications/chat_id_utils.dart';
-import 'services/auth_service.dart';
+import '../logic/chat_logic.dart';
+import '../notifications/active_chat_tracker.dart';
+import '../notifications/chat_id_utils.dart';
+import '../services/auth_service.dart';
 
 class ChatScreen extends StatefulWidget {
   final String personName;

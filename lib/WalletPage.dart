@@ -3,10 +3,11 @@ import 'package:p2/CashWithdrawalPage.dart';
 import 'package:p2/TransactionHistoryPage.dart';
 import 'package:p2/WalletRechargePage.dart';
 import 'package:p2/logic/wallet_logic.dart';
+import 'package:p2/services/auth_service.dart';
 import 'package:p2/services/firestore_service.dart';
-import 'package:p2/user_manager.dart';
 import 'package:p2/security/error_handler.dart';
 import 'package:p2/security/wallet_security.dart';
+import 'package:provider/provider.dart';
 
 class WalletHomePage extends StatefulWidget {
   static const routeName = '/wallet';
@@ -25,17 +26,16 @@ class _WalletHomePageState extends State<WalletHomePage> {
   Map<String, dynamic>? _walletSummary;
 
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
 
-    final uid = UserManager.uid;
+    final uid = context.read<AuthService>().currentUid;
 
     if (uid != null) {
       transactionsStream = FirestoreService.userRecentTransactionsStream(uid);
       walletStream = FirestoreService.combinedWalletStream(uid);
+      _initializePage();
     }
-
-    _initializePage();
   }
 
   Future<void> _initializePage() async {
@@ -45,7 +45,7 @@ class _WalletHomePageState extends State<WalletHomePage> {
         _errorMessage = null;
       });
 
-      final userId = UserManager.uid;
+      final userId = context.read<AuthService>().currentUid;
       if (userId == null || userId.isEmpty) {
         throw Exception('User not authenticated');
       }
@@ -1008,7 +1008,7 @@ class _WalletHomePageState extends State<WalletHomePage> {
       return _buildErrorScreen();
     }
 
-    final userId = UserManager.uid;
+    final userId = context.watch<AuthService>().currentUid;
 
     if (userId == null) {
       return Scaffold(

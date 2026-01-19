@@ -27,9 +27,9 @@ import 'views/create_account.dart';
 import 'views/continue_create_account.dart';
 import 'Enter_The_Code.dart';
 import 'views/Orders.dart';
-import 'Setting.dart';
+import 'views/Setting.dart';
 import 'views/Favourite.dart';
-import 'owner_listings.dart';
+import 'views/owner_listings.dart';
 import 'views/ProductListPage.dart';
 import 'views/Equipment_Detail_Page.dart';
 

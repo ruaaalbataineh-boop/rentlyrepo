@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:p2/logic/orders_logic.dart';
 import 'package:p2/WalletPage.dart';
 import 'package:p2/models/rental_request.dart';
 import 'package:p2/rate_product_page.dart';

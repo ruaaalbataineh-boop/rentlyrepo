@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:p2/logic/transaction_history_logic.dart';
+import 'package:p2/services/auth_service.dart';
 import 'package:p2/services/firestore_service.dart';
-import 'package:p2/user_manager.dart';
 import 'package:p2/security/error_handler.dart';
 import 'package:p2/security/transaction_security.dart';
+import 'package:provider/provider.dart';
 
 class TransactionHistoryPage extends StatefulWidget {
   final List<Map<String, dynamic>> transactions;
@@ -37,8 +38,8 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
         _errorMessage = null;
       });
 
-      
-      final userId = UserManager.uid;
+
+      final userId = context.read<AuthService>().currentUid;
       if (userId == null || userId.isEmpty) {
         throw Exception('User not authenticated');
       }
@@ -82,8 +83,12 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
   }
 
   Widget _buildBalanceStats() {
+    final uid = context.watch<AuthService>().currentUid;
+
     return StreamBuilder<Map<String, double>>(
-      stream: FirestoreService.combinedWalletStream(UserManager.uid!),
+      stream: uid == null
+          ? const Stream.empty()
+          : FirestoreService.combinedWalletStream(uid),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return _buildLoadingBalance();

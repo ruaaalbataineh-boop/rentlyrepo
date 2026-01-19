@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:p2/AllReviewsPage.dart';
+import 'package:p2/views/AllReviewsPage.dart';
 
 
 void main() {

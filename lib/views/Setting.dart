@@ -1,19 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:p2/views/AddItemPage.dart';
-import 'package:p2/Chats_Page.dart';
+import 'package:p2/views/Chats_Page.dart';
 import 'package:p2/WalletPage.dart';
 import 'package:p2/app_theme.dart';
-import 'views/Orders.dart';
-import 'views/Categories_Page.dart';
-import 'services/app_locale.dart';
-import 'Support_and_Help.dart';
-import 'logout_confirmation.dart';
-import 'Personal Information.dart';
-import 'views/Favourite.dart';
-import 'Coupons.dart';
-import 'about_app.dart';
-import 'Remove Account.dart';
-import 'widgets/bottom_nav.dart';
+import 'Orders.dart';
+import 'Categories_Page.dart';
+import '../services/app_locale.dart';
+import '../Support_and_Help.dart';
+import '../logout_confirmation.dart';
+import '../Personal Information.dart';
+import 'Favourite.dart';
+import '../about_app.dart';
+import '../Remove Account.dart';
+import '../widgets/bottom_nav.dart';
 import 'package:p2/services/auth_service.dart'; 
 
 class SettingPage extends StatefulWidget {

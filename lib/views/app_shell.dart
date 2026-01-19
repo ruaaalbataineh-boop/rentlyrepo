@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 
 import 'Categories_Page.dart';
 import 'Orders.dart';
-import '../Chats_Page.dart';
-import '../Setting.dart';
-import '../owner_listings.dart';
+import 'Chats_Page.dart';
+import 'Setting.dart';
+import 'owner_listings.dart';
 
 import '../widgets/bottom_nav.dart';
 

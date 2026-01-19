@@ -2,9 +2,10 @@ import 'dart:convert';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:p2/services/auth_service.dart';
 import 'package:p2/services/firestore_service.dart';
-import 'package:p2/user_manager.dart';
 import 'package:p2/withdrawalReferencePage.dart';
+import 'package:provider/provider.dart';
 import 'logic/cash_withdrawal_logic.dart';
 import 'security/route_guard.dart';
 import 'security/secure_storage.dart';
@@ -58,7 +59,9 @@ class _CashWithdrawalPageState extends State<CashWithdrawalPage> {
         return;
       }
 
-      if (!_isValidUserId(UserManager.uid)) {
+      final userId = context.read<AuthService>().currentUid;
+
+      if (!_isValidUserId(userId)) {
         ErrorHandler.logError('CashWithdrawal Init', 'Invalid user ID');
         _redirectToLogin();
         return;
@@ -212,8 +215,14 @@ class _CashWithdrawalPageState extends State<CashWithdrawalPage> {
       );
     }
 
+    final userId = context.watch<AuthService>().currentUid;
+
+    if (userId == null) {
+      return const Scaffold(body: Center(child: Text("Authentication required")));
+    }
+
     return StreamBuilder<Map<String, double>>(
-        stream: FirestoreService.combinedWalletStream(UserManager.uid!),
+        stream: FirestoreService.combinedWalletStream(userId),
         builder: (context, snapshot) {
           final isLoading = snapshot.connectionState == ConnectionState.waiting;
 
@@ -683,7 +692,7 @@ class _CashWithdrawalPageState extends State<CashWithdrawalPage> {
 
       final response = await FirestoreService.createWithdrawalRequest(
         amount: amount,
-        userId: UserManager.uid!,
+        userId: context.read<AuthService>().currentUid!,
         method: selectedMethod!,
         iban: sanitizedIBAN,
         bankName: sanitizedBankName,

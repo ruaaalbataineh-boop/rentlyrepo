@@ -6,10 +6,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 
 import '../views/Categories_Page.dart';
-import '../Chats_Page.dart';
+import '../views/Chats_Page.dart';
 import '../views/Orders.dart';
-import '../Setting.dart';
-import '../owner_listings.dart';
+import '../views/Setting.dart';
+import '../views/owner_listings.dart';
 
 import '../services/auth_service.dart';
 import 'package:p2/notifications/active_chat_tracker.dart';

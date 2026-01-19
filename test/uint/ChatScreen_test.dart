@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:p2/ChatScreen.dart';
+import 'package:p2/views/ChatScreen.dart';
 
 void main() {
   group('ChatScreen Basic Tests', () {
