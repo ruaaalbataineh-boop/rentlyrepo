@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 
 // Add security imports
-import 'security/secure_storage.dart';
-import 'security/error_handler.dart';
-import 'security/input_validator.dart';
+import '../security/secure_storage.dart';
+import '../security/error_handler.dart';
+import '../security/input_validator.dart';
 
 class AppLocale {
   
@@ -98,13 +98,12 @@ class AppLocale {
         'en': {
           'my_profile': 'My Profile',
           'personal_info': 'Personal Information',
-          'rently_wallet': 'Rently Wallet',
-          'favourite': 'Favourite',
-          'coupons': 'Coupons',
+          'rently_wallet': 'My Wallet',
+          'favourite': 'Favourites',
           'about_app': 'About App',
-          'support_help': 'Support & Help',
+          'support_help': 'Contact Us',
           'app_language': 'App Language',
-          'remove_account': 'Remove Account',
+          'remove_account': 'Deactivate Account',
           'logout': 'Logout',
           'orders': 'Orders',
           'pending_orders': 'Pending',

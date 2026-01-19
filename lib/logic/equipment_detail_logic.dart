@@ -138,7 +138,7 @@ class EquipmentDetailLogic {
       _item = item;
       
       // Security: Sanitize item data
-      _sanitizeItemData();
+      //_sanitizeItemData();
       
       ErrorHandler.logSecurity('EquipmentDetailLogic', 'Item set successfully');
       
@@ -176,7 +176,7 @@ class EquipmentDetailLogic {
       return false;
     }
   }
-
+/*
   void _sanitizeItemData() {
     if (_item == null) return;
     
@@ -200,13 +200,14 @@ class EquipmentDetailLogic {
         ownerName: _item!.ownerName,
         latitude: _item!.latitude,
         longitude: _item!.longitude, 
-        status: _item!.status ?? '', insurance: '',
+        status: _item!.status,
+
       );
     } catch (error) {
       ErrorHandler.logError('Sanitize Item Data', error);
     }
   }
-
+*/
   Future<void> loadOwnerName(String uid) async {
     try {
       if (!isValidUserId(uid)) {

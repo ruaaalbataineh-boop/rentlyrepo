@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; 
-import 'security/route_guard.dart';   
-import 'security/secure_storage.dart';
-import 'security/api_security.dart';  
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import 'services/auth_service.dart';
 import 'security/error_handler.dart';  
 
 class AboutAppPage extends StatefulWidget {  
@@ -33,19 +32,17 @@ class _AboutAppPageState extends State<AboutAppPage> {
   Future<void> _loadAppInfo() async {
     try {
       // Check if logged in
-      bool isAuthenticated = RouteGuard.isAuthenticated();
-      
-      if (!isAuthenticated) {
-        // If not logged in, use local version
-        setState(() {
-          appVersion = '1.0.0';
-          isLoading = false;
+      final auth = context.read<AuthService>();
+      final uid = auth.currentUid;
+
+
+      if (uid == null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          Navigator.pushNamedAndRemoveUntil(context, "/login", (_) => false);
         });
         return;
       }
 
-      // In a real app, you would fetch from API
-      // For now, simulate API call
       await Future.delayed(const Duration(milliseconds: 500));
       
       setState(() {
@@ -54,7 +51,6 @@ class _AboutAppPageState extends State<AboutAppPage> {
       });
 
     } catch (error) {
-      // Handle error without sensitive info
       ErrorHandler.logError('AboutAppPage', error);
       
       setState(() {
@@ -89,16 +85,7 @@ class _AboutAppPageState extends State<AboutAppPage> {
                       icon: const Icon(Icons.arrow_back,
                           color: Colors.white, size: 28),
                       onPressed: () {
-                        // Secure back button
-                        if (RouteGuard.isAuthenticated()) {
                           Navigator.pop(context);
-                        } else {
-                          Navigator.pushNamedAndRemoveUntil(
-                            context,
-                            '/login',
-                            (route) => false,
-                          );
-                        }
                       },
                     ),
                     const Expanded(
@@ -175,15 +162,6 @@ class _AboutAppPageState extends State<AboutAppPage> {
               style: const TextStyle(
                 fontSize: 14,
                 color: Colors.grey,
-              ),
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              "🔒 Secure Connection",
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.green,
-                fontWeight: FontWeight.bold,
               ),
             ),
           ],

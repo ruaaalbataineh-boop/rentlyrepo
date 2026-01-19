@@ -22,7 +22,7 @@ class _LogoutConfirmationPageState extends State<LogoutConfirmationPage> {
 
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
-      await authService.logout(fromAllDevices: fromAllDevices);
+      await authService.logout();
 
       if (mounted) {
         Navigator.pushNamedAndRemoveUntil(

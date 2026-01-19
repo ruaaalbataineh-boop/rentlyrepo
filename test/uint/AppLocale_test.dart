@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
-import 'package:p2/app_locale.dart';
+import 'package:p2/services/app_locale.dart';
 
 void main() {
   group('AppLocale Simple Tests', () {

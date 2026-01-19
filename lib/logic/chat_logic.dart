@@ -1,14 +1,16 @@
 import 'dart:ui';
-
 import 'package:firebase_database/firebase_database.dart';
-import 'package:p2/fake_uid.dart';
+
+import '../notifications/chat_id_utils.dart';
 
 class ChatLogic {
   final String personName;
   final String personUid;
+  final String myUid;
   final DatabaseReference db;
 
   late String chatId;
+
   Map<String, dynamic>? personData;
   Map<String, dynamic>? replyMessage;
   String? selectedMessageKey;
@@ -16,28 +18,28 @@ class ChatLogic {
   ChatLogic({
     required this.personName,
     required this.personUid,
-    DatabaseReference? dbRef, 
+    required this.myUid,
+    DatabaseReference? dbRef,
   }) : db = dbRef ?? FirebaseDatabase.instance.ref() {
-    chatId = LoginUID.uid.compareTo(personUid) > 0
-        ? "${LoginUID.uid}-$personUid"
-        : "$personUid-${LoginUID.uid}";
+    chatId = normalizeChatId(myUid, personUid);
   }
 
   void initialize({VoidCallback? onUserUpdated}) {
-  db.child("users/$personUid").onValue.listen((event) {
-    if (event.snapshot.value != null) {
-      personData = Map<String, dynamic>.from(event.snapshot.value as Map);
+    // listen to other user profile
+    db.child("users/$personUid").onValue.listen((event) {
+      if (event.snapshot.value != null) {
+        personData =
+        Map<String, dynamic>.from(event.snapshot.value as Map);
+        onUserUpdated?.call();
+      }
+    });
 
-      
-      onUserUpdated?.call();
-    }
-  });
-
-  db.child("chats/$chatId/unread/${LoginUID.uid}").remove();
-}
+    // clear unread for me when opening chat
+    db.child("chats/$chatId/unread/$myUid").remove();
+  }
 
   bool canEditOrDelete(Map<String, dynamic> msg) {
-    if (msg["sender"] != LoginUID.uid) return false;
+    if (msg["sender"] != myUid) return false;
     final now = DateTime.now().millisecondsSinceEpoch;
     return now - msg["timestamp"] <= 10 * 60 * 1000;
   }
@@ -73,25 +75,23 @@ class ChatLogic {
     final snapshot = await chatRef.get();
     int now = DateTime.now().millisecondsSinceEpoch;
 
-    String user1 = LoginUID.uid.compareTo(personUid) > 0
-        ? LoginUID.uid
-        : personUid;
-    String user2 = LoginUID.uid.compareTo(personUid) > 0
-        ? personUid
-        : LoginUID.uid;
+    String user1 =
+    myUid.compareTo(personUid) > 0 ? myUid : personUid;
+    String user2 =
+    myUid.compareTo(personUid) > 0 ? personUid : myUid;
 
     if (!snapshot.exists) {
       await chatRef.set({
         "user1": user1,
         "user2": user2,
         "lastMessage": msg,
-        "lastSender": LoginUID.uid,
+        "lastSender": myUid,
         "timestamp": now,
       });
     } else {
       await chatRef.update({
         "lastMessage": msg,
-        "lastSender": LoginUID.uid,
+        "lastSender": myUid,
         "timestamp": now,
       });
     }
@@ -103,7 +103,7 @@ class ChatLogic {
     final now = DateTime.now().millisecondsSinceEpoch;
 
     await db.child("messages/$chatId").push().set({
-      "sender": LoginUID.uid,
+      "sender": myUid,
       "text": text.trim(),
       "timestamp": now,
       "replyTo": replyMessage,
@@ -112,8 +112,12 @@ class ChatLogic {
     replyMessage = null;
 
     await createChatIfNotExists(text.trim());
+
+    // mark unread for receiver
     await db.child("chats/$chatId/unread/$personUid").set(true);
-    await db.child("chats/$chatId/unread/${LoginUID.uid}").remove();
+
+    // clear unread for me
+    await db.child("chats/$chatId/unread/$myUid").remove();
   }
 
   Future<void> editMessage(String key, String newText) async {
@@ -133,7 +137,10 @@ class ChatLogic {
   }
 
   Stream<DatabaseEvent> getMessagesStream() {
-    return db.child("messages/$chatId").orderByChild("timestamp").onValue;
+    return db
+        .child("messages/$chatId")
+        .orderByChild("timestamp")
+        .onValue;
   }
 
   void setReplyMessage(Map<String, dynamic> msg) {

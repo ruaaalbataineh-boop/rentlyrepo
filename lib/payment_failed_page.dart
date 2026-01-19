@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:p2/Categories_Page.dart';
+import 'package:p2/views/Categories_Page.dart';
 import 'package:p2/WalletRechargePage.dart';
 import 'package:p2/logic/payment_failed_logic.dart';
 import 'package:p2/security/error_handler.dart';
 import 'package:p2/security/secure_storage.dart';
+import 'package:p2/views/app_shell.dart';
+
+import 'WalletPage.dart';
 
 class PaymentFailedPage extends StatefulWidget {
   final String returnTo;
@@ -400,7 +403,7 @@ class _PaymentFailedPageState extends State<PaymentFailedPage> {
     try {
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (context) => CategoryPage()),
+        MaterialPageRoute(builder: (context) => const AppShell()),
             (route) => false,
       );
     } catch (e) {
@@ -411,14 +414,10 @@ class _PaymentFailedPageState extends State<PaymentFailedPage> {
 
   void _tryAgain(BuildContext context) {
     try {
-      if (widget.returnTo == 'wallet') {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => WalletRechargePage()),
-        );
-      } else {
-        Navigator.pop(context);
-      }
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const WalletRechargePage()),
+      );
     } catch (e) {
       print('🔥 Error trying again: $e');
       _showMessage(context, 'Please try again');
@@ -427,10 +426,19 @@ class _PaymentFailedPageState extends State<PaymentFailedPage> {
 
   void _goToWallet(BuildContext context) {
     try {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => WalletRechargePage()),
-      );
+      bool found = false;
+
+      Navigator.popUntil(context, (route) {
+        if (route.settings.name == WalletHomePage.routeName) {
+          found = true;
+          return true;
+        }
+        return false;
+      });
+
+      if (!found) {
+        Navigator.pushNamed(context, WalletHomePage.routeName);
+      }
     } catch (e) {
       print('🔥 Error going to wallet: $e');
       _showMessage(context, 'Cannot open wallet');

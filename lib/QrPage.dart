@@ -133,7 +133,7 @@ class _QrPageState extends State<QrPage> {
 
       await ref.update({
         qrField: newToken,
-        "${qrField.replaceFirst('Token', 'QrGeneratedAt')}": FieldValue.serverTimestamp(),
+        "${qrField.replaceFirst('Token', 'GeneratedAt')}": FieldValue.serverTimestamp(),
       });
 
       setState(() {

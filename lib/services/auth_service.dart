@@ -1,19 +1,16 @@
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:local_auth/local_auth.dart';
-import 'package:crypto/crypto.dart';
 import 'dart:convert';
+
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class AuthService with ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
-  final LocalAuthentication _localAuth = LocalAuthentication();
 
-  static const String _sessionKey = 'secure_session_token';
+  static const String _sessionKey = 'session_data';
   static const Duration _sessionTimeout = Duration(hours: 24);
 
   bool _isLoading = false;
@@ -30,11 +27,14 @@ class AuthService with ChangeNotifier {
     _checkAuthStatus();
   }
 
+  //  Session Check
+
   Future<void> _checkAuthStatus() async {
     _isLoading = true;
     notifyListeners();
 
     _isLoggedIn = await _isLoggedInSecurely();
+
     if (_isLoggedIn) {
       final user = _auth.currentUser;
       if (user != null) {
@@ -52,6 +52,8 @@ class AuthService with ChangeNotifier {
     notifyListeners();
   }
 
+  //  Login
+
   Future<Map<String, dynamic>> loginWithEmail({
     required String email,
     required String password,
@@ -61,31 +63,35 @@ class AuthService with ChangeNotifier {
       _isLoading = true;
       notifyListeners();
 
-      final UserCredential credential =
-          await _auth.signInWithEmailAndPassword(
+      final credential = await _auth.signInWithEmailAndPassword(
         email: email.trim(),
         password: password,
       );
 
-      final user = credential.user!;
-      final token = await user.getIdToken();
+      final user = credential.user;
 
+      await _syncUserToRealtimeDB(user!);
+
+      if (user == null) {
+        _isLoading = false;
+        notifyListeners();
+        return {'success': false, 'error': 'Login failed'};
+      }
+
+      final token = await user.getIdToken();
       if (token == null || token.isEmpty) {
         _isLoading = false;
         notifyListeners();
-        return {'success': false, 'error': 'Failed to retrieve token'};
+        return {
+          'success': false,
+          'error': 'Failed to retrieve token',
+        };
       }
 
-      await _saveSecureSession(
+      await _saveSession(
         userId: user.uid,
         idToken: token,
         rememberMe: rememberMe,
-      );
-
-      await _logSecurityEvent(
-        userId: user.uid,
-        event: 'LOGIN_SUCCESS',
-        details: {'method': 'email'},
       );
 
       _isLoggedIn = true;
@@ -106,15 +112,8 @@ class AuthService with ChangeNotifier {
         'user': _userData,
       };
     } on FirebaseAuthException catch (e) {
-      await _logSecurityEvent(
-        userId: email,
-        event: 'LOGIN_FAILED',
-        details: {'error': e.code},
-      );
-
       _isLoading = false;
       notifyListeners();
-
       return {
         'success': false,
         'error': _firebaseErrorMessage(e.code),
@@ -122,154 +121,151 @@ class AuthService with ChangeNotifier {
     } catch (e) {
       _isLoading = false;
       notifyListeners();
-      
       return {
         'success': false,
-        'error': 'An unexpected error occurred: ${e.toString()}',
+        'error': 'Unexpected error: $e',
       };
     }
   }
 
-  Future<void> logout({bool fromAllDevices = false}) async {
+  // Logout
+
+  Future<void> logout() async {
     _isLoading = true;
     notifyListeners();
 
+    if (_currentUid != null) {
+      await FirebaseDatabase.instance
+          .ref("users/$_currentUid")
+          .update({
+        "status": "offline",
+        "lastSeen": DateTime.now().millisecondsSinceEpoch,
+      });
+    }
+
     try {
       await _auth.signOut();
-      await _secureStorage.deleteAll();
+      await _secureStorage.delete(key: _sessionKey);
 
       _isLoggedIn = false;
       _currentUid = null;
       _userData = null;
-      
-      await _logSecurityEvent(
-        userId: _currentUid ?? 'unknown',
-        event: 'LOGOUT_SUCCESS',
-        details: {'fromAllDevices': fromAllDevices},
-      );
-    } catch (e) {
-      await _logSecurityEvent(
-        userId: _currentUid ?? 'unknown',
-        event: 'LOGOUT_FAILED',
-        details: {'error': e.toString()},
-      );
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  Future<bool> _isLoggedInSecurely() async {
+  // Password Reset
+
+  Future<void> resetPassword(String email) async {
+    if (email.trim().isEmpty) throw Exception('Email is required');
+    await _auth.sendPasswordResetEmail(email: email.trim());
+  }
+
+  Future<Map<String, dynamic>> createUser({
+    required String email,
+    required String password,
+  }) async {
     try {
-      final user = _auth.currentUser;
-      if (user == null) return false;
+      final cred = await _auth.createUserWithEmailAndPassword(
+        email: email.trim(),
+        password: password.trim(),
+      );
 
-      final session = await _getSecureSession();
-      if (session == null) return false;
-
-      final timestamp = session['timestamp'];
-      if (timestamp == null || _isSessionExpired(timestamp)) {
-        return false;
-      }
-
-      return true;
-    } catch (e) {
-      return false;
+      return {
+        "success": true,
+        "uid": cred.user!.uid,
+      };
+    } on FirebaseAuthException catch (e) {
+      return {
+        "success": false,
+        "error": _firebaseErrorMessage(e.code),
+      };
     }
   }
 
-  Future<Map<String, dynamic>?> getCurrentUser() async {
+  //  Secure Session
+
+  Future<bool> _isLoggedInSecurely() async {
     final user = _auth.currentUser;
-    if (user == null) return null;
-    
-    return {
-      'uid': user.uid,
-      'email': user.email,
-      'displayName': user.displayName,
-      'photoURL': user.photoURL,
-      'emailVerified': user.emailVerified,
-    };
+    if (user == null) return false;
+
+    final session = await _getSession();
+    if (session == null) return false;
+
+    final timestamp = session['timestamp'];
+    if (timestamp is! int) return false;
+
+    final sessionTime = DateTime.fromMillisecondsSinceEpoch(timestamp);
+    final expired = DateTime.now().difference(sessionTime) > _sessionTimeout;
+
+    return !expired;
   }
 
-  String? getCurrentUid() {
-    return _auth.currentUser?.uid;
-  }
-
-  Future<void> _saveSecureSession({
+  Future<void> _saveSession({
     required String userId,
     required String idToken,
     required bool rememberMe,
   }) async {
-    final sessionData = {
+    final data = {
       'userId': userId,
       'token': idToken,
       'timestamp': DateTime.now().millisecondsSinceEpoch,
       'rememberMe': rememberMe,
     };
 
-    final encrypted = _encrypt(jsonEncode(sessionData));
-    await _secureStorage.write(key: _sessionKey, value: encrypted);
+    await _secureStorage.write(
+      key: _sessionKey,
+      value: jsonEncode(data),
+    );
   }
 
-  Future<Map<String, dynamic>?> _getSecureSession() async {
+  Future<Map<String, dynamic>?> _getSession() async {
     try {
-      final encrypted = await _secureStorage.read(key: _sessionKey);
-      if (encrypted == null) return null;
-      return _decrypt(encrypted);
-    } catch (e) {
-      return null;
-    }
-  }
-
-  bool _isSessionExpired(dynamic timestamp) {
-    try {
-      if (timestamp is! int) return true;
-      final sessionTime = DateTime.fromMillisecondsSinceEpoch(timestamp);
-      return DateTime.now().difference(sessionTime) > _sessionTimeout;
-    } catch (e) {
-      return true;
-    }
-  }
-
-  String _encrypt(String data) {
-    try {
-      final bytes = utf8.encode(data);
-      final hash = sha256.convert(bytes).bytes;
-      return base64Encode(hash + bytes);
-    } catch (e) {
-      return data;
-    }
-  }
-
-  Map<String, dynamic>? _decrypt(String encrypted) {
-    try {
-      final bytes = base64Decode(encrypted);
-      final data = bytes.sublist(32);
-      return jsonDecode(utf8.decode(data));
-    } catch (_) {
-      return null;
-    }
-  }
-
-  Future<void> _logSecurityEvent({
-    required String userId,
-    required String event,
-    required Map<String, dynamic> details,
-  }) async {
-    try {
-      await _firestore.collection('security_logs').add({
-        'userId': userId,
-        'event': event,
-        'details': details,
-        'timestamp': FieldValue.serverTimestamp(),
-        'deviceToken': await FirebaseMessaging.instance.getToken() ?? 'unknown',
-      });
+      final raw = await _secureStorage.read(key: _sessionKey);
+      if (raw == null) return null;
+      return jsonDecode(raw) as Map<String, dynamic>;
     } catch (e) {
       if (kDebugMode) {
-        print('Failed to log security event: $e');
+        debugPrint('Session read failed: $e');
       }
+      return null;
     }
   }
+
+  Future<void> _syncUserToRealtimeDB(User user) async {
+    final db = FirebaseDatabase.instance.ref("users/${user.uid}");
+
+    final fcmToken = await FirebaseMessaging.instance.getToken();
+
+    await db.update({
+      "uid": user.uid,
+      "email": user.email,
+      "name": user.displayName ?? user.email?.split('@').first ?? "User",
+      "fcmToken": fcmToken,
+      "status": "online",
+      "lastSeen": DateTime.now().millisecondsSinceEpoch,
+    });
+  }
+
+  //  Validation Helpers
+
+  static String? validateEmail(String? value) {
+    if (value == null || value.trim().isEmpty) return 'Email is required';
+    if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
+      return 'Enter a valid email';
+    }
+    return null;
+  }
+
+  static String? validatePassword(String? value) {
+    if (value == null || value.isEmpty) return 'Password is required';
+    if (value.length < 6) return 'Password must be at least 6 characters';
+    return null;
+  }
+
+  //  Error Mapping
 
   String _firebaseErrorMessage(String code) {
     switch (code) {
@@ -286,41 +282,7 @@ class AuthService with ChangeNotifier {
       case 'network-request-failed':
         return 'Network error, please check your connection';
       default:
-        return 'Authentication failed: $code';
+        return 'Authentication failed';
     }
-  }
-  
-  Future<void> resetPassword(String email) async {
-    if (email.trim().isEmpty) {
-      throw Exception('Email is required');
-    }
-
-    await _auth.sendPasswordResetEmail(email: email.trim());
-
-    await _logSecurityEvent(
-      userId: email,
-      event: 'PASSWORD_RESET_REQUESTED',
-      details: {},
-    );
-  }
-
-  static String? validateEmail(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Email is required';
-    }
-    if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
-      return 'Enter a valid email';
-    }
-    return null;
-  }
-
-  static String? validatePassword(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Password is required';
-    }
-    if (value.length < 6) {
-      return 'Password must be at least 6 characters';
-    }
-    return null;
   }
 }

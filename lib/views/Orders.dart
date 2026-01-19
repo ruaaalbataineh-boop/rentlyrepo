@@ -3,10 +3,13 @@ import 'package:p2/logic/orders_logic.dart';
 import 'package:p2/WalletPage.dart';
 import 'package:p2/models/rental_request.dart';
 import 'package:p2/rate_product_page.dart';
-import 'QrPage.dart';
-import 'QrScannerPage.dart';
-import 'app_locale.dart';
-import 'bottom_nav.dart';
+import 'package:p2/services/auth_service.dart';
+import 'package:provider/provider.dart';
+import '../QrPage.dart';
+import '../QrScannerPage.dart';
+import '../controllers/orders_controller.dart';
+import '../services/app_locale.dart';
+import '../widgets/bottom_nav.dart';
 
 class OrdersPage extends StatefulWidget {
   final int initialTab;
@@ -20,17 +23,33 @@ class OrdersPage extends StatefulWidget {
 
 class _OrdersPageState extends State<OrdersPage> {
   late int selectedTab;
-  late OrdersLogic _logic;
+  OrdersController? _controller;
+  bool _inited = false;
 
   @override
 void initState() {
   super.initState();
   selectedTab = widget.initialTab;
-  _logic = OrdersLogic();
-
-
-  _logic.clearCache();
 }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_inited) return;
+
+    final auth = context.read<AuthService>();
+    final uid = auth.currentUid;
+
+    if (uid == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.pushNamedAndRemoveUntil(context, "/login", (_) => false);
+      });
+      return;
+    }
+
+    _controller = OrdersController(renterUid: uid);
+    _inited = true;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,7 +71,7 @@ void initState() {
               Expanded(child: _buildTabContent(screenWidth)),
             ],
           ),
-          bottomNavigationBar: const SharedBottomNav(currentIndex: 1),
+          //bottomNavigationBar: const SharedBottomNav(currentIndex: 1),
         );
       },
     );
@@ -90,10 +109,7 @@ void initState() {
               icon: Icon(
                   Icons.payment, color: Colors.white, size: small ? 24 : 28),
               onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const WalletHomePage()),
-                );
+                Navigator.pushNamed(context, WalletHomePage.routeName);
               },
             ),
           ],
@@ -106,46 +122,77 @@ void initState() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        buildTab(_logic.getTabTitle(0, AppLocale.t), 0, screenWidth),
-        SizedBox(width: small ? 20 : 40),
-        buildTab(_logic.getTabTitle(1, AppLocale.t), 1, screenWidth),
-        SizedBox(width: small ? 20 : 40),
-        buildTab(_logic.getTabTitle(2, AppLocale.t), 2, screenWidth),
+        _buildTabWithCount(0, screenWidth),
+        SizedBox(width: small ? 8 : 16),
+        _buildTabWithCount(1, screenWidth),
+        SizedBox(width: small ? 8 : 16),
+        _buildTabWithCount(2, screenWidth),
       ],
     );
   }
 
-  Widget buildTab(String text, int index, double screenWidth) {
+  Widget _buildTabWithCount(int index, double screenWidth) {
+    final title = _controller!.getTabTitle(index, AppLocale.t);
     bool active = selectedTab == index;
     bool isSmall = screenWidth < 380;
 
-    return GestureDetector(
-      onTap: () => setState(() => selectedTab = index),
-      child: Container(
-        padding: EdgeInsets.symmetric(
-          horizontal: isSmall ? 10 : 18,
-          vertical: isSmall ? 8 : 10,
-        ),
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: active ? const Color(0xFF8A005D) : Colors.black,
-            width: 1.2,
-          ),
-          borderRadius: BorderRadius.circular(25),
-          color: active ? Colors.white : Colors.transparent,
-        ),
-        child: FittedBox(
-          child: Text(
-            text,
-            maxLines: 1,
-            style: TextStyle(
-              fontSize: isSmall ? 11 : 14,
-              color: active ? const Color(0xFF8A005D) : Colors.black,
-              fontWeight: FontWeight.w600,
+    return StreamBuilder<int>(
+      stream: _controller!.getRequestsCountStream(index),
+      builder: (context, snapshot) {
+        final count = snapshot.data ?? 0;
+
+        return GestureDetector(
+          onTap: () => setState(() => selectedTab = index),
+          child: Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: isSmall ? 10 : 18,
+              vertical: isSmall ? 8 : 10,
+            ),
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: active ? const Color(0xFF8A005D) : Colors.black,
+                width: 1.2,
+              ),
+              borderRadius: BorderRadius.circular(25),
+              color: active ? Colors.white : Colors.transparent,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: isSmall ? 11 : 14,
+                    color: active
+                        ? const Color(0xFF8A005D)
+                        : Colors.black,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (count > 0) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF8A005D),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      count.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ]
+              ],
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
   
@@ -155,8 +202,8 @@ void initState() {
 
   Widget _buildRequestStream(double screenWidth) {
     return StreamBuilder<List<RentalRequest>>(
-      key: ValueKey(selectedTab),  
-      stream: _logic.getRequestsStream(selectedTab),
+      key: ValueKey(selectedTab),
+      stream: _controller!.getRequestsStream(selectedTab),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
@@ -166,7 +213,7 @@ void initState() {
         if (requests.isEmpty) {
           return Center(
             child: Text(
-              _logic.getEmptyTextForTab(selectedTab, AppLocale.t),
+              _controller!.getEmptyTextForTab(selectedTab, AppLocale.t),
               style: TextStyle(
                 fontSize: screenWidth < 360 ? 14 : 16,
                 color: Colors.grey,
@@ -181,6 +228,32 @@ void initState() {
         );
       },
     );
+  }
+
+  Future<bool> _confirmDelete(BuildContext context) async {
+    return await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Confirm Delete"),
+        content: const Text(
+          "Are you sure you want to delete this rental request?",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              "Delete",
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    ) ??
+        false;
   }
 
   Widget _buildReviewButton(RentalRequest req) {
@@ -238,7 +311,7 @@ void initState() {
   }
 
   Widget _buildRequestTile(RentalRequest req) {
-    final requestDetails = _logic.getRequestDetails(req);
+    final requestDetails = _controller!.getRequestDetails(req);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -279,6 +352,18 @@ void initState() {
 
                 const Spacer(),
 
+                if (req.status == "pending") ...[
+                  IconButton(
+                    icon: const Icon(Icons.delete, size: 26, color: Colors.red),
+                    tooltip: "Delete request",
+                    onPressed: () async {
+                      final confirmed = await _confirmDelete(context);
+                      if (!confirmed) return;
+
+                      await _controller!.deleteIfPending(req);
+                    },
+                  ),
+                ],
                 if (req.status == "accepted") ...[
                   IconButton(
                     icon: const Icon(Icons.qr_code_scanner,

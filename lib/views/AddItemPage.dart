@@ -5,17 +5,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show LengthLimitingTextInputFormatter;
 import 'package:image_picker/image_picker.dart';
 import 'package:p2/pick_location_page.dart';
+import 'package:p2/services/auth_service.dart';
 import 'package:p2/services/firestore_service.dart';
 import 'package:p2/services/storage_service.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:provider/provider.dart';
 
-
-import 'main_user.dart';
-import 'security/input_validator.dart';
-import 'security/secure_storage.dart';
-import 'security/route_guard.dart';
-import 'security/api_security.dart';
-import 'security/error_handler.dart';
+import '../Security/error_handler.dart';
+import '../Security/input_validator.dart';
+import '../controllers/add_item_controller.dart';
 
 class AddItemPage extends StatefulWidget {
   const AddItemPage({super.key, this.existingItem});
@@ -31,7 +29,9 @@ class AddItemPageState extends State<AddItemPage> {
   final TextEditingController descController = TextEditingController();
   final TextEditingController priceController = TextEditingController();
   final TextEditingController OriginalPriceController = TextEditingController();
-  
+
+  bool _isAuthenticated = false;
+
   String? selectedCategory;
   String? selectedSubCategory;
 
@@ -48,7 +48,7 @@ class AddItemPageState extends State<AddItemPage> {
     "Electronics",
     "Computers & Mobiles",
     "Video Games",
-    "Sports",
+    "Sports & Hobbies",
     "Tools & Devices",
     "Home & Garden",
     "Fashion & Clothing",
@@ -64,7 +64,7 @@ class AddItemPageState extends State<AddItemPage> {
       "Servers"
     ],
     "Video Games": ["Gaming Devices"],
-    "Sports": ["Bicycle", "Books", "Skates & Scooters", "Camping"],
+    "Sports & Hobbies": ["Bicycle", "Books", "Skates & Scooters", "Camping"],
     "Tools & Devices": [
       "Maintenance Tools",
       "Medical Devices",
@@ -109,17 +109,12 @@ class AddItemPageState extends State<AddItemPage> {
     }
   }
 
-
   void _checkAuthentication() {
-    if (RouteGuard.testAuthenticated) return;
+    _isAuthenticated = FirebaseAuth.instance.currentUser != null;
 
-    if (!RouteGuard.isAuthenticated()) {
+    if (!_isAuthenticated) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          '/login',
-          (route) => false,
-        );
+        Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
       });
     }
   }
@@ -158,11 +153,10 @@ class AddItemPageState extends State<AddItemPage> {
       return "30%";
     }
   }
-  
 
   Future<void> pickImages() async {
     try {
-      if (!RouteGuard.isAuthenticated()) {
+      if (FirebaseAuth.instance.currentUser == null) {
         showError("Authentication required");
         return;
       }
@@ -183,14 +177,12 @@ class AddItemPageState extends State<AddItemPage> {
     
         for (final image in images) {
           final file = File(image.path);
-          
-      
+
           final fileSize = await file.length();
           if (fileSize > 5 * 1024 * 1024) {
             showError("Image too large (max 5MB): ${image.name}");
             continue;
           }
-
          
           final extension = image.path.split('.').last.toLowerCase();
           if (!['jpg', 'jpeg', 'png', 'gif'].contains(extension)) {
@@ -224,7 +216,6 @@ class AddItemPageState extends State<AddItemPage> {
         return;
       }
 
-   
       if (!InputValidator.hasNoMaliciousCode(priceController.text)) {
         showError("Invalid price format");
         return;
@@ -252,10 +243,9 @@ class AddItemPageState extends State<AddItemPage> {
     }
   }
   
-  
   Future<void> pickLocation() async {
     try {
-      if (!RouteGuard.isAuthenticated()) {
+      if (FirebaseAuth.instance.currentUser == null) {
         showError("Authentication required");
         return;
       }
@@ -278,179 +268,34 @@ class AddItemPageState extends State<AddItemPage> {
   }
 
   Future<void> saveItem() async {
-    if (isIntegrationTest) {
-      showSuccess("TEST: Item submission simulated");
-      Navigator.pop(context);
-      return;
-    }
-
-    if (!RouteGuard.isAuthenticated()) {
-      showError("Authentication required");
-      return;
-    }
-
-    if (nameController.text.isEmpty) {
-      showError("Enter item name");
-      return;
-    }
-
-    if (!InputValidator.hasNoMaliciousCode(nameController.text)) {
-      showError("Invalid characters in item name");
-      return;
-    }
-
-    if (!InputValidator.hasNoMaliciousCode(descController.text)) {
-      showError("Invalid characters in description");
-      return;
-    }
-
-    if (selectedCategory == null) {
-      showError("Select category");
-      return;
-    }
-
-    if (selectedSubCategory == null) {
-      showError("Select sub category");
-      return;
-    }
-
-    if (rentalPeriods.isEmpty) {
-      showError("Add rental periods");
-      return;
-    }
-
-    if (OriginalPriceController.text.isEmpty) {
-      showError("Enter item original price");
-      return;
-    }
-
-    final originalPrice = double.tryParse(OriginalPriceController.text);
-
-    if (originalPrice == null || originalPrice <= 0) {
-      showError("Enter valid item original price");
-      return;
-    }
-
-    if (originalPrice > 100000) {
-      showError("Item price cannot exceed 100,000 JD");
-      return;
-    }
-
-    
-    if (latitude == null || longitude == null) {
-      showError("Please select a location");
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
     try {
-      final user = FirebaseAuth.instance.currentUser!;
-      final ownerId = user.uid;
+      setState(() => _isLoading = true);
 
-      
-      List<String> uploadedUrls = [];
-      for (int i = 0; i < pickedImages.length; i++) {
-        _imageUploadAttempts = 0;
-        bool uploadSuccess = false;
-        
-        while (_imageUploadAttempts < _maxImageUploadAttempts && !uploadSuccess) {
-          try {
-            final url = await StorageService.uploadItemImage(
-              ownerId,
-              "temp",
-              pickedImages[i],
-              "photo_$i.jpg",
-            );
-            uploadedUrls.add(url);
-            uploadSuccess = true;
-          } catch (error) {
-            _imageUploadAttempts++;
-            ErrorHandler.logError('Image Upload Attempt $_imageUploadAttempts', error);
-            
-            if (_imageUploadAttempts >= _maxImageUploadAttempts) {
-              throw Exception("Failed to upload image after $_maxImageUploadAttempts attempts");
-            }
-            
-            await Future.delayed(const Duration(seconds: 1));
-          }
-        }
-      }
+      final authService = context.read<AuthService>();
 
-      final allImages = [...existingImageUrls, ...uploadedUrls];
-
-      
-      if (allImages.isEmpty) {
-        showError("Please add at least one image");
-        return;
-      }
-
-      if (allImages.length > 10) {
-        showError("Maximum 10 images allowed");
-        return;
-      }
-
-
-      final insuranceRate = getInsuranceRate(originalPrice);
-      final insuranceAmount = calculateInsuranceAmount();
-
-      final insuranceData = {
-        "itemOriginalPrice": originalPrice,
-        "ratePercentage": insuranceRate,
-        "insuranceAmount": insuranceAmount,
-      };
-
-      
-      final payload = {
-        "ownerId": ownerId,
-        "name": InputValidator.sanitizeInput(nameController.text.trim()),
-        "description": InputValidator.sanitizeInput(descController.text.trim()),
-        "category": selectedCategory,
-        "subCategory": selectedSubCategory,
-        "images": allImages,
-        "rentalPeriods": rentalPeriods,
-        "insurance": insuranceData,
-        "latitude": latitude,
-        "longitude": longitude,
-        
-        "createdAt": DateTime.now().millisecondsSinceEpoch,
-        "updatedAt": DateTime.now().millisecondsSinceEpoch,
-        "status": "pending", 
-      };
-
-      await SecureStorage.saveData(
-        'last_item_attempt',
-        '${DateTime.now()}: ${nameController.text}',
+      await AddItemController.submitItem(
+        authService: authService,
+        name: nameController.text,
+        description: descController.text,
+        category: selectedCategory!,
+        subCategory: selectedSubCategory!,
+        originalPrice: double.parse(OriginalPriceController.text),
+        rentalPeriods: rentalPeriods,
+        latitude: latitude!,
+        longitude: longitude!,
+        pickedImages: pickedImages,
+        existingImages: existingImageUrls,
       );
 
-    
-      await FirestoreService.submitItemForApproval(payload);
-
-    
-      nameController.clear();
-      descController.clear();
-      OriginalPriceController.clear();
-      priceController.clear();
-
       showSuccess("Item submitted for approval");
-      
-  
-      if (Navigator.canPop(context)) {
-        Navigator.pop(context);
-      }
 
-    } catch (e, st) {
-  debugPrint(" SAVE ITEM REAL ERROR: $e");
-  debugPrint(" STACK TRACE:\n$st");
+      if (Navigator.canPop(context)) Navigator.pop(context);
 
-  if (!mounted) return;
-
-  showError("Error: $e");
-} finally {
-  if (!mounted) return;
-  setState(() => _isLoading = false);
-}
-
+    } catch (e) {
+      showError(e.toString());
+    } finally {
+      setState(() => _isLoading = false);
+    }
   }
 
   void showError(String msg) {

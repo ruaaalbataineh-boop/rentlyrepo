@@ -12,18 +12,13 @@ class RentalRequest {
   final int rentalQuantity;
   final DateTime startDate;
   final DateTime endDate;
-  final String? startTime;
-  final String? endTime;
   final String? pickupTime;
   final num rentalPrice;
   final num totalPrice;
 
   // Insurance information
   final Map<String, dynamic>? insurance;
-  
-  // Penalty information
-  final Map<String, dynamic>? penalty;
-  
+
   final String status;
   final String paymentStatus;
   final String? pickupQrToken;
@@ -49,13 +44,10 @@ class RentalRequest {
     required this.rentalQuantity,
     required this.startDate,
     required this.endDate,
-    this.startTime,
-    this.endTime,
     this.pickupTime,
     required this.rentalPrice,
     required this.totalPrice,
     this.insurance,
-    this.penalty,
     required this.status,
     required this.paymentStatus,
     this.pickupQrToken,
@@ -101,15 +93,11 @@ class RentalRequest {
       rentalQuantity: (data["rentalQuantity"] as num?)?.toInt() ?? 0,
       startDate: _toDate(data["startDate"]),
       endDate: _toDate(data["endDate"]),
-      startTime: data["startTime"]?.toString(),
-      endTime: data["endTime"]?.toString(),
       pickupTime: data["pickupTime"]?.toString(),
       rentalPrice: (data["rentalPrice"] as num?) ?? 0,
       totalPrice: (data["totalPrice"] as num?) ?? 0,
       insurance: data["insurance"] is Map ? 
           Map<String, dynamic>.from(data["insurance"] as Map) : null,
-      penalty: data["penalty"] is Map ? 
-          Map<String, dynamic>.from(data["penalty"] as Map) : null,
       status: data["status"]?.toString() ?? "pending",
       paymentStatus: data["paymentStatus"]?.toString() ?? "locked",
       pickupQrToken: data["pickupQrToken"]?.toString(),
@@ -143,15 +131,11 @@ class RentalRequest {
       rentalQuantity: (json["rentalQuantity"] as num?)?.toInt() ?? 0,
       startDate: DateTime.parse(json["startDate"]?.toString() ?? DateTime.now().toIso8601String()),
       endDate: DateTime.parse(json["endDate"]?.toString() ?? DateTime.now().toIso8601String()),
-      startTime: json["startTime"]?.toString(),
-      endTime: json["endTime"]?.toString(),
       pickupTime: json["pickupTime"]?.toString(),
       rentalPrice: (json["rentalPrice"] as num?) ?? 0,
       totalPrice: (json["totalPrice"] as num?) ?? 0,
       insurance: json["insurance"] is Map ? 
           Map<String, dynamic>.from(json["insurance"] as Map) : null,
-      penalty: json["penalty"] is Map ? 
-          Map<String, dynamic>.from(json["penalty"] as Map) : null,
       status: json["status"]?.toString() ?? "pending",
       paymentStatus: json["paymentStatus"]?.toString() ?? "locked",
       pickupQrToken: json["pickupQrToken"]?.toString(),
@@ -185,13 +169,10 @@ class RentalRequest {
       "rentalQuantity": rentalQuantity,
       "startDate": startDate.toIso8601String(),
       "endDate": endDate.toIso8601String(),
-      "startTime": startTime,
-      "endTime": endTime,
       "pickupTime": pickupTime,
       "rentalPrice": rentalPrice,
       "totalPrice": totalPrice,
       "insurance": insurance,
-      "penalty": penalty,
       "status": status,
       "paymentStatus": paymentStatus,
       "pickupQrToken": pickupQrToken,
@@ -211,12 +192,6 @@ class RentalRequest {
   num get insuranceOriginalPrice => insurance?["itemOriginalPrice"] as num? ?? 0;
   bool get insuranceAccepted => insurance?["accepted"] as bool? ?? false;
 
-  // Helper getters for penalty data
-  num get penaltyHourlyRate => penalty?["hourlyRate"] as num? ?? 0;
-  num get penaltyDailyRate => penalty?["dailyRate"] as num? ?? 0;
-  num get penaltyMaxHours => penalty?["maxHours"] as num? ?? 0;
-  num get penaltyMaxDays => penalty?["maxDays"] as num? ?? 0;
-
   // Copy with method for immutability
   RentalRequest copyWith({
     String? id,
@@ -230,13 +205,10 @@ class RentalRequest {
     int? rentalQuantity,
     DateTime? startDate,
     DateTime? endDate,
-    String? startTime,
-    String? endTime,
     String? pickupTime,
     num? rentalPrice,
     num? totalPrice,
     Map<String, dynamic>? insurance,
-    Map<String, dynamic>? penalty,
     String? status,
     String? paymentStatus,
     String? pickupQrToken,
@@ -260,13 +232,10 @@ class RentalRequest {
       rentalQuantity: rentalQuantity ?? this.rentalQuantity,
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
-      startTime: startTime ?? this.startTime,
-      endTime: endTime ?? this.endTime,
       pickupTime: pickupTime ?? this.pickupTime,
       rentalPrice: rentalPrice ?? this.rentalPrice,
       totalPrice: totalPrice ?? this.totalPrice,
       insurance: insurance ?? this.insurance,
-      penalty: penalty ?? this.penalty,
       status: status ?? this.status,
       paymentStatus: paymentStatus ?? this.paymentStatus,
       pickupQrToken: pickupQrToken ?? this.pickupQrToken,

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:p2/fake_uid.dart';
-import 'package:p2/logic/chat_logic.dart';
-import 'package:p2/notifications/active_chat_tracker.dart';
-import 'package:p2/notifications/chat_id_utils.dart';
+import 'package:provider/provider.dart';
+import 'package:firebase_database/firebase_database.dart';
 
+import 'logic/chat_logic.dart';
+import 'notifications/active_chat_tracker.dart';
+import 'notifications/chat_id_utils.dart';
+import 'services/auth_service.dart';
 
 class ChatScreen extends StatefulWidget {
   final String personName;
@@ -20,91 +22,66 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  final TextEditingController messageController = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
-  
+  final messageController = TextEditingController();
+  final scrollController = ScrollController();
+
   late ChatLogic logic;
+  late String myUid;
 
   @override
   void initState() {
     super.initState();
+
+    myUid = context.read<AuthService>().currentUid!;
+
     ActiveChatTracker.activeChatId =
-    normalizeChatId(LoginUID.uid, widget.personUid);
+        normalizeChatId(myUid, widget.personUid);
 
-
+    // Presence: ONLINE
+    FirebaseDatabase.instance.ref("users/$myUid/status").set("online");
+    FirebaseDatabase.instance
+        .ref("users/$myUid/lastSeen")
+        .onDisconnect()
+        .set(ServerValue.timestamp);
 
     logic = ChatLogic(
       personName: widget.personName,
       personUid: widget.personUid,
+      myUid: myUid,
     );
-      logic.initialize(onUserUpdated: () {
-        if (mounted) setState(() {});
-      });
+
+    logic.initialize(onUserUpdated: () {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    // Presence: OFFLINE
+    FirebaseDatabase.instance.ref("users/$myUid/status").set("offline");
+    FirebaseDatabase.instance
+        .ref("users/$myUid/lastSeen")
+        .set(DateTime.now().millisecondsSinceEpoch);
+
+    ActiveChatTracker.activeChatId = null;
+
+    messageController.dispose();
+    scrollController.dispose();
+    super.dispose();
   }
 
   void _sendMessage() {
     logic.sendMessage(messageController.text);
     messageController.clear();
-    setState(() {});
-  }
-
-  void _editMessage(String key, String oldText) {
-    final controller = TextEditingController(text: oldText);
-
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Edit message"),
-        content: TextField(controller: controller),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
-          ),
-          TextButton(
-            onPressed: () {
-              logic.editMessage(key, controller.text);
-              Navigator.pop(context);
-              setState(() {});
-            },
-            child: const Text("Save"),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _deleteMessage(String key) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Delete Message"),
-        content: const Text("Are you sure you want to delete this message?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
-          ),
-          TextButton(
-            onPressed: () {
-              logic.deleteMessage(key);
-              Navigator.pop(context);
-              setState(() {});
-            },
-            child: const Text("Delete", style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        iconTheme: const IconThemeData(color: Colors.white),
         elevation: 0,
         backgroundColor: Colors.transparent,
-        iconTheme: const IconThemeData(color: Colors.white),
         flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
@@ -112,308 +89,166 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ),
         ),
-        title: Row(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CircleAvatar(
-              radius: 20,
-              backgroundImage: logic.personData?["photoUrl"] != null
-                  ? NetworkImage(logic.personData!["photoUrl"])
-                  : null,
-              child: logic.personData?["photoUrl"] == null
-                  ? const Icon(Icons.person)
-                  : null,
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(logic.personData?["name"] ?? "User",
-                    style: const TextStyle(color: Colors.white)),
-                Text(
-                  logic.personData?["status"] == "online"
-                      ? "Online"
-                      : "Last seen ${logic.formatTime(logic.personData?["lastSeen"] ?? 0)}",
-                  style: const TextStyle(
-                      color: Colors.white70, fontSize: 12),
-                ),
-              ],
+            Text(widget.personName,
+                style: const TextStyle(color: Colors.white)),
+            Text(
+              logic.personData?["status"] == "online"
+                  ? "Online"
+                  : "Last seen ${logic.formatTime(logic.personData?["lastSeen"] ?? 0)}",
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
             ),
           ],
         ),
       ),
-      body: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onTap: () {
-          if (logic.selectedMessageKey != null) {
-            setState(() {
-              logic.setSelectedMessageKey(null);
-            });
-          }
-        },
-        child: Column(
-          children: [
-            Expanded(
-              child: StreamBuilder(
-                stream: logic.getMessagesStream(),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData ||
-                      snapshot.data!.snapshot.value == null) {
-                    return const Center(child: Text("No messages yet"));
+
+      body: Column(
+        children: [
+          Expanded(
+            child: StreamBuilder(
+              stream: logic.getMessagesStream(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData ||
+                    snapshot.data!.snapshot.value == null) {
+                  return const Center(child: Text("No messages yet"));
+                }
+
+                final raw = snapshot.data!.snapshot.value as Map;
+                final messages = raw.entries.map((e) {
+                  final m = Map<String, dynamic>.from(e.value);
+                  m["key"] = e.key;
+                  return m;
+                }).toList()
+                  ..sort((a, b) =>
+                      a["timestamp"].compareTo(b["timestamp"]));
+
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (scrollController.hasClients) {
+                    scrollController.jumpTo(
+                        scrollController.position.maxScrollExtent);
                   }
+                });
 
-                  final raw = snapshot.data!.snapshot.value as Map;
-                  final messages = raw.entries.map((e) {
-                    final msg = Map<String, dynamic>.from(e.value);
-                    msg["key"] = e.key;
-                    return msg;
-                  }).toList()
-                    ..sort((a, b) =>
-                        a["timestamp"].compareTo(b["timestamp"]));
+                return ListView.builder(
+                  controller: scrollController,
+                  padding: const EdgeInsets.all(12),
+                  itemCount: messages.length,
+                  itemBuilder: (context, i) {
+                    final msg = messages[i];
+                    final isMe = msg["sender"] == myUid;
 
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (_scrollController.hasClients) {
-                      _scrollController.jumpTo(
-                          _scrollController.position.maxScrollExtent);
+                    if (!isMe) {
+                      FirebaseDatabase.instance
+                          .ref("messages/${logic.chatId}/${msg["key"]}/readBy/$myUid")
+                          .set(true);
                     }
-                  });
 
-                  String? lastDate;
+                    final isRead =
+                        msg["readBy"] != null &&
+                            msg["readBy"][widget.personUid] == true;
 
-                  return ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.all(12),
-                    itemCount: messages.length,
-                    itemBuilder: (context, index) {
-                      final msg = messages[index];
-                      final isMe = msg["sender"] == LoginUID.uid;
-                      final showOptions =
-                          logic.selectedMessageKey == msg["key"];
-                      final canModify = logic.canEditOrDelete(msg);
-
-                      final dateLabel =
-                          logic.messageDateLabel(msg["timestamp"]);
-                      final showDate = lastDate != dateLabel;
-                      lastDate = dateLabel;
-
-                      return Column(
-                        crossAxisAlignment: isMe
-                            ? CrossAxisAlignment.end
-                            : CrossAxisAlignment.start,
-                        children: [
-                          if (showDate)
-                            Center(
-                              child: Container(
-                                margin: const EdgeInsets.symmetric(
-                                    vertical: 8),
-                                padding:
-                                    const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 6),
+                    return Align(
+                      alignment:
+                      isMe ? Alignment.centerRight : Alignment.centerLeft,
+                      child: Container(
+                        constraints: BoxConstraints(
+                          maxWidth:
+                          MediaQuery.of(context).size.width * 0.75,
+                        ),
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: isMe
+                              ? const Color(0xFF3A1A78)
+                              : const Color(0xFF8A005D),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (msg["replyTo"] != null)
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 6),
+                                padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
-                                  color: Colors.grey.shade300,
-                                  borderRadius:
-                                      BorderRadius.circular(20),
+                                  color: Colors.black26,
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
-                                child: Text(dateLabel,
+                                child: Text(
+                                  msg["replyTo"]["text"],
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(color: Colors.white70),
+                                ),
+                              ),
+
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    msg["text"],
                                     style: const TextStyle(
-                                        fontSize: 12)),
-                              ),
-                            ),
-
-                          GestureDetector(
-                            onLongPress: () {
-                              setState(() {
-                                logic.setSelectedMessageKey(msg["key"]);
-                              });
-                            },
-                            child: Container(
-                              constraints: BoxConstraints(
-                                maxWidth:
-                                    MediaQuery.of(context)
-                                            .size
-                                            .width *
-                                        0.75,
-                              ),
-                              padding:
-                                  const EdgeInsets.all(12),
-                              margin:
-                                  const EdgeInsets.symmetric(
-                                      vertical: 4),
-                              decoration: BoxDecoration(
-                                color: isMe
-                                    ? const Color.fromARGB(
-                                        230, 38, 10, 91)
-                                    : const Color.fromARGB(
-                                        234, 122, 4, 73),
-                                borderRadius:
-                                    BorderRadius.circular(14),
-                              ),
-                              child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                children: [
-                                  if (msg["replyTo"] != null)
-                                    Container(
-                                      margin: const EdgeInsets.only(
-                                          bottom: 6),
-                                      padding:
-                                          const EdgeInsets.all(6),
-                                      decoration: BoxDecoration(
-                                        color: Colors.black26,
-                                        borderRadius:
-                                            BorderRadius.circular(
-                                                8),
-                                      ),
-                                      child: Text(
-                                        msg["replyTo"]["text"],
-                                        maxLines: 1,
-                                        overflow: TextOverflow
-                                            .ellipsis,
-                                        style: const TextStyle(
-                                            color:
-                                                Colors.white70),
-                                      ),
-                                    ),
-                                  Row(
-                                    mainAxisSize:
-                                        MainAxisSize.min,
-                                    children: [
-                                      Flexible(
-                                        child: Text(
-                                          msg["text"],
-                                          style: const TextStyle(
-                                              color:
-                                                  Colors.white,
-                                              fontSize: 15),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        logic.formatTime(
-                                            msg["timestamp"]),
-                                        style: const TextStyle(
-                                            color:
-                                                Colors.white70,
-                                            fontSize: 10),
-                                      ),
-                                    ],
+                                        color: Colors.white, fontSize: 15),
                                   ),
-                                ],
-                              ),
-                            ),
-                          ),
-
-                          if (showOptions)
-                            IntrinsicWidth(
-                              child: Container(
-                                margin: const EdgeInsets.only(
-                                    bottom: 6),
-                                decoration: BoxDecoration(
-                                  color:
-                                      Colors.grey.shade200,
-                                  borderRadius:
-                                      BorderRadius.circular(
-                                          12),
                                 ),
-                                child: Column(
-                                  mainAxisSize:
-                                      MainAxisSize.min,
-                                  children: [
-                                    ListTile(
-                                      dense: true,
-                                      leading: const Icon(
-                                          Icons.reply),
-                                      title:
-                                          const Text("Reply"),
-                                      onTap: () {
-                                        setState(() {
-                                          logic.setReplyMessage(msg);
-                                          logic.setSelectedMessageKey(
-                                              null);
-                                        });
-                                      },
+                                const SizedBox(width: 6),
+                                Text(
+                                  logic.formatTime(msg["timestamp"]),
+                                  style: const TextStyle(
+                                      color: Colors.white70, fontSize: 10),
+                                ),
+                                if (isMe)
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 4),
+                                    child: Icon(
+                                      isRead ? Icons.done_all : Icons.done,
+                                      size: 14,
+                                      color: isRead
+                                          ? Colors.blue
+                                          : Colors.white70,
                                     ),
-                                    if (canModify)
-                                      ListTile(
-                                        dense: true,
-                                        leading: const Icon(
-                                            Icons.edit),
-                                        title:
-                                            const Text("Edit"),
-                                        onTap: () =>
-                                            _editMessage(
-                                                msg["key"],
-                                                msg["text"]),
-                                      ),
-                                  ],
-                                ),
-                              ),
+                                  ),
+                              ],
                             ),
-                        ],
-                      );
-                    },
-                  );
-                },
-              ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
             ),
+          ),
 
-            if (logic.replyMessage != null)
-              Container(
-                padding: const EdgeInsets.all(8),
+          // INPUT BAR
+          Container(
+            padding: const EdgeInsets.all(12),
+            child: Container(
+              decoration: BoxDecoration(
                 color: Colors.grey.shade200,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(logic.replyMessage!["text"],
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => setState(
-                          () => logic.clearReplyMessage()),
-                    )
-                  ],
-                ),
+                borderRadius: BorderRadius.circular(30),
               ),
-
-            Container(
-              padding: const EdgeInsets.all(12),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade200,
-                  borderRadius:
-                      BorderRadius.circular(30),
-                ),
-                child: TextField(
-                  controller: messageController,
-                  decoration: InputDecoration(
-                    hintText: "Type a message...",
-                    border: InputBorder.none,
-                    contentPadding:
-                        const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 14),
-                    suffixIcon: IconButton(
-                      icon: const Icon(Icons.send,
-                          color: Colors.purple),
-                      onPressed: _sendMessage,
-                    ),
+              child: TextField(
+                controller: messageController,
+                decoration: InputDecoration(
+                  hintText: "Type a message...",
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 20, vertical: 14),
+                  suffixIcon: IconButton(
+                    icon:
+                    const Icon(Icons.send, color: Colors.purple),
+                    onPressed: _sendMessage,
                   ),
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
- @override
-void dispose() {
-  ActiveChatTracker.activeChatId = null;
-  messageController.dispose();
-  _scrollController.dispose();
-  super.dispose();
-}
-
 }

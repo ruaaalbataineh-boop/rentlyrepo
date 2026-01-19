@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:p2/sub_category_page.dart';
-import 'package:p2/ProductListPage.dart';
+import 'package:p2/views/ProductListPage.dart';
+import 'package:p2/views/sub_category_page.dart';
 
 void main() {
 

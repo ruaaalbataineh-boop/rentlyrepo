@@ -9,6 +9,7 @@ import 'package:p2/security/error_handler.dart';
 import 'package:p2/security/wallet_security.dart';
 
 class WalletHomePage extends StatefulWidget {
+  static const routeName = '/wallet';
   const WalletHomePage({super.key});
 
   @override
@@ -16,9 +17,9 @@ class WalletHomePage extends StatefulWidget {
 }
 
 class _WalletHomePageState extends State<WalletHomePage> {
-  final transactionsStream =
-  FirestoreService.userRecentTransactionsStream(UserManager.uid!);
-  
+  late Stream<List<Map<String, dynamic>>> transactionsStream;
+  late Stream<Map<String, double>> walletStream;
+
   bool _isLoading = true;
   String? _errorMessage;
   Map<String, dynamic>? _walletSummary;
@@ -26,6 +27,14 @@ class _WalletHomePageState extends State<WalletHomePage> {
   @override
   void initState() {
     super.initState();
+
+    final uid = UserManager.uid;
+
+    if (uid != null) {
+      transactionsStream = FirestoreService.userRecentTransactionsStream(uid);
+      walletStream = FirestoreService.combinedWalletStream(uid);
+    }
+
     _initializePage();
   }
 
@@ -1049,7 +1058,7 @@ class _WalletHomePageState extends State<WalletHomePage> {
     }
 
     return StreamBuilder<Map<String, double>>(
-      stream: FirestoreService.combinedWalletStream(userId),
+      stream: walletStream,
       builder: (context, snapshot) {
         final isLoading = snapshot.connectionState == ConnectionState.waiting;
 

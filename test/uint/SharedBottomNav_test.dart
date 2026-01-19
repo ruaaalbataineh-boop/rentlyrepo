@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
-import 'package:p2/bottom_nav.dart';
+import 'package:p2/widgets/bottom_nav.dart';
 
 void main() {
   group('SharedBottomNav Basic Tests', () {

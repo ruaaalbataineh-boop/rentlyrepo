@@ -6,6 +6,7 @@ import 'package:p2/user_manager.dart';
 import 'package:p2/logic/wallet_recharge_logic.dart';
 
 class WalletRechargePage extends StatefulWidget {
+  static const routeName = '/wallet-recharge';
   const WalletRechargePage({super.key});
 
   @override
@@ -642,7 +643,6 @@ class _WalletRechargePageState extends State<WalletRechargePage> {
     final amount = WalletRechargeLogic.parseAmount(amountController.text);
 
     try {
-      // أضفت هنا التحقق الأمني بدون تغيير الواجهة
       final isSecure = await _performSecurityCheck(
         amount: amount,
         method: selectedMethod!,

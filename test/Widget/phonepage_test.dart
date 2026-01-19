@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:p2/logic/phone_logic.dart';
+import 'package:p2/logic/continue_create_account_logic.dart';
 
 void main() {
   group('Phone Page Tests', () {
@@ -103,25 +103,25 @@ class _MockPhonePageState extends State<MockPhonePage> {
                   key: const Key('first_name'),
                   controller: firstNameController,
                   decoration: const InputDecoration(labelText: 'First Name'),
-                  validator: PhoneLogic.validateFirstName,
+                  validator: ContinueCreateAccountLogic.validateFirstName,
                 ),
                 TextFormField(
                   key: const Key('last_name'),
                   controller: lastNameController,
                   decoration: const InputDecoration(labelText: 'Last Name'),
-                  validator: PhoneLogic.validateLastName,
+                  validator: ContinueCreateAccountLogic.validateLastName,
                 ),
                 TextFormField(
                   key: const Key('birth_date'),
                   controller: birthDateController,
                   decoration: const InputDecoration(labelText: 'Birth Date'),
-                  validator: PhoneLogic.validateBirthDate,
+                  validator: ContinueCreateAccountLogic.validateBirthDate,
                 ),
                 TextFormField(
                   key: const Key('phone'),
                   controller: phoneController,
                   decoration: const InputDecoration(labelText: 'Phone'),
-                  validator: PhoneLogic.validatePhoneNumber,
+                  validator: ContinueCreateAccountLogic.validatePhoneNumber,
                 ),
                 const SizedBox(height: 30),
                 ElevatedButton(

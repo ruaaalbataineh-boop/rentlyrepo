@@ -32,7 +32,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '1030223891349',
     appId: '1:1030223891349:web:b1ab7594364646f239c49c',
     measurementId: 'G-0HEM07W7YQ',
-    databaseURL: 'https://p22rently-default-rtdb.asia-southeast1.firebasedatabase.app',
+    databaseURL: 'https://p22rently-default-rtdb.asia-southeast1.firebasedatabase.app/',
 
    
 
@@ -44,7 +44,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '1030223891349',
     projectId: 'p22rently',
     storageBucket: 'p22rently.firebasestorage.app',
-    databaseURL: 'https://p22rently-default-rtdb.asia-southeast1.firebasedatabase.app',
+    databaseURL: 'https://p22rently-default-rtdb.asia-southeast1.firebasedatabase.app/',
 
   );
 
@@ -55,7 +55,7 @@ class DefaultFirebaseOptions {
     projectId: 'p22rently',
     storageBucket: 'p22rently.firebasestorage.app',
     iosBundleId: 'com.example.p2',
-    databaseURL: 'https://p22rently-default-rtdb.asia-southeast1.firebasedatabase.app',
+    databaseURL: 'https://p22rently-default-rtdb.asia-southeast1.firebasedatabase.app/',
 
   );
 
@@ -67,7 +67,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '1030223891349',
     projectId: 'p22rently',
     storageBucket: 'p22rently.firebasestorage.app',
-    databaseURL: 'https://p22rently-default-rtdb.asia-southeast1.firebasedatabase.app',
+    databaseURL: 'https://p22rently-default-rtdb.asia-southeast1.firebasedatabase.app/',
 
   );
 }

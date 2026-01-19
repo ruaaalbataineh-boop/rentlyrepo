@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:p2/logic/phone_logic.dart';
+import 'package:p2/logic/continue_create_account_logic.dart';
 
 void main() {
   late File sampleFile;
@@ -16,48 +16,48 @@ void main() {
 
   group('PhoneLogic Tests', () {
     test('validatePhoneNumber', () {
-      expect(PhoneLogic.validatePhoneNumber('0771234567'), isNull); // 
-expect(PhoneLogic.validatePhoneNumber('+962771234567'), isNull); // 
-expect(PhoneLogic.validatePhoneNumber('962781234567'), isNull); // 
+      expect(ContinueCreateAccountLogic.validatePhoneNumber('0771234567'), isNull); //
+expect(ContinueCreateAccountLogic.validatePhoneNumber('+962771234567'), isNull); //
+expect(ContinueCreateAccountLogic.validatePhoneNumber('962781234567'), isNull); //
     });
 
     test('validateIdImage', () {
-      expect(PhoneLogic.validateIdImage(sampleFile), isNull); // 
+      expect(ContinueCreateAccountLogic.validateIdImage(sampleFile), isNull); //
       final nonExist = File('test/resources/nonexist.jpg');
-      expect(PhoneLogic.validateIdImage(nonExist), isNotNull); //  
-      expect(PhoneLogic.validateIdImage(null), isNotNull); // 
+      expect(ContinueCreateAccountLogic.validateIdImage(nonExist), isNotNull); //
+      expect(ContinueCreateAccountLogic.validateIdImage(null), isNotNull); //
     });
 
     test('validateFaceImage', () {
-      expect(PhoneLogic.validateFaceImage(sampleFile, true), isNull); // موجود + وجه مكتشف
-      expect(PhoneLogic.validateFaceImage(sampleFile, false), isNotNull); // موجود + وجه غير مكتشف
+      expect(ContinueCreateAccountLogic.validateFaceImage(sampleFile, true), isNull); // موجود + وجه مكتشف
+      expect(ContinueCreateAccountLogic.validateFaceImage(sampleFile, false), isNotNull); // موجود + وجه غير مكتشف
       final nonExist = File('test/resources/nonexist.jpg');
-      expect(PhoneLogic.validateFaceImage(nonExist, true), isNotNull); // ملف غير موجود
-      expect(PhoneLogic.validateFaceImage(null, true), isNotNull); // null
+      expect(ContinueCreateAccountLogic.validateFaceImage(nonExist, true), isNotNull); // ملف غير موجود
+      expect(ContinueCreateAccountLogic.validateFaceImage(null, true), isNotNull); // null
     });
 
     test('validateFirstName and validateLastName', () {
-      expect(PhoneLogic.validateFirstName(''), isNotNull);
-      expect(PhoneLogic.validateFirstName('A'), isNotNull);
-      expect(PhoneLogic.validateFirstName('John'), isNull);
-      expect(PhoneLogic.validateLastName(''), isNotNull);
-      expect(PhoneLogic.validateLastName('X'), isNotNull);
-      expect(PhoneLogic.validateLastName('Doe'), isNull);
+      expect(ContinueCreateAccountLogic.validateFirstName(''), isNotNull);
+      expect(ContinueCreateAccountLogic.validateFirstName('A'), isNotNull);
+      expect(ContinueCreateAccountLogic.validateFirstName('John'), isNull);
+      expect(ContinueCreateAccountLogic.validateLastName(''), isNotNull);
+      expect(ContinueCreateAccountLogic.validateLastName('X'), isNotNull);
+      expect(ContinueCreateAccountLogic.validateLastName('Doe'), isNull);
       
-      expect(PhoneLogic.validateFirstName('قصي'), isNull);
-      expect(PhoneLogic.validateLastName('القرعان'), isNull);
+      expect(ContinueCreateAccountLogic.validateFirstName('قصي'), isNull);
+      expect(ContinueCreateAccountLogic.validateLastName('القرعان'), isNull);
     });
 
     test('validateBirthDate', () {
-      expect(PhoneLogic.validateBirthDate(''), isNotNull);
-      expect(PhoneLogic.validateBirthDate('01-01-2000'), isNotNull); // خطأ في الصيغة
-      expect(PhoneLogic.validateBirthDate('2000-01-01'), isNull); // صحيح
-      expect(PhoneLogic.validateBirthDate('2100-01-01'), isNotNull); // مستقبل
-      expect(PhoneLogic.validateBirthDate('1900-01-01'), isNotNull); // عمر كبير جدًا
+      expect(ContinueCreateAccountLogic.validateBirthDate(''), isNotNull);
+      expect(ContinueCreateAccountLogic.validateBirthDate('01-01-2000'), isNotNull); // خطأ في الصيغة
+      expect(ContinueCreateAccountLogic.validateBirthDate('2000-01-01'), isNull); // صحيح
+      expect(ContinueCreateAccountLogic.validateBirthDate('2100-01-01'), isNotNull); // مستقبل
+      expect(ContinueCreateAccountLogic.validateBirthDate('1900-01-01'), isNotNull); // عمر كبير جدًا
     });
 
     test('validateAllFields collects errors', () {
-      final errors = PhoneLogic.validateAllFields(
+      final errors = ContinueCreateAccountLogic.validateAllFields(
         firstName: '', 
         lastName: 'X', 
         birthDate: '2020-01-01', 
@@ -70,7 +70,7 @@ expect(PhoneLogic.validatePhoneNumber('962781234567'), isNull); //
     });
 
    test('validateAllFields passes with valid data', () {
-  final errors = PhoneLogic.validateAllFields(
+  final errors = ContinueCreateAccountLogic.validateAllFields(
     firstName: 'John',
     lastName: 'Doe',
     birthDate: '2000-01-01',

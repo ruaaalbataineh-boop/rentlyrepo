@@ -26,6 +26,7 @@ export { confirmReturn } from "./rentals/confirmReturn";
 export { autoExpirePendingRentals } from "./rentals/autoExpirePendingRentals";
 export { autoNoShowRentals } from "./rentals/autoNoShowRentals";
 export { autoNeverReturned } from "./rentals/autoNeverReturned";
+export { deletePendingRentalRequest } from "./rentals/deletePendingRentalRequest";
 
 import { onValueCreated } from "firebase-functions/v2/database";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";

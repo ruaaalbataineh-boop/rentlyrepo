@@ -28,15 +28,6 @@ class FirestoreService {
     static final functions =
     FirebaseFunctions.instanceFor(region: "us-central1");
 
-   static Future<void> submitUserForApproval(Map<String, dynamic> data) async {
-    final callable = FirebaseFunctions.instance
-        .httpsCallableFromUrl(
-        "https://us-central1-p22rently.cloudfunctions.net/submitUserForApproval"
-    );
-
-    await callable.call(data);
-  }
-
   static Future<void> submitItemForApproval(Map<String, dynamic> data) async {
   try {
     await FirebaseFunctions.instanceFor(region: "us-central1")
@@ -53,13 +44,6 @@ class FirestoreService {
     rethrow;
   }
 }
-
-
-  static Future<void> createRentalRequest(Map<String, dynamic> data) async {
-    await FirebaseFunctions.instance
-        .httpsCallable("createRentalRequest")
-        .call(data);
-  }
 
   static Future<void> updateRentalRequestStatus(
       String requestId, String newStatus,

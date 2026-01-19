@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:p2/AddItemPage.dart';
+import 'package:p2/views/AddItemPage.dart';
 import 'package:p2/Chats_Page.dart';
 import 'package:p2/WalletPage.dart';
 import 'package:p2/app_theme.dart';
-import 'Orders.dart';
-import 'Categories_Page.dart';
-import 'app_locale.dart';
+import 'views/Orders.dart';
+import 'views/Categories_Page.dart';
+import 'services/app_locale.dart';
 import 'Support_and_Help.dart';
 import 'logout_confirmation.dart';
 import 'Personal Information.dart';
-import 'Favourite.dart';
+import 'views/Favourite.dart';
 import 'Coupons.dart';
-import 'About App.dart';
+import 'about_app.dart';
 import 'Remove Account.dart';
-import 'bottom_nav.dart';
+import 'widgets/bottom_nav.dart';
 import 'package:p2/services/auth_service.dart'; 
 
 class SettingPage extends StatefulWidget {
@@ -164,13 +164,7 @@ class _SettingPageState extends State<SettingPage> {
                       ),
                       title: Text(AppLocale.t('rently_wallet')),
                       onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                const WalletHomePage(),
-                          ),
-                        );
+                        Navigator.pushNamed(context, WalletHomePage.routeName);
                       },
                     ),
                     ListTile(
@@ -186,23 +180,6 @@ class _SettingPageState extends State<SettingPage> {
                           MaterialPageRoute(
                             builder: (context) =>
                                 const FavouritePage(),
-                          ),
-                        );
-                      },
-                    ),
-                    ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: Colors.grey[300],
-                        child: const Icon(Icons.confirmation_num,
-                            color: Colors.black),
-                      ),
-                      title: Text(AppLocale.t('coupons')),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                const CouponsPage(),
                           ),
                         );
                       },
@@ -349,8 +326,8 @@ class _SettingPageState extends State<SettingPage> {
               ),
             ],
           ),
-          bottomNavigationBar:
-              const SharedBottomNav(currentIndex: 0),
+          //bottomNavigationBar:
+           //   const SharedBottomNav(currentIndex: 0),
         );
       },
     );

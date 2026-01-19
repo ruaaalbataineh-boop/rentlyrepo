@@ -24,7 +24,7 @@ class SupportPage extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
-                    "Support and Help",
+                    "Contact Us",
                     style: TextStyle(
                       fontSize: 20, 
                       fontWeight: FontWeight.bold,
@@ -43,7 +43,6 @@ class SupportPage extends StatelessWidget {
                 children: [
                   buildSupportButton(FontAwesomeIcons.whatsapp, "WhatsApp", Colors.green),
                   buildSupportButton(FontAwesomeIcons.envelope, "Email", Colors.red),
-                  buildSupportButton(FontAwesomeIcons.phone, "Call", Colors.blue),
                 ],
               ),
             ],

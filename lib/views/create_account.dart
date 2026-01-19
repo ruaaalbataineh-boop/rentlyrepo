@@ -2,8 +2,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_custom_clippers/flutter_custom_clippers.dart';
 import 'package:p2/logic/create_account_logic.dart';
-import 'Phone_Page.dart';
-import 'app_locale.dart';
+import 'package:provider/provider.dart';
+import '../controllers/create_account_controller.dart';
+import '../services/auth_service.dart';
+import 'continue_create_account.dart';
+import '../services/app_locale.dart';
 
 class CreateAccountPage extends StatefulWidget {
   const CreateAccountPage({super.key});
@@ -21,12 +24,12 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
   bool obscurePassword = true;
   String? _errorMessage;
 
-  late CreateAccountLogic _createAccountLogic;
+  late CreateAccountController controller;
 
   @override
   void initState() {
     super.initState();
-    _createAccountLogic = CreateAccountLogic();
+    controller = CreateAccountController(context.read<AuthService>());
   }
 
   @override
@@ -39,12 +42,9 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
   Future<void> _onContinue() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() {
-      isLoading = true;
-      _errorMessage = null;
-    });
+    setState(() => isLoading = true);
 
-    final userId = await _createAccountLogic.createUserWithEmail(
+    final result = await controller.register(
       email: emailController.text,
       password: passwordController.text,
     );
@@ -53,21 +53,19 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
 
     setState(() => isLoading = false);
 
-    if (userId != null) {
-
+    if (result["success"] == true) {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => PhonePage(
-            uid: userId,
+          builder: (_) => ContinueCreateAccountPage(
+            uid: result["uid"],
             email: emailController.text.trim(),
           ),
         ),
       );
     } else {
-      // Error
       setState(() {
-        _errorMessage = "Registration failed. Please try again.";
+        _errorMessage = result["error"];
       });
     }
   }
@@ -137,7 +135,7 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
 
                         Row(
                           children: [
-                            Text(AppLocale.t('Already have an account? ')),
+                            Text(AppLocale.t('Already have an account?')),
                             GestureDetector(
                               onTap: () {
                                 Navigator.pushNamed(context, '/login');

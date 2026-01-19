@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:p2/security/input_validator.dart';
 
-class PhoneLogic {
+class ContinueCreateAccountLogic {
   
   static String? validateFirstName(String? value) {
     if (value == null || value.trim().isEmpty) {

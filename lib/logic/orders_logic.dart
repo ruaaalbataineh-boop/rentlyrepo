@@ -343,12 +343,6 @@ class OrdersLogic {
       itemTitle: InputValidator.sanitizeInput(request.itemTitle),
       ownerName: InputValidator.sanitizeInput(request.ownerName ?? ''),
       rentalType: InputValidator.sanitizeInput(request.rentalType),
-      startTime: request.startTime != null
-          ? InputValidator.sanitizeInput(request.startTime!)
-          : null,
-      endTime: request.endTime != null
-          ? InputValidator.sanitizeInput(request.endTime!)
-          : null,
       pickupTime: request.pickupTime != null
           ? InputValidator.sanitizeInput(request.pickupTime!)
           : null,
@@ -418,14 +412,6 @@ class OrdersLogic {
         'Total Price': '${req.totalPrice.toStringAsFixed(2)}JD',
       };
 
-      if (req.startTime != null && req.startTime!.isNotEmpty) {
-        details['Start Time'] = InputValidator.sanitizeInput(req.startTime!);
-      }
-      
-      if (req.endTime != null && req.endTime!.isNotEmpty) {
-        details['End Time'] = InputValidator.sanitizeInput(req.endTime!);
-      }
-      
       if (req.pickupTime != null && req.pickupTime!.isNotEmpty) {
         details['Pickup Time'] = InputValidator.sanitizeInput(req.pickupTime!);
       }

@@ -48,7 +48,6 @@ export const createRentalRequest = onCall(async (request) => {
             "rentalPrice",
             "totalPrice",
             "insurance",
-            "penalty",
           ];
 
           for (const k of required) {
@@ -58,6 +57,10 @@ export const createRentalRequest = onCall(async (request) => {
                     `Missing field: ${k}`);
               }
           }
+
+      if (data.rentalType === "hourly") {
+        throw new HttpsError("invalid-argument","Hourly rental is not supported");
+      }
 
           // Get user profile
           const userDoc = await db.collection("users").doc(renterUid).get();
@@ -171,8 +174,6 @@ export const createRentalRequest = onCall(async (request) => {
 
                   startDate: startTs,
                   endDate: endTs,
-                  startTime: data.startTime ?? null,
-                  endTime: data.endTime ?? null,
                   pickupTime: data.pickupTime,
 
                   rentalPrice: data.rentalPrice,
@@ -183,13 +184,6 @@ export const createRentalRequest = onCall(async (request) => {
                       ratePercentage: data.insurance.ratePercentage,
                       amount: data.insurance.amount,
                       accepted: data.insurance.accepted,
-                  },
-
-                  penalty: {
-                      hourlyRate: data.penalty.hourlyRate,
-                      dailyRate: data.penalty.dailyRate,
-                      maxHours: data.penalty.maxHours,
-                      maxDays: data.penalty.maxDays,
                   },
 
                   status: "pending",

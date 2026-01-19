@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter/material.dart';
-import 'package:p2/Categories_Page.dart';
+import 'package:p2/views/Categories_Page.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -10,7 +10,7 @@ void main() {
 
     await tester.pumpWidget(
       const MaterialApp(
-        home: CategoryPage(testMode: true),
+        home: CategoryPage(),
       ),
     );
 

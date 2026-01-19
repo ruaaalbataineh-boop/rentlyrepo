@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:p2/Categories_Page.dart';
+import 'package:p2/views/Categories_Page.dart';
 import 'package:p2/WalletPage.dart';
 import 'package:p2/logic/payment_success_logic.dart';
 import 'package:p2/security/error_handler.dart';
 import 'package:p2/security/secure_storage.dart';
+import 'package:p2/views/app_shell.dart';
 
 class PaymentSuccessPage extends StatefulWidget {
   final double amount;
@@ -430,8 +431,8 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
     try {
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (context) => CategoryPage()),
-        (route) => false,
+        MaterialPageRoute(builder: (context) => const AppShell()),
+            (route) => false,
       );
     } catch (e) {
       print('🔥 Error going to home: $e');
@@ -441,10 +442,19 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
 
   void _goToWallet(BuildContext context) {
     try {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => WalletHomePage()),
-      );
+      bool found = false;
+
+      Navigator.popUntil(context, (route) {
+        if (route.settings.name == WalletHomePage.routeName) {
+          found = true;
+          return true;
+        }
+        return false;
+      });
+
+      if (!found) {
+        Navigator.pushNamed(context, WalletHomePage.routeName);
+      }
     } catch (e) {
       print('🔥 Error going to wallet: $e');
       _showMessage(context, 'Cannot open wallet');

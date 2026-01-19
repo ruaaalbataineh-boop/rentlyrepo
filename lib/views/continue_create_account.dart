@@ -2,24 +2,24 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_custom_clippers/flutter_custom_clippers.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:p2/logic/phone_logic.dart';
-import 'package:p2/services/firestore_service.dart';
-import 'package:p2/services/storage_service.dart';
-import 'package:p2/app_locale.dart';
+import 'package:p2/logic/continue_create_account_logic.dart';
+import 'package:p2/services/app_locale.dart';
 import 'package:p2/security/error_handler.dart';
 import 'package:p2/security/input_validator.dart';
 
-class PhonePage extends StatefulWidget {
+import '../controllers/continue_create_account_controller.dart';
+
+class ContinueCreateAccountPage extends StatefulWidget {
   final String uid;
   final String email;
 
-  const PhonePage({super.key, required this.uid, required this.email});
+  const ContinueCreateAccountPage({super.key, required this.uid, required this.email});
 
   @override
-  State<PhonePage> createState() => _PhonePageState();
+  State<ContinueCreateAccountPage> createState() => _ContinueCreateAccountPageState();
 }
 
-class _PhonePageState extends State<PhonePage> {
+class _ContinueCreateAccountPageState extends State<ContinueCreateAccountPage> {
   final TextEditingController phoneController = TextEditingController();
   final TextEditingController firstNameController = TextEditingController();
   final TextEditingController lastNameController = TextEditingController();
@@ -29,6 +29,15 @@ class _PhonePageState extends State<PhonePage> {
   File? faceImage;
   bool faceDetected = false;
   bool isLoading = false;
+  bool agreedToPolicy = false;
+
+  late ContinueCreateAccountController controller;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = ContinueCreateAccountController();
+  }
 
   Future<void> pickID() async {
     try {
@@ -72,13 +81,17 @@ class _PhonePageState extends State<PhonePage> {
   void validateAndContinue() async {
     if (isLoading) return;
 
-    // تنظيف البيانات المدخلة
+    if (!agreedToPolicy) {
+      _showMessage("You must agree to the Terms and Privacy Policy first.");
+      return;
+    }
+
     final firstName = InputValidator.sanitizeInput(firstNameController.text.trim());
     final lastName = InputValidator.sanitizeInput(lastNameController.text.trim());
     final phone = InputValidator.sanitizeInput(phoneController.text.trim());
     final birthDate = birthDateController.text.trim();
 
-    final errors = PhoneLogic.validateAllFields(
+    final errors = ContinueCreateAccountLogic.validateAllFields(
       firstName: firstName,
       lastName: lastName,
       birthDate: birthDate,
@@ -96,38 +109,23 @@ class _PhonePageState extends State<PhonePage> {
     setState(() => isLoading = true);
 
     try {
-      _showMessage("Uploading images...");
-
-      final idUrl = await StorageService.uploadVerificationImage(
-        widget.uid,
-        idImage!,
-        "idPhoto.jpg",
-      );
-
-      final selfieUrl = await StorageService.uploadVerificationImage(
-        widget.uid,
-        faceImage!,
-        "selfie.jpg",
-      );
-
       _showMessage("Submitting for approval...");
 
-      await FirestoreService.submitUserForApproval({
-        "firstName": firstName,
-        "lastName": lastName,
-        "phone": phone,
-        "birthDate": birthDate,
-        "idPhotoUrl": idUrl,
-        "selfiePhotoUrl": selfieUrl,
-        "email": widget.email,
-        "userId": widget.uid,
-      });
+      await controller.submit(
+        uid: widget.uid,
+        email: widget.email,
+        firstName: firstName,
+        lastName: lastName,
+        phone: phone,
+        birthDate: birthDate,
+        idImage: idImage!,
+        faceImage: faceImage!,
+      );
 
-      _showMessage("Successfully submitted! Await approval.");
-      
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("You are submitted for approval")),
       );
+      Navigator.pushNamed(context, '/login');
 
     } catch (e) {
       ErrorHandler.logError('Submit Approval', e);
@@ -145,6 +143,27 @@ class _PhonePageState extends State<PhonePage> {
         SnackBar(content: Text(msg)),
       );
     }
+  }
+
+  void _showPolicyDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Terms & Privacy Policy"),
+        content: const SingleChildScrollView(
+          child: Text(
+            "Here goes our full terms and privacy policy text...\n\n"
+                "Our data usage, storage, responsibility, etc.",
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Close"),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -246,7 +265,7 @@ class _PhonePageState extends State<PhonePage> {
                           );
 
                           if (pickedDate != null) {
-                            birthDateController.text = PhoneLogic.formatDate(pickedDate);
+                            birthDateController.text = ContinueCreateAccountLogic.formatDate(pickedDate);
                             setState(() {});
                           }
                         },
@@ -338,6 +357,33 @@ class _PhonePageState extends State<PhonePage> {
                                   ),
                                 ),
                               ],
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 25),
+
+                      Row(
+                        children: [
+                          Checkbox(
+                            value: agreedToPolicy,
+                            onChanged: (v) {
+                              setState(() {
+                                agreedToPolicy = v ?? false;
+                              });
+                            },
+                          ),
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: _showPolicyDialog,
+                              child: const Text(
+                                "I agree to the Terms & Privacy Policy",
+                                style: TextStyle(
+                                  decoration: TextDecoration.underline,
+                                  color: Colors.blue,
+                                ),
+                              ),
                             ),
                           ),
                         ],

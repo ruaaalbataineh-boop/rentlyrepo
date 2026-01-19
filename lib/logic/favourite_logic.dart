@@ -1,15 +1,14 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:p2/FavouriteManager.dart';
 import 'package:p2/security/secure_storage.dart';
 import 'package:p2/security/error_handler.dart';
 import 'package:p2/security/input_validator.dart';
 import 'package:p2/security/route_guard.dart';
 
 class FavouriteLogic {
-  List<String> get favouriteIds => FavouriteManager.favouriteIds;
-  bool get hasFavourites => FavouriteManager.favouriteIds.isNotEmpty;
+  //List<String> get favouriteIds => FavouriteManager.favouriteIds;
+  //bool get hasFavourites => FavouriteManager.favouriteIds.isNotEmpty;
   String get emptyMessage => "Your favourite items will appear here.";
   String get noItemsMessage => "No favourite items found.";
 
@@ -43,11 +42,11 @@ class FavouriteLogic {
         final decoded = ErrorHandler.safeJsonDecode(storedFavourites);
         if (decoded is List) {
           // Security: Validate and sanitize stored IDs
-          FavouriteManager.favouriteIds = decoded
-              .where((id) => id is String && _isValidItemId(id))
-              .map((id) => InputValidator.sanitizeInput(id.toString()))
-              .toList()
-              .cast<String>();
+          //FavouriteManager.favouriteIds = decoded
+             // .where((id) => id is String && _isValidItemId(id))
+          //    .map((id) => InputValidator.sanitizeInput(id.toString()))
+           //   .toList()
+            //  .cast<String>();
         }
       }
     } catch (error) {
@@ -58,12 +57,8 @@ class FavouriteLogic {
   Future<void> _saveFavouritesToStorage() async {
     try {
       // Security: Validate favourite IDs before saving
-      final validFavourites = favouriteIds.where((id) => _isValidItemId(id)).toList();
-      
-      await SecureStorage.saveData(
-        'user_favourites',
-        ErrorHandler.safeJsonEncode(validFavourites),
-      );
+      //final validFavourites = favouriteIds.where((id) => _isValidItemId(id)).toList();
+
     } catch (error) {
       ErrorHandler.logError('Save Favourites To Storage', error);
     }
@@ -72,77 +67,6 @@ class FavouriteLogic {
   bool _isValidItemId(String itemId) {
     if (itemId.isEmpty || itemId.length > 100) return false;
     return RegExp(r'^[a-zA-Z0-9_-]+$').hasMatch(itemId);
-  }
-
-  Future<List<Map<String, dynamic>>> getFavouriteItems() async {
-    try {
-      if (!hasFavourites) {
-        return [];
-      }
-
-      // Security: Validate all favourite IDs before query
-      final validFavouriteIds = favouriteIds.where(_isValidItemId).toList();
-      
-      if (validFavouriteIds.isEmpty) {
-        return [];
-      }
-
-      // Security: Limit number of items to prevent large queries
-      final limitedIds = validFavouriteIds.length > 50 
-          ? validFavouriteIds.sublist(0, 50) 
-          : validFavouriteIds;
-
-      for (int attempt = 1; attempt <= _maxRequestRetries; attempt++) {
-        try {
-          final querySnapshot = await FirebaseFirestore.instance
-              .collection("approved_items")
-              .where("itemId", whereIn: limitedIds)
-              .limit(50) // Security: Limit results
-              .get()
-              .timeout(_requestTimeout);
-
-          final items = <Map<String, dynamic>>[];
-          
-          for (final doc in querySnapshot.docs) {
-            final data = doc.data();
-            
-            // Security: Validate and sanitize item data
-            if (_isValidItemData(data)) {
-              final sanitizedData = _sanitizeItemData(data);
-              items.add(sanitizedData);
-            }
-          }
-          
-          // Security: Log successful request
-          ErrorHandler.logInfo('FavouriteLogic', 
-              'Loaded ${items.length} favourite items');
-          
-          return items;
-          
-        } on TimeoutException {
-          ErrorHandler.logError('FavouriteLogic', 
-              'Request timeout (attempt $attempt/$_maxRequestRetries)');
-          
-          if (attempt == _maxRequestRetries) {
-            throw Exception('Request timeout after $_maxRequestRetries attempts');
-          }
-          
-          await Future.delayed(Duration(seconds: attempt * 2));
-        } catch (error) {
-          ErrorHandler.logError('FavouriteLogic Get Items', error);
-          
-          if (attempt == _maxRequestRetries) {
-            throw error;
-          }
-        }
-      }
-      
-      return [];
-      
-    } catch (error) {
-      ErrorHandler.logError('Get Favourite Items', error);
-      return [];
-    }
   }
 
   bool _isValidItemData(Map<String, dynamic> data) {
@@ -302,7 +226,7 @@ class FavouriteLogic {
       }
 
       final sanitizedId = InputValidator.sanitizeInput(itemId);
-      FavouriteManager.remove(sanitizedId);
+      //FavouriteManager.remove(sanitizedId);
       
       // Save to secure storage
       _saveFavouritesToStorage();
@@ -312,62 +236,6 @@ class FavouriteLogic {
           
     } catch (error) {
       ErrorHandler.logError('Remove Favourite', error);
-    }
-  }
-
-  void addFavourite(String itemId) {
-    try {
-      // Security: Validate item ID
-      if (!_isValidItemId(itemId)) {
-        ErrorHandler.logError('Add Favourite', 'Invalid item ID: $itemId');
-        return;
-      }
-
-      final sanitizedId = InputValidator.sanitizeInput(itemId);
-      FavouriteManager.add(sanitizedId);
-      
-      // Save to secure storage
-      _saveFavouritesToStorage();
-      
-      ErrorHandler.logInfo('FavouriteLogic', 
-          'Added favourite item: $sanitizedId');
-          
-    } catch (error) {
-      ErrorHandler.logError('Add Favourite', error);
-    }
-  }
-
-  // Security: Clear all favourites
-  Future<void> clearAllFavourites() async {
-    try {
-      FavouriteManager.favouriteIds.clear();
-      await SecureStorage.deleteData('user_favourites');
-      
-      ErrorHandler.logInfo('FavouriteLogic', 'Cleared all favourites');
-      
-    } catch (error) {
-      ErrorHandler.logError('Clear All Favourites', error);
-    }
-  }
-
-  // Security: Get favourite count with validation
-  int getValidFavouriteCount() {
-    try {
-      return favouriteIds.where(_isValidItemId).length;
-    } catch (e) {
-      ErrorHandler.logError('Get Valid Favourite Count', e);
-      return 0;
-    }
-  }
-
-  // Security: Check if item is favourite with validation
-  bool isItemFavourite(String itemId) {
-    try {
-      if (!_isValidItemId(itemId)) return false;
-      return FavouriteManager.isFavourite(itemId);
-    } catch (e) {
-      ErrorHandler.logError('Is Item Favourite', e);
-      return false;
     }
   }
 }

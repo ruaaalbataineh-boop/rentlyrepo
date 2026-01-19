@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'app_locale.dart';
+import 'services/app_locale.dart';
 import '../logic/code_logic.dart';
 
 
